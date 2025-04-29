@@ -3,20 +3,23 @@
 import argparse
 import sys
 
-#import re
+import re
 import networkx as nx
 import scipy as scipy
-#import os
-#import itertools
+import os
+import itertools
 import pandas as pd
 import numpy as np
 import sklearn.metrics as sklearn_metrics
-#from sklearn.metrics import rand_score,mutual_info_score,adjusted_rand_score,adjusted_mutual_info_score
+from sklearn.metrics import rand_score,mutual_info_score,adjusted_rand_score,adjusted_mutual_info_score
+
+# add directory above __main__.py to sys.path to allow searching for modules there
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from pangenomerge.manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array
 from panaroo_functions.load_graphs import load_graphs
 
-from .__init__ import __version__
+#from .__init__ import __version__
 
 def main():
 
@@ -204,8 +207,28 @@ def main():
     rand_input_merged = dict_to_2d_array(cluster_dict_merged)
     rand_input_all = dict_to_2d_array(cluster_dict_all)
 
-    rand_input_merged_filtered = rand_input_merged.loc[:, rand_input_merged.loc[0].isin(common_nodes)]
-    rand_input_all_filtered = rand_input_all.loc[:, rand_input_all.loc[0].isin(common_nodes)]
+    # obtain shared seq_ids
+    seq_ids_1 = []
+    for node in merged_graph.nodes:
+        seq_ids_1 += merged_graph.nodes[node]["seqIDs"]
+        
+    seq_ids_2 = []
+    for node in graph_all.nodes:
+        seq_ids_2 += graph_all.nodes[node]["seqIDs"]
+        
+    seq_ids_1 = set(seq_ids_1)
+    seq_ids_2 = set(seq_ids_2)
+        
+    common_seq_ids = seq_ids_1 & seq_ids_2  # take intersection
+    
+    # print how many seq_ids were excluded
+    only_in_graph_1 = seq_ids_1 - seq_ids_2
+    only_in_graph_2 = seq_ids_2 - seq_ids_1
+    print(f"seqIDs only in merged (excluded): {len(only_in_graph_1)}")
+    print(f"seqIDs only in all (excluded): {len(only_in_graph_2)}")
+
+    rand_input_merged_filtered = rand_input_merged.loc[:, rand_input_merged.loc[0].isin(common_seq_ids)]
+    rand_input_all_filtered = rand_input_all.loc[:, rand_input_all.loc[0].isin(common_seq_ids)]
     
     # get desired value order from row 0 of rand_input_all_filtered
     desired_order = list(rand_input_all_filtered.iloc[0])

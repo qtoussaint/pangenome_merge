@@ -8,7 +8,7 @@ def indSID_to_allSID(G, gid_map):
         node_SIDs = G.nodes[node].get("seqIDs", "")  
         if node_SIDs:
             updated_SIDs = [
-                gid_map.get(gid.strip(), "error")  # put 'error' if not found
+                gid_map.get(sid.strip(), "error")  # put 'error' if not found
                 for sid in node_SIDs
             ]
             G.nodes[node]["seqIDs"] = updated_SIDs
