@@ -1,0 +1,246 @@
+# imports
+
+import argparse
+import sys
+
+#import re
+import networkx as nx
+import scipy as scipy
+#import os
+#import itertools
+import pandas as pd
+import numpy as np
+import sklearn.metrics as sklearn_metrics
+#from sklearn.metrics import rand_score,mutual_info_score,adjusted_rand_score,adjusted_mutual_info_score
+
+from pangenomerge.manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array
+from panaroo_functions.load_graphs import load_graphs
+
+from .__init__ import __version__
+
+def main():
+
+    ### read in two graphs
+
+    graph_file_1 = ["/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_1/final_graph.gml"]
+    graph_file_2 = ["/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_2/final_graph.gml"]
+
+    graph_1, isolate_names, id_mapping = load_graphs(graph_file_1)
+    graph_2, isolate_names, id_mapping = load_graphs(graph_file_2)
+
+    graph_1 = graph_1[0]
+    graph_2 = graph_2[0]
+
+    ### match clustering_ids from overall run to clustering_ids from individual runs using annotation_ids
+
+    gene_data_all = pd.read_csv('/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_all/gene_data.csv')
+    gene_data_g1 = pd.read_csv('/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_1/gene_data.csv')
+    gene_data_g2 = pd.read_csv('/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_2/gene_data.csv')
+
+    # rename column
+    gene_data_all = gene_data_all.rename(columns={'clustering_id': 'clustering_id_all'})
+    gene_data_g1 = gene_data_g1.rename(columns={'clustering_id': 'clustering_id_indiv'})
+    gene_data_g2 = gene_data_g2.rename(columns={'clustering_id': 'clustering_id_indiv'})
+
+    # first match by annotation ids:
+    matches_g1 = gene_data_all[['annotation_id', 'clustering_id_all']].merge(
+        gene_data_g1[['annotation_id', 'clustering_id_indiv']],
+        on='annotation_id',
+        how='left'
+    )
+
+    matches_g2 = gene_data_all[['annotation_id', 'clustering_id_all']].merge(
+        gene_data_g2[['annotation_id', 'clustering_id_indiv']],
+        on='annotation_id',
+        how='left'
+    )
+
+    # now drop rows where the individual seqID wasn't observed (or there's no corresponding seqID from all)
+    matches_g1 = matches_g1.dropna()
+    matches_g2 = matches_g2.dropna()
+
+    # convert to dict for faster lookup than with loc
+    gid_map_g1 = dict(zip(matches_g1['clustering_id_indiv'], matches_g1['clustering_id_all']))
+    gid_map_g2 = dict(zip(matches_g2['clustering_id_indiv'], matches_g2['clustering_id_all']))
+
+    # apply to graphs:
+    graph_1 = indSID_to_allSID(graph_1, gid_map_g1)
+    graph_2 = indSID_to_allSID(graph_2, gid_map_g2)
+
+        ### map nodes from ggcaller graphs to the COG labels in the centroid from pangenome
+
+    # read into df
+    # each "group_" refers to the centroid of that group in the pan_genomes_reference.fa
+    mmseqs = pd.read_csv('/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_merged/mmseqs_alignments.m8', sep='\t')
+
+    ### match hits from mmseqs
+
+    # change the second graph node names to the first graph node names for nodes that match according to mmseqs
+
+    # make sure metrics are numeric
+    mmseqs["fident"] = pd.to_numeric(mmseqs["fident"], errors='coerce')
+    mmseqs["evalue"] = pd.to_numeric(mmseqs["evalue"], errors='coerce')
+    mmseqs["tlen"] = pd.to_numeric(mmseqs["tlen"], errors='coerce')
+    mmseqs["qlen"] = pd.to_numeric(mmseqs["qlen"], errors='coerce')
+    mmseqs["nident"] = pd.to_numeric(mmseqs["nident"], errors='coerce')
+
+    # filter for nt identity >= 98% (global) and length difference <= 5%
+    max_len = np.maximum(mmseqs['tlen'], mmseqs['qlen'])
+    nt_identity = mmseqs['nident'] / max_len  >= 0.98
+    nt_identity = max_len / max_len  >= 0.98
+    len_dif = 1-(np.abs(mmseqs['tlen'] - mmseqs['qlen']) / max_len) >= 0.95
+
+    scores = nt_identity & len_dif
+    mmseqs = mmseqs[scores].copy()
+
+    # iterate over target with each unique value of target, and pick the match with the highest fident; if multiple, pick the one with the smaller E value
+
+    # sort by fident (highest first) and evalue (lowest first)
+    mmseqs_sorted = mmseqs.sort_values(by=["fident", "evalue"], ascending=[False, True])
+
+    # only keep the first occurrence per unique target (highest fident then smallest evalue if tie)
+    mmseqs_filtered = mmseqs_sorted.groupby("target", as_index=False).first()
+
+    # in mmseqs, the first graph entered (in this case graph_1) is the query and the second entered (in this case graph_2) is the target
+    # so graph_1 is our query in mmseqs and the basegraph in the tokenized merge
+
+    # when iterating over graph_2 to append to graph_1, we want to match nodes according to their graph_1 identity
+    # so we need to replace all graph_2 nodes with graph_1 node ids
+
+    ### THE NAME ("group_1") AND THE LABEL ('484') ARE DIFFERENT AND A NUMERIC STRING WILL CALL THE LABEL (not index)
+
+    # the groups are not the same across the two graphs!!! we match by mmseqs (that's the whole point of this)
+    # this chunk is just changing the node name from an integer to the group label of that node (which is originally just
+    # metadata within the graph)
+    # it doesn't map anything between the two graphs
+
+    mapping_groups_1 = dict()
+    for node in graph_1.nodes():
+        node_group = graph_1.nodes[node].get("name", "error")
+        #print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
+        mapping_groups_1[int(node)] = str(node_group)
+
+    groupmapped_graph_1 = nx.relabel_nodes(graph_1, mapping_groups_1, copy=False)
+
+    mapping_groups_2 = dict()
+    for node in graph_2.nodes():
+        node_group = graph_2.nodes[node].get("name", "error")
+        #print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
+        mapping_groups_2[int(node)] = str(node_group)
+
+    groupmapped_graph_2 = nx.relabel_nodes(graph_2, mapping_groups_2, copy=False)
+
+    ### map filtered mmseqs2 hits to mapping of nodes between graphs
+
+    # mapping format: dictionary with old labels (graph_2/target groups) as keys and new labels (graph_1/query) as values
+
+    # convert df to dictionary with "target" as keys and "query" as values
+    # this maps groups from graph_1 to groups from graph_2
+    mapping = dict(zip(mmseqs_filtered["target"], mmseqs_filtered["query"]))
+
+    ### to avoid matching nodes from target that have the same group_id but are not the same:
+    # append all nodes in query graph with _query
+    # append all query nodes in target graph with _query (for later matching)
+
+    # this appends _query to values (graph_1/query groups)
+    mapping = {key: f"{value}_query" for key, value in mapping.items()}
+
+    # relabel target graph from old labels (keys) to new labels (values, the _query-appended graph_1 groups)
+    # MUST SET COPY=FALSE OR NODES NOT IN MAPPING WILL BE DROPPED
+    relabeled_graph_2 = nx.relabel_nodes(groupmapped_graph_2, mapping, copy=False)
+
+    # relabel query graph
+    mapping_query = dict(zip(groupmapped_graph_1.nodes, groupmapped_graph_1.nodes))
+    mapping_query = {key: f"{value}_query" for key, value in mapping_query.items()}
+    relabeled_graph_1 = nx.relabel_nodes(groupmapped_graph_1, mapping_query, copy=False)
+
+    ### need to do this to edges as well
+    #print(relabeled_graph_1.edges)
+    #print(relabeled_graph_2.edges)
+    # looks like this is done automatically
+
+    # now we can modify the tokenized code to iterate like usual, adding new node if string doesn't contain "_query"
+    # and merging the nodes that both end in "_query"
+    
+    # read in graph_all
+
+    graph_all = ["/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_all/final_graph.gml"]
+
+    graph_all, isolate_names, id_mapping = load_graphs(graph_all)
+    graph_all = graph_all[0]
+
+    ### merge graphs
+
+    merged_graph = relabeled_graph_1
+    
+    # merge the two sets of unique nodes into one set of unique nodes
+    for node in relabeled_graph_2.nodes:
+        if merged_graph.has_node(node) == True:
+
+            # add metadata
+            merged_set = list(set(relabeled_graph_2.nodes[node]["seqIDs"]) | set(relabeled_graph_1.nodes[node]["seqIDs"]))
+            merged_graph.nodes[node]["seqIDs"] = merged_set
+
+        if merged_graph.has_node(node) == False:
+
+            # add node
+            merged_graph.add_node(node,
+                                 seqIDs=relabeled_graph_2.nodes[node]["seqIDs"])
+
+    for edge in relabeled_graph_2.edges:
+        
+            if merged_graph.has_edge(edge[0], edge[1]):
+
+                break
+
+            if not merged_graph.has_edge(edge[0], edge[1]):
+                merged_graph.add_edge(edge[0], edge[1])
+    
+    ### gather seqIDs to enable calculation of clustering metrics
+    
+    cluster_dict_merged = get_seqIDs_in_nodes(merged_graph)
+    cluster_dict_all = get_seqIDs_in_nodes(graph_all)
+
+    rand_input_merged = dict_to_2d_array(cluster_dict_merged)
+    rand_input_all = dict_to_2d_array(cluster_dict_all)
+
+    rand_input_merged_filtered = rand_input_merged.loc[:, rand_input_merged.loc[0].isin(common_nodes)]
+    rand_input_all_filtered = rand_input_all.loc[:, rand_input_all.loc[0].isin(common_nodes)]
+    
+    # get desired value order from row 0 of rand_input_all_filtered
+    desired_order = list(rand_input_all_filtered.iloc[0])
+
+    # Create mapping from row 0 values in rand_input_merged_filtered to column names
+    val_to_col = {val: col for col, val in zip(rand_input_merged_filtered.columns, rand_input_merged_filtered.iloc[0])}
+
+    # Reorder columns based on desired value order
+    columns_in_order = [val_to_col[val] for val in desired_order if val in val_to_col]
+
+    # Apply the column reordering
+    rand_input_merged_filtered = rand_input_merged_filtered[columns_in_order]
+    
+    # put sorted clusters into Rand index
+    ri = rand_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
+    print(f"Rand Index: {ri}")
+
+    ari = adjusted_rand_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
+    print(f"Adjusted Rand Index: {ari}")
+
+    # put sorted clusters into mutual information
+    mutual_info = mutual_info_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
+    print(f"Mutual Information: {mutual_info}")
+
+    adj_mutual_info = adjusted_mutual_info_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
+    print(f"Adjusted Mutual Information: {adj_mutual_info}")
+
+    for node in merged_graph.nodes():
+        merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs'])
+        
+    #format_metadata_for_gml(merged_graph)
+                
+    nx.write_gml(merged_graph, "/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_merged/merged_graph.gml")
+
+    #return merged_graph
+    
+if __name__ == "__main__":
+    main()
