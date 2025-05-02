@@ -1,3 +1,5 @@
+import subprocess
+
 # run mmseqs easy-search
 def run_mmseqs_easysearch(
         query,
