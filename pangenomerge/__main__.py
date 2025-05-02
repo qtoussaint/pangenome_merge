@@ -46,6 +46,18 @@ def get_options():
     IO.add_argument('--outdir',
                     default=None,
                     help='Output directory.')
+    IO.add_argument('--graph_all',
+                    default=None,
+                    help='Graph of all samples (test only).')
+    IO.add_argument('--gene_data_all',
+                    default=None,
+                    help='gene_data.csv for graph of all samples (test only).')
+    IO.add_argument('--gene_data_1',
+                    default=None,
+                    help='gene_data.csv for graph_1 (test only).')
+    IO.add_argument('--gene_data_2',
+                    default=None,
+                    help='gene_data.csv for graph_2 (test only).')
 
     return parser.parse_args()
 
@@ -70,9 +82,9 @@ def main():
 
         ### match clustering_ids from overall run to clustering_ids from individual runs using annotation_ids (test only)
 
-        gene_data_all = pd.read_csv('/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_all/gene_data.csv')
-        gene_data_g1 = pd.read_csv('/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_1/gene_data.csv')
-        gene_data_g2 = pd.read_csv('/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_2/gene_data.csv')
+        gene_data_all = pd.read_csv(str(options.gene_data_all))
+        gene_data_g1 = pd.read_csv(str(options.gene_data_1))
+        gene_data_g2 = pd.read_csv(str(options.gene_data_2))
 
         # rename column
         gene_data_all = gene_data_all.rename(columns={'clustering_id': 'clustering_id_all'})
@@ -203,7 +215,7 @@ def main():
 
         # read in graph_all
 
-        graph_all = ["/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_all/final_graph.gml"]
+        graph_all = [str(options.graph_all)]
 
         graph_all, isolate_names, id_mapping = load_graphs(graph_all)
         graph_all = graph_all[0]
