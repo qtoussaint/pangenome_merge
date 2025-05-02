@@ -12,6 +12,7 @@ import pandas as pd
 import numpy as np
 import sklearn.metrics as sklearn_metrics
 from sklearn.metrics import rand_score,mutual_info_score,adjusted_rand_score,adjusted_mutual_info_score
+from pathlib import Path
 
 # add directory above __main__.py to sys.path to allow searching for modules there
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -301,8 +302,10 @@ def main():
     #format_metadata_for_gml(merged_graph)
     
     print('Writing merged graph to outdir...')
+
+    output_path = Path(options.outdir) / "merged_graph.gml"
     
-    nx.write_gml(merged_graph, [str(options.outdir) + "/merged_graph.gml"])
+    nx.write_gml(merged_graph, str(output_path))
 
     print('Finished successfully.')
 
