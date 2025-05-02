@@ -18,6 +18,7 @@ from pathlib import Path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from pangenomerge.manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array
+from pangenomerge.run_mmseqs import run_mmseqs_easysearch
 from panaroo_functions.load_graphs import load_graphs
 
 #from .__init__ import __version__
@@ -40,9 +41,6 @@ def get_options():
                     choices=['run', 'test'],
                     help='Run pan-genome gene graph merge ("run") or calculate clustering accuracy metrics for merge ("test"). '
                         '[Default = Run] ')
-    IO.add_argument('--mmseqs',
-                    default=None,
-                    help='Path to mmseqs2 output file (temporary).')
     IO.add_argument('--outdir',
                     default=None,
                     help='Output directory.')
@@ -58,6 +56,12 @@ def get_options():
     IO.add_argument('--gene_data_2',
                     default=None,
                     help='gene_data.csv for graph_2 (test only).')
+    IO.add_argument('--panaroo_graph_1',
+                    default=None,
+                    help='Path to directory of Panaroo outputs for first graph (test only).')
+    IO.add_argument('--panaroo_graph_2',
+                    default=None,
+                    help='Path to directory of Panaroo outputs for second graph (test only).')
 
     return parser.parse_args()
 
@@ -118,9 +122,16 @@ def main():
 
     ### map nodes from ggcaller graphs to the COG labels in the centroid from pangenome
 
-    # read into df
+    ### run mmseqs2 to identify matching COGs
+
+    pangenome_reference_g1 = str(Path(options.panaroo_graph_1) / "pan_genome_reference.fa")
+    pangenome_reference_g2 = str(Path(options.panaroo_graph_2) / "pan_genome_reference.fa")
+
+    run_mmseqs_easysearch(query=pangenome_reference_g1, target=pangenome_reference_g2, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"))
+
+    # read mmseqs results
     # each "group_" refers to the centroid of that group in the pan_genomes_reference.fa
-    mmseqs = pd.read_csv(str(options.mmseqs), sep='\t')
+    mmseqs = pd.read_csv(str(Path(options.outdir) / "mmseqs_clusters.m8"), sep='\t')
 
     ### match hits from mmseqs
 
