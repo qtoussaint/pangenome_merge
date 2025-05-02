@@ -21,12 +21,39 @@ from panaroo_functions.load_graphs import load_graphs
 
 #from .__init__ import __version__
 
+
+def get_options():
+    description = 'Merges two Panaroo pan-genome gene graphs.'
+    parser = argparse.ArgumentParser(description=description,
+                                    prog='pangenomerge')
+
+    IO = parser.add_argument_group('Input/Output options')
+    IO.add_argument('--graph_1',
+                    default=None,
+                    help='Path to first graph to merge. ("/path/to/final_graph.gml")')
+    IO.add_argument('--graph_2',
+                    default=None,
+                    help='Second graph to merge. ("/path/to/final_graph.gml")')
+    IO.add_argument('--mode',
+                    default='run',
+                    choices=['run', 'test'],
+                    help='Run pan-genome gene graph merge ("run") or calculate clustering accuracy metrics for merge ("test"). '
+                        '[Default = Run] ')
+    IO.add_argument('--outdir',
+                    default=None,
+                    help='Output directory.')
+
+    return parser.parse_args()
+
 def main():
+
+    # parse command line arguments
+    options = get_options()
 
     ### read in two graphs
 
-    graph_file_1 = ["/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_1/final_graph.gml"]
-    graph_file_2 = ["/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_2/final_graph.gml"]
+    graph_file_1 = [str(IO.graph_1)]
+    graph_file_2 = [str(IO.graph_2)]
 
     graph_1, isolate_names, id_mapping = load_graphs(graph_file_1)
     graph_2, isolate_names, id_mapping = load_graphs(graph_file_2)
@@ -34,43 +61,46 @@ def main():
     graph_1 = graph_1[0]
     graph_2 = graph_2[0]
 
-    ### match clustering_ids from overall run to clustering_ids from individual runs using annotation_ids
 
-    gene_data_all = pd.read_csv('/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_all/gene_data.csv')
-    gene_data_g1 = pd.read_csv('/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_1/gene_data.csv')
-    gene_data_g2 = pd.read_csv('/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_2/gene_data.csv')
+    if options.mode == 'test':
 
-    # rename column
-    gene_data_all = gene_data_all.rename(columns={'clustering_id': 'clustering_id_all'})
-    gene_data_g1 = gene_data_g1.rename(columns={'clustering_id': 'clustering_id_indiv'})
-    gene_data_g2 = gene_data_g2.rename(columns={'clustering_id': 'clustering_id_indiv'})
+        ### match clustering_ids from overall run to clustering_ids from individual runs using annotation_ids (test only)
 
-    # first match by annotation ids:
-    matches_g1 = gene_data_all[['annotation_id', 'clustering_id_all']].merge(
-        gene_data_g1[['annotation_id', 'clustering_id_indiv']],
-        on='annotation_id',
-        how='left'
-    )
+        gene_data_all = pd.read_csv('/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_all/gene_data.csv')
+        gene_data_g1 = pd.read_csv('/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_1/gene_data.csv')
+        gene_data_g2 = pd.read_csv('/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_2/gene_data.csv')
 
-    matches_g2 = gene_data_all[['annotation_id', 'clustering_id_all']].merge(
-        gene_data_g2[['annotation_id', 'clustering_id_indiv']],
-        on='annotation_id',
-        how='left'
-    )
+        # rename column
+        gene_data_all = gene_data_all.rename(columns={'clustering_id': 'clustering_id_all'})
+        gene_data_g1 = gene_data_g1.rename(columns={'clustering_id': 'clustering_id_indiv'})
+        gene_data_g2 = gene_data_g2.rename(columns={'clustering_id': 'clustering_id_indiv'})
 
-    # now drop rows where the individual seqID wasn't observed (or there's no corresponding seqID from all)
-    matches_g1 = matches_g1.dropna()
-    matches_g2 = matches_g2.dropna()
+        # first match by annotation ids:
+        matches_g1 = gene_data_all[['annotation_id', 'clustering_id_all']].merge(
+            gene_data_g1[['annotation_id', 'clustering_id_indiv']],
+            on='annotation_id',
+            how='left'
+        )
 
-    # convert to dict for faster lookup than with loc
-    gid_map_g1 = dict(zip(matches_g1['clustering_id_indiv'], matches_g1['clustering_id_all']))
-    gid_map_g2 = dict(zip(matches_g2['clustering_id_indiv'], matches_g2['clustering_id_all']))
+        matches_g2 = gene_data_all[['annotation_id', 'clustering_id_all']].merge(
+            gene_data_g2[['annotation_id', 'clustering_id_indiv']],
+            on='annotation_id',
+            how='left'
+        )
 
-    # apply to graphs:
-    graph_1 = indSID_to_allSID(graph_1, gid_map_g1)
-    graph_2 = indSID_to_allSID(graph_2, gid_map_g2)
+        # now drop rows where the individual seqID wasn't observed (or there's no corresponding seqID from all)
+        matches_g1 = matches_g1.dropna()
+        matches_g2 = matches_g2.dropna()
 
-        ### map nodes from ggcaller graphs to the COG labels in the centroid from pangenome
+        # convert to dict for faster lookup than with loc
+        gid_map_g1 = dict(zip(matches_g1['clustering_id_indiv'], matches_g1['clustering_id_all']))
+        gid_map_g2 = dict(zip(matches_g2['clustering_id_indiv'], matches_g2['clustering_id_all']))
+
+        # apply to graphs:
+        graph_1 = indSID_to_allSID(graph_1, gid_map_g1)
+        graph_2 = indSID_to_allSID(graph_2, gid_map_g2)
+
+    ### map nodes from ggcaller graphs to the COG labels in the centroid from pangenome
 
     # read into df
     # each "group_" refers to the centroid of that group in the pan_genomes_reference.fa
@@ -112,7 +142,7 @@ def main():
 
     ### THE NAME ("group_1") AND THE LABEL ('484') ARE DIFFERENT AND A NUMERIC STRING WILL CALL THE LABEL (not index)
 
-    # the groups are not the same across the two graphs!!! we match by mmseqs (that's the whole point of this)
+    # the groups are not the same across the two graphs! we match by mmseqs (that's the whole point of this)
     # this chunk is just changing the node name from an integer to the group label of that node (which is originally just
     # metadata within the graph)
     # it doesn't map anything between the two graphs
@@ -165,12 +195,14 @@ def main():
     # now we can modify the tokenized code to iterate like usual, adding new node if string doesn't contain "_query"
     # and merging the nodes that both end in "_query"
     
-    # read in graph_all
+    if options.mode == 'test':
 
-    graph_all = ["/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_all/final_graph.gml"]
+        # read in graph_all
 
-    graph_all, isolate_names, id_mapping = load_graphs(graph_all)
-    graph_all = graph_all[0]
+        graph_all = ["/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_all/final_graph.gml"]
+
+        graph_all, isolate_names, id_mapping = load_graphs(graph_all)
+        graph_all = graph_all[0]
 
     ### merge graphs
 
@@ -199,69 +231,72 @@ def main():
             if not merged_graph.has_edge(edge[0], edge[1]):
                 merged_graph.add_edge(edge[0], edge[1])
     
-    ### gather seqIDs to enable calculation of clustering metrics
-    
-    cluster_dict_merged = get_seqIDs_in_nodes(merged_graph)
-    cluster_dict_all = get_seqIDs_in_nodes(graph_all)
+    if options.mode == 'test':
 
-    rand_input_merged = dict_to_2d_array(cluster_dict_merged)
-    rand_input_all = dict_to_2d_array(cluster_dict_all)
-
-    # obtain shared seq_ids
-    seq_ids_1 = []
-    for node in merged_graph.nodes:
-        seq_ids_1 += merged_graph.nodes[node]["seqIDs"]
+        ### gather seqIDs to enable calculation of clustering metrics
         
-    seq_ids_2 = []
-    for node in graph_all.nodes:
-        seq_ids_2 += graph_all.nodes[node]["seqIDs"]
+        cluster_dict_merged = get_seqIDs_in_nodes(merged_graph)
+        cluster_dict_all = get_seqIDs_in_nodes(graph_all)
+
+        rand_input_merged = dict_to_2d_array(cluster_dict_merged)
+        rand_input_all = dict_to_2d_array(cluster_dict_all)
+
+        # obtain shared seq_ids
+        seq_ids_1 = []
+        for node in merged_graph.nodes:
+            seq_ids_1 += merged_graph.nodes[node]["seqIDs"]
+            
+        seq_ids_2 = []
+        for node in graph_all.nodes:
+            seq_ids_2 += graph_all.nodes[node]["seqIDs"]
+            
+        seq_ids_1 = set(seq_ids_1)
+        seq_ids_2 = set(seq_ids_2)
+            
+        common_seq_ids = seq_ids_1 & seq_ids_2  # take intersection
         
-    seq_ids_1 = set(seq_ids_1)
-    seq_ids_2 = set(seq_ids_2)
+        # print how many seq_ids were excluded
+        only_in_graph_1 = seq_ids_1 - seq_ids_2
+        only_in_graph_2 = seq_ids_2 - seq_ids_1
+        print(f"shared seqIDs: {len(common_seq_ids)}")
+        print(f"seqIDs only in merged (excluded): {len(only_in_graph_1)}")
+        print(f"seqIDs only in all (excluded): {len(only_in_graph_2)}")
+
+        rand_input_merged_filtered = rand_input_merged.loc[:, rand_input_merged.loc[0].isin(common_seq_ids)]
+        rand_input_all_filtered = rand_input_all.loc[:, rand_input_all.loc[0].isin(common_seq_ids)]
         
-    common_seq_ids = seq_ids_1 & seq_ids_2  # take intersection
-    
-    # print how many seq_ids were excluded
-    only_in_graph_1 = seq_ids_1 - seq_ids_2
-    only_in_graph_2 = seq_ids_2 - seq_ids_1
-    print(f"seqIDs only in merged (excluded): {len(only_in_graph_1)}")
-    print(f"seqIDs only in all (excluded): {len(only_in_graph_2)}")
+        # get desired value order from row 0 of rand_input_all_filtered
+        desired_order = list(rand_input_all_filtered.iloc[0])
 
-    rand_input_merged_filtered = rand_input_merged.loc[:, rand_input_merged.loc[0].isin(common_seq_ids)]
-    rand_input_all_filtered = rand_input_all.loc[:, rand_input_all.loc[0].isin(common_seq_ids)]
-    
-    # get desired value order from row 0 of rand_input_all_filtered
-    desired_order = list(rand_input_all_filtered.iloc[0])
+        # Create mapping from row 0 values in rand_input_merged_filtered to column names
+        val_to_col = {val: col for col, val in zip(rand_input_merged_filtered.columns, rand_input_merged_filtered.iloc[0])}
 
-    # Create mapping from row 0 values in rand_input_merged_filtered to column names
-    val_to_col = {val: col for col, val in zip(rand_input_merged_filtered.columns, rand_input_merged_filtered.iloc[0])}
+        # Reorder columns based on desired value order
+        columns_in_order = [val_to_col[val] for val in desired_order if val in val_to_col]
 
-    # Reorder columns based on desired value order
-    columns_in_order = [val_to_col[val] for val in desired_order if val in val_to_col]
+        # Apply the column reordering
+        rand_input_merged_filtered = rand_input_merged_filtered[columns_in_order]
+        
+        # put sorted clusters into Rand index
+        ri = rand_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
+        print(f"Rand Index: {ri}")
 
-    # Apply the column reordering
-    rand_input_merged_filtered = rand_input_merged_filtered[columns_in_order]
-    
-    # put sorted clusters into Rand index
-    ri = rand_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
-    print(f"Rand Index: {ri}")
+        ari = adjusted_rand_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
+        print(f"Adjusted Rand Index: {ari}")
 
-    ari = adjusted_rand_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
-    print(f"Adjusted Rand Index: {ari}")
+        # put sorted clusters into mutual information
+        mutual_info = mutual_info_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
+        print(f"Mutual Information: {mutual_info}")
 
-    # put sorted clusters into mutual information
-    mutual_info = mutual_info_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
-    print(f"Mutual Information: {mutual_info}")
-
-    adj_mutual_info = adjusted_mutual_info_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
-    print(f"Adjusted Mutual Information: {adj_mutual_info}")
+        adj_mutual_info = adjusted_mutual_info_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
+        print(f"Adjusted Mutual Information: {adj_mutual_info}")
 
     for node in merged_graph.nodes():
         merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs'])
         
     #format_metadata_for_gml(merged_graph)
                 
-    nx.write_gml(merged_graph, "/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_merged/merged_graph.gml")
+    nx.write_gml(merged_graph, [str(IO.outdir) + "/merged_graph.gml"])
 
     #return merged_graph
     
