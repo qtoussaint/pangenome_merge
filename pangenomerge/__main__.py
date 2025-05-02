@@ -39,6 +39,9 @@ def get_options():
                     choices=['run', 'test'],
                     help='Run pan-genome gene graph merge ("run") or calculate clustering accuracy metrics for merge ("test"). '
                         '[Default = Run] ')
+    IO.add_argument('--mmseqs',
+                    default=None,
+                    help='Path to mmseqs2 output file (temporary).')
     IO.add_argument('--outdir',
                     default=None,
                     help='Output directory.')
@@ -52,8 +55,8 @@ def main():
 
     ### read in two graphs
 
-    graph_file_1 = [str(IO.graph_1)]
-    graph_file_2 = [str(IO.graph_2)]
+    graph_file_1 = [str(options.graph_1)]
+    graph_file_2 = [str(options.graph_2)]
 
     graph_1, isolate_names, id_mapping = load_graphs(graph_file_1)
     graph_2, isolate_names, id_mapping = load_graphs(graph_file_2)
@@ -104,7 +107,7 @@ def main():
 
     # read into df
     # each "group_" refers to the centroid of that group in the pan_genomes_reference.fa
-    mmseqs = pd.read_csv('/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/staph_merge/graph_merged/mmseqs_alignments.m8', sep='\t')
+    mmseqs = pd.read_csv(str(options.mmseqs), sep='\t')
 
     ### match hits from mmseqs
 
@@ -291,12 +294,17 @@ def main():
         adj_mutual_info = adjusted_mutual_info_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
         print(f"Adjusted Mutual Information: {adj_mutual_info}")
 
+
     for node in merged_graph.nodes():
         merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs'])
         
     #format_metadata_for_gml(merged_graph)
-                
-    nx.write_gml(merged_graph, [str(IO.outdir) + "/merged_graph.gml"])
+    
+    print('Writing merged graph to outdir...')
+    
+    nx.write_gml(merged_graph, [str(options.outdir) + "/merged_graph.gml"])
+
+    print('Finished successfully.')
 
     #return merged_graph
     
