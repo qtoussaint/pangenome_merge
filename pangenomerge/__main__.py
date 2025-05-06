@@ -15,13 +15,13 @@ from sklearn.metrics import rand_score,mutual_info_score,adjusted_rand_score,adj
 from pathlib import Path
 
 # add directory above __main__.py to sys.path to allow searching for modules there
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+#sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from pangenomerge.manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array
-from pangenomerge.run_mmseqs import run_mmseqs_easysearch
+from .manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array
+from .run_mmseqs import run_mmseqs_easysearch
 from panaroo_functions.load_graphs import load_graphs
 
-#from .__init__ import __version__
+from .__init__ import __version__
 
 
 def get_options():
@@ -31,7 +31,7 @@ def get_options():
 
     IO = parser.add_argument_group('Input/Output options')
     IO.add_argument('--graph_1',
-                    default=None,
+                    required=True,
                     help='Path to first graph to merge. ("/path/to/final_graph.gml")')
     IO.add_argument('--graph_2',
                     default=None,
@@ -62,6 +62,14 @@ def get_options():
     IO.add_argument('--panaroo_graph_2',
                     default=None,
                     help='Path to directory of Panaroo outputs for second graph (test only).')
+    
+    other = parser.add_argument_group('Other options')
+    other.add_argument('--mmseq-threads',
+                    default=1,
+                    type=int,
+                    help='Number of threads for mmseqs2')
+    other.add_argument('--version', action='version',
+                       version='%(prog)s '+__version__)
 
     return parser.parse_args()
 
