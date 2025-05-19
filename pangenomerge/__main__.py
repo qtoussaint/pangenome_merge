@@ -31,7 +31,7 @@ def get_options():
 
     IO = parser.add_argument_group('Input/Output options')
     IO.add_argument('--graph_1',
-                    required=True,
+                    required=False,
                     help='Path to first graph to merge. ("/path/to/final_graph.gml")')
     IO.add_argument('--graph_2',
                     default=None,
@@ -42,11 +42,19 @@ def get_options():
                     help='Run pan-genome gene graph merge ("run") or calculate clustering accuracy metrics for merge ("test"). '
                         '[Default = Run] ')
     IO.add_argument('--outdir',
+                    required=True,
                     default=None,
                     help='Output directory.')
-    IO.add_argument('--graph_all',
+    IO.add_argument('--component-graphs',
                     default=None,
-                    help='Graph of all samples (test only).')
+                    required=True,
+                    help='Tab-separated list of paths to Panaroo output directories of component subgraphs. \
+                    Each directory must contain final_graph.gml and pan_genome_reference.fa. If running in test mode, must also contain \
+                    gene_data.csv. Graphs will be merged in the order presented in the file.')
+    IO.add_argument('--graph-all',
+                    default=None,
+                    help='Path to Panaroo output directory of pan-genome gene graph created from all samples in component-graphs. \
+                    Only required for the test case, where it is used as the ground truth.')
     IO.add_argument('--gene_data_all',
                     default=None,
                     help='gene_data.csv for graph of all samples (test only).')
@@ -328,6 +336,8 @@ def main():
 
 
     for node in merged_graph.nodes():
+      for sid in merged_graph.nodes[node]['seqIDs']:
+        merged_graph.nodes[node]['seqIDs'] = merged_graph.nodes[node]['seqIDs'].removesuffix('_query')
         merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs'])
         
     #format_metadata_for_gml(merged_graph)
