@@ -99,6 +99,8 @@ def main():
     graph_count = 0
 
     for graph in range(1, int(n_graphs)):
+
+        print(graph_files[0])
         
         if graph_count == 0:
             graph_file_1 = str(Path(graph_files[0]) / "final_graph.gml")
@@ -106,6 +108,9 @@ def main():
         else:
             graph_file_1 = [str(Path(options.outdir) / "merged_graph_" / str(int(graph_count-1)) / ".gml")]
             graph_file_2 = [str(Path(graph_files[int(graph_count)])) / "final_graph.gml"]
+
+        print("graph_file_1: ", graph_file_1)
+        print("graph_file_2: ", graph_file_2)
 
         graph_1, isolate_names, id_mapping = load_graphs(graph_file_1)
         graph_2, isolate_names, id_mapping = load_graphs(graph_file_2)
