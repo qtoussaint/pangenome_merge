@@ -14,6 +14,8 @@ import sklearn.metrics as sklearn_metrics
 from sklearn.metrics import rand_score,mutual_info_score,adjusted_rand_score,adjusted_mutual_info_score
 from pathlib import Path
 
+from Bio import SeqIO
+
 # add directory above __main__.py to sys.path to allow searching for modules there
 #sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
@@ -120,7 +122,7 @@ def main():
                 gene_data_g1 = [""]
                 # not necessary because merged graph already has gene_all seqIDs mapped
             
-            gene_data_g2 = pd.read_csv(str(options.gene_data_2))
+            gene_data_g2 = pd.read_csv(str(Path(graph_files[int(graph_count+1)])) / "gene_data.csv")
 
             # rename column
             gene_data_all = gene_data_all.rename(columns={'clustering_id': 'clustering_id_all'})
@@ -274,7 +276,8 @@ def main():
 
         merged_graph = relabeled_graph_1
 
-        pan_genome_reference = str(Path(options.outdir) / "pan_genome_reference_" / str(int(graph_count-1)) / ".fa")
+        pan_genome_reference_merged = SeqIO.parse(open(pangenome_reference_g1),'fasta')
+        pan_genome_reference_newnodes = SeqIO.parse(open(pangenome_reference_g2),'fasta')
         
         # merge the two sets of unique nodes into one set of unique nodes
         for node in relabeled_graph_2.nodes:
@@ -291,8 +294,9 @@ def main():
                                     seqIDs=relabeled_graph_2.nodes[node]["seqIDs"])
 
                 # add centroid from pan_genome_reference.fa to new merged reference
-                pangenome_reference_merged = union()
-                str(Path(options.outdir) / "pan_genome_reference_" / str(int(graph_count)) / ".fa")
+                
+                node_centroid = pan_genome_reference_newnodes[str(node).removesuffix("_query")]
+                pan_genome_reference_merged = concat([pan_genome_reference_merged, node_centroid])
 
         for edge in relabeled_graph_2.edges:
             
@@ -377,7 +381,7 @@ def main():
         output_path = Path(options.outdir) / "merged_graph_" / str(graph_count) / ".gml"
         nx.write_gml(merged_graph, str(output_path))
 
-        # write new references to CSV
+        # write new pan-genome references to CSV
         reference_out = str(Path(options.outdir) / "pan_genome_reference_" / str(int(graph_count)) / ".fa")
         pangenome_reference_merged.to_csv(reference_out)
 
