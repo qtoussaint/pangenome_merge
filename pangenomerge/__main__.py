@@ -325,15 +325,19 @@ def main():
 
                 print("relabeled_graph_2.nodes[node]name :", relabeled_graph_2.nodes[node]["name"])
 
-                if graph_count != 0:
-                    mapping_groups_new = dict()
-                    node_group = merged_graph.nodes[node].get("name", "error")
-                    print("node_group", node_group) # should be group_xxx
-                    mapping_groups_new[int(node)] = str(f'{node_group}_{graph_count+1}')
-                    merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
-                    merged_graph.nodes[node]["name"] = str(f'{node_group}_{graph_count+1}')
+                #if graph_count != 0:
+                mapping_groups_new = dict()
+                node_group = merged_graph.nodes[node].get("name", "error")
+                print("node_group", node_group) # should be group_xxx
+                mapping_groups_new[int(node)] = str(f'{node_group}_{graph_count+1}')
+                merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
+                merged_graph.nodes[node]["name"] = str(f'{node_group}_{graph_count+1}')
+                print("merged_graph.nodes[node][name]", merged_graph.nodes[node]["name"])
 
-                node_centroid = next(iter(merged_graph.nodes[f'{node}']["seqIDs"])) ### ISSUE!
+                print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][seqIDs]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])
+
+                node_centroid = next(iter(merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])) ### ISSUE!
+                # couldn't find seqID
                 print("node_centroid", node_centroid)
                 node_centroid = gene_data_all_new.loc[gene_data_all_new["clustering_id"] == node_centroid, "dna_sequence"].values
                 print("node_centroid", node_centroid)
