@@ -314,8 +314,6 @@ def main():
                 merged_set = list(set(relabeled_graph_2.nodes[node]["seqIDs"]) | set(relabeled_graph_1.nodes[node]["seqIDs"]))
                 merged_graph.nodes[node]["seqIDs"] = merged_set
 
-                print("merged_graph.nodes[node][seqids]", merged_graph.nodes[node]["seqIDs"])
-
             if merged_graph.has_node(node) == False:
 
                 # add node
@@ -324,10 +322,6 @@ def main():
 
                 # add centroid from pan_genome_reference.fa to new merged reference
                 # temporarily just take the sequence from any seqID in node
-                
-                print(node)
-                print(merged_graph.nodes[node]["seqIDs"])
-                print(type(merged_graph.nodes[node]["seqIDs"]))
 
                 node_centroid = next(iter(merged_graph.nodes[node]["seqIDs"]))
                 print("node_centroid", node_centroid)
@@ -338,7 +332,8 @@ def main():
                 node_centroid = node_centroid[["dna_sequence"]]
                 print("node_centroid", node_centroid)
 
-                node_centroid = [str("> ", str(node), "\n", str(node_centroid))]
+                #node_centroid = f">{node}\n{node_centroid}"
+                node_centroid = pd.DataFrame(f"{node}_{graph_count+1}", node_centroid)
                 print("node_centroid", node_centroid)
 
                 pan_genome_reference_merged = concat([pan_genome_reference_merged, node_centroid])
@@ -418,8 +413,8 @@ def main():
 
 
         for node in merged_graph.nodes():
-            for sid in merged_graph.nodes[node]['seqIDs']:
-                merged_graph.nodes[node]['seqIDs'][sid] = merged_graph.nodes[node]['seqIDs'][sid].removesuffix('_query')
+            nx.relabel_nodes(node, "{node}_{graph_count+1}")
+            merged_graph.nodes[node] = merged_graph.nodes[node].removesuffix('_query')
             merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs'])
             
         #format_metadata_for_gml(merged_graph)
