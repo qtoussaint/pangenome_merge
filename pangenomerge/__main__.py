@@ -332,7 +332,7 @@ def main():
                 mapping_groups_new[node] = f'{node_group}_{graph_count+1}'
                 print("mapping_groups_new", mapping_groups_new)
                 merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
-                merged_graph.nodes[node]["name"] = str(f'{node_group}_{graph_count+1}')
+                merged_graph.nodes[f'{node_group}_{graph_count+1}']["name"] = str(f'{node_group}_{graph_count+1}')
 
                 print("merged_graph.nodes[node][name]", merged_graph.nodes[node]["name"])
                 print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][seqIDs]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])
