@@ -12,7 +12,8 @@ def indSID_to_allSID(G, gid_map):
                 for sid in node_SIDs
             ]
             G.nodes[node]["seqIDs"] = updated_SIDs
-
+            if "error" in updated_SIDs:
+                print("error in node ", node)
     return G
 
 # get individual seqIDs as keys, and the cluster each seqID belongs to as its value

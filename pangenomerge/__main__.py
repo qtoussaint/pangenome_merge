@@ -318,7 +318,7 @@ def main():
                 merged_set = list(set(relabeled_graph_2.nodes[node]["seqIDs"]) | set(relabeled_graph_1.nodes[node]["seqIDs"]))
                 merged_graph.nodes[node]["seqIDs"] = merged_set
 
-                print(merged_graph.nodes[node]["seqIDs"])
+                print("merged_graph.nodes[node][seqids]", merged_graph.nodes[node]["seqIDs"])
 
             if merged_graph.has_node(node) == False:
 
