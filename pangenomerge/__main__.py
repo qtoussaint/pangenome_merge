@@ -157,9 +157,6 @@ def main():
                 gid_map_g1 = dict(zip(matches_g1['clustering_id_indiv'], matches_g1['clustering_id_all']))
             gid_map_g2 = dict(zip(matches_g2['clustering_id_indiv'], matches_g2['clustering_id_all']))
 
-            print("gid_map_g1", gid_map_g1)
-            print("gid_map_g2", gid_map_g2)
-
             # apply to graphs:
             if graph_count == 0:
                 print("applying ind...")
@@ -337,7 +334,7 @@ def main():
                                 columns=["id", "sequence"])
                 print("node_centroid", node_centroid_df)
 
-                pan_genome_reference_merged = concat([pan_genome_reference_merged, node_centroid_df])
+                pan_genome_reference_merged = pd.concat([pan_genome_reference_merged, node_centroid_df])
                 print(pan_genome_reference_merged)
                 
                 #node_centroid = pan_genome_reference_newnodes[str(node).removesuffix("_query")]
