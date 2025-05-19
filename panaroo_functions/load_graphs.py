@@ -38,6 +38,7 @@ def load_graphs(graph_files, n_cpu=1):
     node_count = 0
     id_mapping = []
     for i, G in enumerate(graphs):
+        break
         id_mapping.append({})
         # relabel nodes to be consecutive integers from 1
         mapping = {}
@@ -48,6 +49,7 @@ def load_graphs(graph_files, n_cpu=1):
 
         # set up edge members and remove conflicts.
         for e in G.edges():
+            break
             G[e[0]][e[1]]['members'] = [
                 m + member_count for m in conv_list(G[e[0]][e[1]]['members'])
             ]
@@ -55,6 +57,7 @@ def load_graphs(graph_files, n_cpu=1):
         # set up node parameters and remove conflicts.
         max_mem = -1
         for n in G.nodes():
+            break
             ncentroids = []
             for sid in G.nodes[n]['centroid'].split(";"):
                 nid = update_sid(sid, member_count)
