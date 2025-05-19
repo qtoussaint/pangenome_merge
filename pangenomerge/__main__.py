@@ -110,9 +110,9 @@ def main():
             else:
                 gene_data_g1 = [""]
                 # not necessary because merged graph already has gene_all seqIDs mapped
-
+            
+            print("gene_data_all: ", gene_data_all)
             print("gene_data_g1: ", gene_data_g1)
-
             print("gene_data_g2: ", gene_data_g2)
 
             # rename column
@@ -137,6 +137,9 @@ def main():
                 how='left'
             )
 
+            print("matches_g1", matches_g1)
+            print("matches_g2", matches_g2)
+
             # now drop rows where the individual seqID wasn't observed (or there's no corresponding seqID from all)
             if graph_count == 0:
                 print("applying dropna...")
@@ -148,6 +151,9 @@ def main():
                 print("applying gidmap...")
                 gid_map_g1 = dict(zip(matches_g1['clustering_id_indiv'], matches_g1['clustering_id_all']))
             gid_map_g2 = dict(zip(matches_g2['clustering_id_indiv'], matches_g2['clustering_id_all']))
+
+            print("gid_map_g1", gid_map_g1)
+            print("gid_map_g2", gid_map_g2)
 
             # apply to graphs:
             if graph_count == 0:
