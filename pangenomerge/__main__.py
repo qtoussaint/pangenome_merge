@@ -337,7 +337,7 @@ def main():
                 print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][name]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["name"])
                 print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][seqIDs]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])
 
-                node_centroid = next(iter(merged_graph.nodes[f'{node_group}']["seqIDs"])) ### ISSUE!
+                node_centroid = next(iter(merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])) ### ISSUE!
                 # couldn't find seqID !!
 
                 print("node_centroid", node_centroid)
