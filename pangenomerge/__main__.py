@@ -151,6 +151,8 @@ def main():
                 matches_g1 = matches_g1.dropna()
             matches_g2 = matches_g2.dropna()
 
+            print("matches_g2", matches_g2)
+
             # convert to dict for faster lookup than with loc
             if graph_count == 0:
                 print("applying gidmap...")
