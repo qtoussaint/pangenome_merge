@@ -115,14 +115,13 @@ def main():
             ### match clustering_ids from overall run to clustering_ids from individual runs using annotation_ids (test only)
 
             gene_data_all = pd.read_csv(str(Path(options.graph_all) / "gene_data.csv"))
+            gene_data_g2 = pd.read_csv(str(Path(graph_files[int(graph_count+1)])) / "gene_data.csv")
 
             if graph_count == 0:
                 gene_data_g1 = pd.read_csv(str(Path(graph_files[int(graph_count)])) / "gene_data.csv")
             else:
                 gene_data_g1 = [""]
                 # not necessary because merged graph already has gene_all seqIDs mapped
-            
-            gene_data_g2 = pd.read_csv(str(Path(graph_files[int(graph_count+1)])) / "gene_data.csv")
 
             # rename column
             gene_data_all = gene_data_all.rename(columns={'clustering_id': 'clustering_id_all'})
@@ -277,7 +276,8 @@ def main():
         merged_graph = relabeled_graph_1
 
         pan_genome_reference_merged = SeqIO.parse(open(pangenome_reference_g1),'fasta')
-        pan_genome_reference_newnodes = SeqIO.parse(open(pangenome_reference_g2),'fasta')
+        #pan_genome_reference_newnodes = SeqIO.parse(open(pangenome_reference_g2),'fasta')
+        gene_data_all_new = pd.read_csv(str(Path(options.graph_all) / "gene_data.csv"))
         
         # merge the two sets of unique nodes into one set of unique nodes
         for node in relabeled_graph_2.nodes:
@@ -294,9 +294,20 @@ def main():
                                     seqIDs=relabeled_graph_2.nodes[node]["seqIDs"])
 
                 # add centroid from pan_genome_reference.fa to new merged reference
+                # temporarily just take sequence from first seqID in node
                 
-                node_centroid = pan_genome_reference_newnodes[str(node).removesuffix("_query")]
+                node_centroid = merged_graph.nodes[node]["seqIDs"][0]
+                node_centroid = gene_data_all[gene_data_all["clustering_id"] == node_centroid]
+                node_centroid = node_centroid[["dna_sequence"]]
+                print(node_centroid)
+                node_centroid = ["> " / str(node) / "\n" / node_centroid]
+
+                print(node_centroid)
                 pan_genome_reference_merged = concat([pan_genome_reference_merged, node_centroid])
+                print(pan_genome_reference_merged)
+                
+                #node_centroid = pan_genome_reference_newnodes[str(node).removesuffix("_query")]
+                #pan_genome_reference_merged = concat([pan_genome_reference_merged, node_centroid])
 
         for edge in relabeled_graph_2.edges:
             
