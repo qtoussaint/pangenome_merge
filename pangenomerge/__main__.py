@@ -425,11 +425,11 @@ def main():
         print('Writing merged graph to outdir...')
 
         # write new graph to GML
-        output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}" / ".gml"
+        output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}.gml"
         nx.write_gml(merged_graph, str(output_path))
 
         # write new pan-genome references to CSV
-        reference_out = str(Path(options.outdir) / "pan_genome_reference_{graph_count+1}" / ".fa")
+        reference_out = str(Path(options.outdir) / "pan_genome_reference_{graph_count+1}.fa")
         pangenome_reference_merged.to_csv(reference_out)
 
         graph_count += 1
