@@ -422,10 +422,15 @@ def main():
         output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}.gml"
         nx.write_gml(merged_graph, str(output_path))
 
-        # write new pan-genome references to CSV
+        # write new pan-genome references to fasta
         reference_out = str(Path(options.outdir) / f"pan_genome_reference_{graph_count+1}.fa")
-        print(pan_genome_reference_merged)
-        pan_genome_reference_merged.to_csv(reference_out, header=False, index=False)
+
+        with open(reference_out, "w") as fasta_out:
+            for _, row in df.iterrows():
+                fasta_out.write(f">{row['id']}\n{row['sequence']}\n")
+
+        #print(pan_genome_reference_merged)
+        #pan_genome_reference_merged.to_csv(reference_out, header=False, index=False)
 
         graph_count += 1
 
