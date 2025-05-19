@@ -346,7 +346,7 @@ def main():
                 if not merged_graph.has_edge(edge[0], edge[1]):
                     merged_graph.add_edge(edge[0], edge[1])
         
-        if options.mode == 'test' & graph_count == (n_graphs-1):
+        if options.mode == 'test' and graph_count == (n_graphs-1):
 
             ### gather seqIDs to enable calculation of clustering metrics
             
