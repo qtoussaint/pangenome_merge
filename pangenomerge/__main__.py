@@ -328,7 +328,7 @@ def main():
                 node_centroid = gene_data_all_new.loc[gene_data_all_new["clustering_id"] == node_centroid, "dna_sequence"].values
                 node_centroid = node_centroid[0] # list to string; double check that this doesn't remove centroids
 
-                node_name = merged_graph.nodes[node].get("name", error)
+                node_name = merged_graph.nodes[node].get("name", "error")
                 label = f"{node_name}_{graph_count+1}"
                 print("label :", label)
                 merged_graph.nodes[node]["name"] = label
