@@ -327,6 +327,10 @@ def main():
                 # add centroid from pan_genome_reference.fa to new merged reference
                 # temporarily just take the sequence from any seqID in node
                 
+                print(node)
+                print(merged_graph.nodes[node]["seqIDs"])
+                print(type(merged_graph.nodes[node]["seqIDs"]))
+
                 node_centroid = next(iter(merged_graph.nodes[node]["seqIDs"]))
                 print("node_centroid", node_centroid)
 
