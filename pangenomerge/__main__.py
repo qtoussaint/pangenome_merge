@@ -254,6 +254,7 @@ def main():
         # convert df to dictionary with "target" as keys and "query" as values
         # this maps groups from graph_1 to groups from graph_2
         mapping = dict(zip(mmseqs_filtered["target"], mmseqs_filtered["query"]))
+        print("mapping", mapping)
 
         ### to avoid matching nodes from target that have the same group_id but are not the same:
         # append all nodes in query graph with _query
@@ -262,15 +263,20 @@ def main():
         # this appends _query to values (graph_1/query groups)
         mapping = {key: f"{value}_query" for key, value in mapping.items()}
 
+        print("mapping", mapping)
+
+
         # relabel target graph from old labels (keys) to new labels (values, the _query-appended graph_1 groups)
         # MUST SET COPY=FALSE OR NODES NOT IN MAPPING WILL BE DROPPED
         relabeled_graph_2 = nx.relabel_nodes(groupmapped_graph_2, mapping, copy=False)
+        print(relabeled_graph_2.nodes())
 
         # relabel query graph
         #if graph_count == 0:
         mapping_query = dict(zip(groupmapped_graph_1.nodes, groupmapped_graph_1.nodes))
         mapping_query = {key: f"{value}_query" for key, value in mapping_query.items()}
         relabeled_graph_1 = nx.relabel_nodes(groupmapped_graph_1, mapping_query, copy=False)
+        print(relabeled_graph_2.nodes())
         #else:
         #    relabeled_graph_1 = graph_1
 
