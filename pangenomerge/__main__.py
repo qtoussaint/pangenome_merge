@@ -91,7 +91,8 @@ def main():
     ### read in two graphs
 
     graph_files = pd.read_csv(options.component_graphs, sep='\t')
-    n_graphs = int(len(graph_files.iterrows()))
+    print(graph_files)
+    n_graphs = int(len(graph_files))
 
     print("n_graphs: ", n_graphs)
 
