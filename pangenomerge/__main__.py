@@ -124,7 +124,7 @@ def main():
             gene_data_g2 = gene_data_g2.rename(columns={'clustering_id': 'clustering_id_indiv'})
 
             print("gene_data_all: ", gene_data_all[['annotation_id', 'clustering_id_all']])
-            print("gene_data_g1: ", gene_data_g1[['annotation_id', 'clustering_id_indiv']])
+            #print("gene_data_g1: ", gene_data_g1[['annotation_id', 'clustering_id_indiv']])
             print("gene_data_g2: ", gene_data_g2[['annotation_id', 'clustering_id_indiv']])
 
             # first match by annotation ids:
@@ -413,6 +413,8 @@ def main():
         #    nx.relabel_nodes(node, "{node}_{graph_count}")
         #    merged_graph.nodes[node] = merged_graph.nodes[node].removesuffix('_query')
             merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs'])
+            merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs']) # also add in empty data for load_graph
+
             
         #format_metadata_for_gml(merged_graph)
         
