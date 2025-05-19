@@ -323,7 +323,7 @@ def main():
                 node_centroid = next(iter(merged_graph.nodes[node]["seqIDs"]))
                 #print("node_centroid", node_centroid)
 
-                node_centroid = gene_data_all_new[gene_data_all_new["clustering_id"] == node_centroid]["dna_sequence"]
+                #node_centroid = gene_data_all_new[gene_data_all_new["clustering_id"] == node_centroid]["dna_sequence"]
                 #print("node_centroid", node_centroid)
 
                 #node_centroid = node_centroid[["dna_sequence"]]
