@@ -264,9 +264,12 @@ def main():
         relabeled_graph_2 = nx.relabel_nodes(groupmapped_graph_2, mapping, copy=False)
 
         # relabel query graph
-        mapping_query = dict(zip(groupmapped_graph_1.nodes, groupmapped_graph_1.nodes))
-        mapping_query = {key: f"{value}_query" for key, value in mapping_query.items()}
-        relabeled_graph_1 = nx.relabel_nodes(groupmapped_graph_1, mapping_query, copy=False)
+        if graph_count == 0:
+            mapping_query = dict(zip(groupmapped_graph_1.nodes, groupmapped_graph_1.nodes))
+            mapping_query = {key: f"{value}_query" for key, value in mapping_query.items()}
+            relabeled_graph_1 = nx.relabel_nodes(groupmapped_graph_1, mapping_query, copy=False)
+        else:
+            relabeled_graph_1 = graph_1
 
         ### need to do this to edges as well
         #print(relabeled_graph_1.edges)
