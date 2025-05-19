@@ -409,10 +409,10 @@ def main():
         for node in merged_graph.nodes():
             label = label.removesuffix('_query')
 
-        #for node in merged_graph.nodes():
+        for node in merged_graph.nodes():
         #    nx.relabel_nodes(node, "{node}_{graph_count}")
         #    merged_graph.nodes[node] = merged_graph.nodes[node].removesuffix('_query')
-        #    merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs'])
+            merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs'])
             
         #format_metadata_for_gml(merged_graph)
         
@@ -426,7 +426,7 @@ def main():
         reference_out = str(Path(options.outdir) / f"pan_genome_reference_{graph_count+1}.fa")
 
         with open(reference_out, "w") as fasta_out:
-            for _, row in df.iterrows():
+            for _, row in pan_genome_reference_merged.iterrows():
                 fasta_out.write(f">{row['id']}\n{row['sequence']}\n")
 
         #print(pan_genome_reference_merged)
