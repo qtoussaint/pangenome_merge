@@ -85,7 +85,7 @@ def main():
             graph_file_1 = str(Path(graph_files.iloc[0][0]) / "final_graph.gml")
             graph_file_2 = str(Path(graph_files.iloc[1][0]) / "final_graph.gml")
         else:
-            graph_file_1 = str(Path(options.outdir) / "merged_graph_" / str(int(graph_count)) / ".gml")
+            graph_file_1 = str(Path(options.outdir) / f"merged_graph_{graph_count}.gml")
             graph_file_2 = str(Path(graph_files.iloc[int(graph_count)][0]) / "final_graph.gml")
 
         print("graph_file_1: ", graph_file_1)
