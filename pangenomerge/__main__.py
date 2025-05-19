@@ -328,16 +328,16 @@ def main():
                 # temporarily just take sequence from first seqID in node
                 
                 node_centroid = merged_graph.nodes[node]["seqIDs"][0]
-                print(node_centroid)
+                print("node_centroid", node_centroid)
 
                 node_centroid = gene_data_all_new[gene_data_all_new["clustering_id"] == node_centroid]
-                print(node_centroid)
+                print("node_centroid", node_centroid)
 
                 node_centroid = node_centroid[["dna_sequence"]]
-                print(node_centroid)
+                print("node_centroid", node_centroid)
 
                 node_centroid = [str("> " / str(node) / "\n" / node_centroid)]
-                print(node_centroid)
+                print("node_centroid", node_centroid)
 
                 pan_genome_reference_merged = concat([pan_genome_reference_merged, node_centroid])
                 print(pan_genome_reference_merged)
