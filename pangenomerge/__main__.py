@@ -53,7 +53,7 @@ def get_options():
                     Only required for the test case, where it is used as the ground truth.')
     
     other = parser.add_argument_group('Other options')
-    other.add_argument('--mmseq-threads',
+    other.add_argument('--mmseqs-threads',
                     default=1,
                     type=int,
                     help='Number of threads for mmseqs2')
@@ -321,13 +321,13 @@ def main():
                 # temporarily just take the sequence from any seqID in node
 
                 node_centroid = next(iter(merged_graph.nodes[node]["seqIDs"]))
-                print("node_centroid", node_centroid)
+                #print("node_centroid", node_centroid)
 
                 node_centroid = gene_data_all_new[gene_data_all_new["clustering_id"] == node_centroid]
-                print("node_centroid", node_centroid)
+                #print("node_centroid", node_centroid)
 
                 node_centroid = node_centroid[["dna_sequence"]]
-                print("node_centroid", node_centroid)
+                #print("node_centroid", node_centroid)
 
                 #node_centroid = f">{node}\n{node_centroid}"
                 node_centroid_df = pd.DataFrame([[f"{node}_{graph_count+1}", node_centroid]],
@@ -425,11 +425,11 @@ def main():
         print('Writing merged graph to outdir...')
 
         # write new graph to GML
-        output_path = Path(options.outdir) / "merged_graph_" / str(graph_count) / ".gml"
+        output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}" / ".gml"
         nx.write_gml(merged_graph, str(output_path))
 
         # write new pan-genome references to CSV
-        reference_out = str(Path(options.outdir) / "pan_genome_reference_" / str(int(graph_count)) / ".fa")
+        reference_out = str(Path(options.outdir) / "pan_genome_reference_{graph_count+1}" / ".fa")
         pangenome_reference_merged.to_csv(reference_out)
 
         graph_count += 1
@@ -441,3 +441,4 @@ def main():
     #return merge
 if __name__ == "__main__":
     main()
+
