@@ -238,7 +238,7 @@ def main():
             mapping_groups_1 = dict()
             for node in graph_1.nodes():
                 node_group = graph_1.nodes[node].get("name", "error")
-                #print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
+                print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
                 mapping_groups_1[int(node)] = str(node_group)
 
             groupmapped_graph_1 = nx.relabel_nodes(graph_1, mapping_groups_1, copy=False)
@@ -246,7 +246,7 @@ def main():
         mapping_groups_2 = dict()
         for node in graph_2.nodes():
             node_group = graph_2.nodes[node].get("name", "error")
-            #print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
+            print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
             mapping_groups_2[int(node)] = str(node_group)
 
         groupmapped_graph_2 = nx.relabel_nodes(graph_2, mapping_groups_2, copy=False)
@@ -317,6 +317,8 @@ def main():
                 # add metadata
                 merged_set = list(set(relabeled_graph_2.nodes[node]["seqIDs"]) | set(relabeled_graph_1.nodes[node]["seqIDs"]))
                 merged_graph.nodes[node]["seqIDs"] = merged_set
+
+                print(merged_graph.nodes[node]["seqIDs"])
 
             if merged_graph.has_node(node) == False:
 
