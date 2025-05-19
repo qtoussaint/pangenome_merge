@@ -111,9 +111,9 @@ def main():
                 gene_data_g1 = [""]
                 # not necessary because merged graph already has gene_all seqIDs mapped
             
-            print("gene_data_all: ", gene_data_all)
-            print("gene_data_g1: ", gene_data_g1)
-            print("gene_data_g2: ", gene_data_g2)
+            #print("gene_data_all: ", gene_data_all)
+            #print("gene_data_g1: ", gene_data_g1)
+            #print("gene_data_g2: ", gene_data_g2)
 
             # rename column
             gene_data_all = gene_data_all.rename(columns={'clustering_id': 'clustering_id_all'})
@@ -123,9 +123,9 @@ def main():
             
             gene_data_g2 = gene_data_g2.rename(columns={'clustering_id': 'clustering_id_indiv'})
 
-            print("gene_data_all: ", gene_data_all[['annotation_id', 'clustering_id_all']])
+            #print("gene_data_all: ", gene_data_all[['annotation_id', 'clustering_id_all']])
             #print("gene_data_g1: ", gene_data_g1[['annotation_id', 'clustering_id_indiv']])
-            print("gene_data_g2: ", gene_data_g2[['annotation_id', 'clustering_id_indiv']])
+            #print("gene_data_g2: ", gene_data_g2[['annotation_id', 'clustering_id_indiv']])
 
             # first match by annotation ids:
             if graph_count == 0:
@@ -142,8 +142,8 @@ def main():
                 how='left'
             )
 
-            print("matches_g1", matches_g1)
-            print("matches_g2", matches_g2)
+            #print("matches_g1", matches_g1)
+            #print("matches_g2", matches_g2)
 
             # now drop rows where the individual seqID wasn't observed (or there's no corresponding seqID from all)
             if graph_count == 0:
@@ -173,8 +173,8 @@ def main():
         
         pangenome_reference_g2 = str(Path(graph_files.iloc[int(graph_count+1)][0]) / "pan_genome_reference.fa")
 
-        print("pangenome_reference_g1: ", pangenome_reference_g1)
-        print("pangenome_reference_g2: ", pangenome_reference_g2)
+        #print("pangenome_reference_g1: ", pangenome_reference_g1)
+        #print("pangenome_reference_g2: ", pangenome_reference_g2)
 
         print("Running mmseqs2...")
         run_mmseqs_easysearch(query=pangenome_reference_g1, target=pangenome_reference_g2, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"))
@@ -227,14 +227,13 @@ def main():
         # metadata within the graph)
         # it doesn't map anything between the two graphs
 
-        if graph_count == 0:
-            mapping_groups_1 = dict()
-            for node in graph_1.nodes():
-                node_group = graph_1.nodes[node].get("name", "error")
-                #print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
-                mapping_groups_1[int(node)] = str(node_group)
+        mapping_groups_1 = dict()
+        for node in graph_1.nodes():
+            node_group = graph_1.nodes[node].get("name", "error")
+            #print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
+            mapping_groups_1[int(node)] = str(node_group)
 
-            groupmapped_graph_1 = nx.relabel_nodes(graph_1, mapping_groups_1, copy=False)
+        groupmapped_graph_1 = nx.relabel_nodes(graph_1, mapping_groups_1, copy=False)
 
         mapping_groups_2 = dict()
         for node in graph_2.nodes():
@@ -297,14 +296,14 @@ def main():
             group.append({"id": record.id, "sequence": str(record.seq)})
         pan_genome_reference_merged = pd.DataFrame(group)
 
-        print("pan_genome_reference_merged: ", pan_genome_reference_merged)
+        #print("pan_genome_reference_merged: ", pan_genome_reference_merged)
 
         #pan_genome_reference_merged = SeqIO.parse(open(pangenome_reference_g1),'fasta')
         #pan_genome_reference_newnodes = SeqIO.parse(open(pangenome_reference_g2),'fasta')
 
         gene_data_all_new = pd.read_csv(str(Path(options.graph_all) / "gene_data.csv"))
 
-        print("gene_data_all_new: ", gene_data_all_new)
+        #print("gene_data_all_new: ", gene_data_all_new)
         
         # merge the two sets of unique nodes into one set of unique nodes
         for node in relabeled_graph_2.nodes:
@@ -421,7 +420,6 @@ def main():
         #    nx.relabel_nodes(node, "{node}_{graph_count}")
         #    merged_graph.nodes[node] = merged_graph.nodes[node].removesuffix('_query')
             merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs'])
-            merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs']) # also add in empty data for load_graph
 
             
         #format_metadata_for_gml(merged_graph)
