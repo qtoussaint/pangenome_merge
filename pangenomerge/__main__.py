@@ -321,21 +321,12 @@ def main():
                 # temporarily just take the sequence from any seqID in node
 
                 node_centroid = next(iter(merged_graph.nodes[node]["seqIDs"]))
-                #print("node_centroid", node_centroid)
-
-                #node_centroid = gene_data_all_new[gene_data_all_new["clustering_id"] == node_centroid]["dna_sequence"]
-                #print("node_centroid", node_centroid)
-
-                #node_centroid = node_centroid[["dna_sequence"]]
-                #print("node_centroid", node_centroid)
-
                 node_centroid = gene_data_all_new.loc[gene_data_all_new["clustering_id"] == node_centroid, "dna_sequence"].values
-                print(node_centroid)
+                node_centroid = node_centroid[0] # list to string; double check that this doesn't remove centroids
 
                 #node_centroid = f">{node}\n{node_centroid}"
                 node_centroid_df = pd.DataFrame([[f"{node}_{graph_count+1}", node_centroid]],
                                 columns=["id", "sequence"])
-                #print("node_centroid", node_centroid_df)
 
                 pan_genome_reference_merged = pd.concat([pan_genome_reference_merged, node_centroid_df])
                 #print(pan_genome_reference_merged)
