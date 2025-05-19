@@ -120,7 +120,12 @@ def main():
             if graph_count == 0:
                 print("applying rename...")
                 gene_data_g1 = gene_data_g1.rename(columns={'clustering_id': 'clustering_id_indiv'})
+            
             gene_data_g2 = gene_data_g2.rename(columns={'clustering_id': 'clustering_id_indiv'})
+
+            print("gene_data_all: ", gene_data_all[['annotation_id', 'clustering_id_all']])
+            print("gene_data_g1: ", gene_data_g1[['annotation_id', 'clustering_id_indiv']])
+            print("gene_data_g2: ", gene_data_g2[['annotation_id', 'clustering_id_indiv']])
 
             # first match by annotation ids:
             if graph_count == 0:
@@ -139,6 +144,8 @@ def main():
 
             print("matches_g1", matches_g1)
             print("matches_g2", matches_g2)
+
+            break
 
             # now drop rows where the individual seqID wasn't observed (or there's no corresponding seqID from all)
             if graph_count == 0:
