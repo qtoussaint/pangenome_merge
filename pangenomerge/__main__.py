@@ -333,10 +333,11 @@ def main():
                 print("node_centroid", node_centroid)
 
                 #node_centroid = f">{node}\n{node_centroid}"
-                node_centroid = pd.DataFrame(f"{node}_{graph_count+1}", node_centroid)
-                print("node_centroid", node_centroid)
+                node_centroid_df = pd.DataFrame([[f"{node}_{graph_count+1}", node_centroid]],
+                                columns=["id", "sequence"])
+                print("node_centroid", node_centroid_df)
 
-                pan_genome_reference_merged = concat([pan_genome_reference_merged, node_centroid])
+                pan_genome_reference_merged = concat([pan_genome_reference_merged, node_centroid_df])
                 print(pan_genome_reference_merged)
                 
                 #node_centroid = pan_genome_reference_newnodes[str(node).removesuffix("_query")]
