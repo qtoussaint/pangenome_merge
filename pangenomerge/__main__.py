@@ -287,7 +287,7 @@ def main():
 
             # read in graph_all
 
-            graph_all = [str(options.graph_all)]
+            graph_all = [str(Path(options.graph_all) / "final_graph.gml")]
 
             graph_all, isolate_names, id_mapping = load_graphs(graph_all)
             graph_all = graph_all[0]
