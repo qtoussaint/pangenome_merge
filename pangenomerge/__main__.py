@@ -429,8 +429,7 @@ def main():
 
 
         for node in merged_graph.nodes():
-        #    nx.relabel_nodes(node, "{node}_{graph_count}")
-        #    merged_graph.nodes[node] = merged_graph.nodes[node].removesuffix('_query')
+            print("node ", node)
             merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs'])
             merged_graph.nodes[node]['name'] = merged_graph.nodes[node]['name'].removesuffix('_query')
             
