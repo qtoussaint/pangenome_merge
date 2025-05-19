@@ -326,6 +326,7 @@ def main():
                 if graph_count != 0:
                     mapping_groups_new = dict()
                     node_group = merged_graph.nodes[node].get("name", "error")
+                    print("node_group", node_group)
                     mapping_groups_new[int(node)] = str(f'{node_group}_{graph_count+1}')
                     merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
                     merged_graph.nodes[node]["name"] = str(node_group)
