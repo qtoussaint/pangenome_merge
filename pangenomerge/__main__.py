@@ -112,8 +112,8 @@ def main():
         print("graph_file_1: ", graph_file_1)
         print("graph_file_2: ", graph_file_2)
 
-        graph_1, isolate_names, id_mapping = load_graphs(Path(graph_file_1))
-        graph_2, isolate_names, id_mapping = load_graphs(Path(graph_file_2))
+        graph_1, isolate_names, id_mapping = load_graphs(str(graph_file_1))
+        graph_2, isolate_names, id_mapping = load_graphs(str(graph_file_2))
 
         graph_1 = graph_1[0]
         graph_2 = graph_2[0]
