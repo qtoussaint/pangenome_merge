@@ -123,10 +123,10 @@ def main():
             ### match clustering_ids from overall run to clustering_ids from individual runs using annotation_ids (test only)
 
             gene_data_all = pd.read_csv(str(Path(options.graph_all) / "gene_data.csv"))
-            gene_data_g2 = pd.read_csv(str(Path(graph_files.iloc[int(graph_count+1)][0])) / "gene_data.csv")
+            gene_data_g2 = pd.read_csv(str(Path(graph_files.iloc[int(graph_count+1)][0]) / "gene_data.csv"))
 
             if graph_count == 0:
-                gene_data_g1 = pd.read_csv(str(Path(graph_files.iloc[int(graph_count)][0])) / "gene_data.csv")
+                gene_data_g1 = pd.read_csv(str(Path(graph_files.iloc[int(graph_count)][0]) / "gene_data.csv"))
             else:
                 gene_data_g1 = [""]
                 # not necessary because merged graph already has gene_all seqIDs mapped
