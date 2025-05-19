@@ -430,7 +430,7 @@ def main():
 
         # write new pan-genome references to CSV
         reference_out = str(Path(options.outdir) / "pan_genome_reference_{graph_count+1}.fa")
-        pangenome_reference_merged.to_csv(reference_out)
+        pan_genome_reference_merged.to_csv(reference_out)
 
         graph_count += 1
 
