@@ -227,15 +227,15 @@ def main():
         # metadata within the graph)
         # it doesn't map anything between the two graphs
 
-        #if graph == 0:
-        mapping_groups_1 = dict()
-        for node in graph_1.nodes():
-            node_group = graph_1.nodes[node].get("name", "error")
-            #print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
-            mapping_groups_1[node] = str(node_group)
-        groupmapped_graph_1 = nx.relabel_nodes(graph_1, mapping_groups_1, copy=False)
-        #else:
-        #    groupmapped_graph_1 = graph_1
+        if graph == 0:
+            mapping_groups_1 = dict()
+            for node in graph_1.nodes():
+                node_group = graph_1.nodes[node].get("name", "error")
+                #print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
+                mapping_groups_1[node] = str(node_group)
+            groupmapped_graph_1 = nx.relabel_nodes(graph_1, mapping_groups_1, copy=False)
+        else:
+            groupmapped_graph_1 = graph_1
 
         mapping_groups_2 = dict()
         for node in graph_2.nodes():
@@ -323,16 +323,20 @@ def main():
                 # add centroid from pan_genome_reference.fa to new merged reference
                 # temporarily just take the sequence from any seqID in node
 
+                print("relabeled_graph_2.nodes[node]name :", relabeled_graph_2.nodes[node]["name"])
+
                 if graph_count != 0:
                     mapping_groups_new = dict()
                     node_group = merged_graph.nodes[node].get("name", "error")
-                    print("node_group", node_group)
+                    print("node_group", node_group) # should be group_xxx
                     mapping_groups_new[int(node)] = str(f'{node_group}_{graph_count+1}')
                     merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
-                    merged_graph.nodes[node]["name"] = str(node_group)
+                    merged_graph.nodes[node]["name"] = str(f'{node_group}_{graph_count+1}')
 
-                node_centroid = next(iter(merged_graph.nodes[f'{node}']["seqIDs"]))
+                node_centroid = next(iter(merged_graph.nodes[f'{node}']["seqIDs"])) ### ISSUE!
+                print("node_centroid", node_centroid)
                 node_centroid = gene_data_all_new.loc[gene_data_all_new["clustering_id"] == node_centroid, "dna_sequence"].values
+                print("node_centroid", node_centroid)
                 node_centroid = node_centroid[0] # list to string; double check that this doesn't remove centroids
 
                 #node_name = merged_graph.nodes[node].get("name", "error")
