@@ -325,9 +325,9 @@ def main():
                                     seqIDs=relabeled_graph_2.nodes[node]["seqIDs"])
 
                 # add centroid from pan_genome_reference.fa to new merged reference
-                # temporarily just take sequence from first seqID in node
+                # temporarily just take the sequence from any seqID in node
                 
-                node_centroid = merged_graph.nodes[node]["seqIDs"][0]
+                node_centroid = next(iter(merged_graph.nodes[node]["seqIDs"]))
                 print("node_centroid", node_centroid)
 
                 node_centroid = gene_data_all_new[gene_data_all_new["clustering_id"] == node_centroid]
@@ -336,7 +336,7 @@ def main():
                 node_centroid = node_centroid[["dna_sequence"]]
                 print("node_centroid", node_centroid)
 
-                node_centroid = [str("> " / str(node) / "\n" / node_centroid)]
+                node_centroid = [str("> ", str(node), "\n", str(node_centroid))]
                 print("node_centroid", node_centroid)
 
                 pan_genome_reference_merged = concat([pan_genome_reference_merged, node_centroid])
