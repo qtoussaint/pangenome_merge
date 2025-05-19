@@ -334,7 +334,7 @@ def main():
                 merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
                 merged_graph.nodes[f'{node_group}_{graph_count+1}']["name"] = str(f'{node_group}_{graph_count+1}')
 
-                print("merged_graph.nodes[node][name]", merged_graph.nodes[node]["name"])
+                print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][name]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["name"])
                 print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][seqIDs]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])
 
                 node_centroid = next(iter(merged_graph.nodes[f'{node_group}']["seqIDs"])) ### ISSUE!
