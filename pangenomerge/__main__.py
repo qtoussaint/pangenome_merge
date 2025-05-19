@@ -323,19 +323,22 @@ def main():
                 node_centroid = next(iter(merged_graph.nodes[node]["seqIDs"]))
                 #print("node_centroid", node_centroid)
 
-                node_centroid = gene_data_all_new[gene_data_all_new["clustering_id"] == node_centroid]
+                node_centroid = gene_data_all_new[gene_data_all_new["clustering_id"] == node_centroid]["dna_sequence"]
                 #print("node_centroid", node_centroid)
 
-                node_centroid = node_centroid[["dna_sequence"]]
+                #node_centroid = node_centroid[["dna_sequence"]]
                 #print("node_centroid", node_centroid)
+
+                node_centroid = gene_data_all_new.loc[gene_data_all_new["clustering_id"] == node_centroid, "dna_sequence"].values
+                print(node_centroid)
 
                 #node_centroid = f">{node}\n{node_centroid}"
                 node_centroid_df = pd.DataFrame([[f"{node}_{graph_count+1}", node_centroid]],
                                 columns=["id", "sequence"])
-                print("node_centroid", node_centroid_df)
+                #print("node_centroid", node_centroid_df)
 
                 pan_genome_reference_merged = pd.concat([pan_genome_reference_merged, node_centroid_df])
-                print(pan_genome_reference_merged)
+                #print(pan_genome_reference_merged)
 
                 label = f"{node}_{graph_count}"
                 merged_graph.nodes[node]["label"] = label
@@ -429,8 +432,8 @@ def main():
         nx.write_gml(merged_graph, str(output_path))
 
         # write new pan-genome references to CSV
-        reference_out = str(Path(options.outdir) / "pan_genome_reference_{graph_count+1}.fa")
-        pan_genome_reference_merged.to_csv(reference_out)
+        reference_out = str(Path(options.outdir) / f"pan_genome_reference_{graph_count+1}.fa")
+        pan_genome_reference_merged.to_csv(reference_out, header=False)
 
         graph_count += 1
 
