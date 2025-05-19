@@ -227,13 +227,15 @@ def main():
         # metadata within the graph)
         # it doesn't map anything between the two graphs
 
-        mapping_groups_1 = dict()
-        for node in graph_1.nodes():
-            node_group = graph_1.nodes[node].get("name", "error")
-            #print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
-            mapping_groups_1[int(node)] = str(node_group)
-
-        groupmapped_graph_1 = nx.relabel_nodes(graph_1, mapping_groups_1, copy=False)
+        if graph == 0:
+            mapping_groups_1 = dict()
+            for node in graph_1.nodes():
+                node_group = graph_1.nodes[node].get("name", "error")
+                #print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
+                mapping_groups_1[int(node)] = str(node_group)
+            groupmapped_graph_1 = nx.relabel_nodes(graph_1, mapping_groups_1, copy=False)
+        else:
+            groupmapped_graph_1 = graph_1
 
         mapping_groups_2 = dict()
         for node in graph_2.nodes():
@@ -297,9 +299,6 @@ def main():
         pan_genome_reference_merged = pd.DataFrame(group)
 
         #print("pan_genome_reference_merged: ", pan_genome_reference_merged)
-
-        #pan_genome_reference_merged = SeqIO.parse(open(pangenome_reference_g1),'fasta')
-        #pan_genome_reference_newnodes = SeqIO.parse(open(pangenome_reference_g2),'fasta')
 
         gene_data_all_new = pd.read_csv(str(Path(options.graph_all) / "gene_data.csv"))
 
