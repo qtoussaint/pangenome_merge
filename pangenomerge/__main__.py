@@ -263,12 +263,12 @@ def main():
         relabeled_graph_2 = nx.relabel_nodes(groupmapped_graph_2, mapping, copy=False)
 
         # relabel query graph
-        if graph_count == 0:
-            mapping_query = dict(zip(groupmapped_graph_1.nodes, groupmapped_graph_1.nodes))
-            mapping_query = {key: f"{value}_query" for key, value in mapping_query.items()}
-            relabeled_graph_1 = nx.relabel_nodes(groupmapped_graph_1, mapping_query, copy=False)
-        else:
-            relabeled_graph_1 = graph_1
+        #if graph_count == 0:
+        mapping_query = dict(zip(groupmapped_graph_1.nodes, groupmapped_graph_1.nodes))
+        mapping_query = {key: f"{value}_query" for key, value in mapping_query.items()}
+        relabeled_graph_1 = nx.relabel_nodes(groupmapped_graph_1, mapping_query, copy=False)
+        #else:
+        #    relabeled_graph_1 = graph_1
 
         ### need to do this to edges as well
         #print(relabeled_graph_1.edges)
@@ -317,6 +317,7 @@ def main():
 
                 # add node
                 merged_graph.add_node(node,
+                                    name=relabeled_graph_2.nodes[node]["name"],
                                     seqIDs=relabeled_graph_2.nodes[node]["seqIDs"])
                                     #centroid=relabeled_graph_2.nodes[node]["centroid"]) # note: still in indSID format!!
 
@@ -338,8 +339,14 @@ def main():
                 pan_genome_reference_merged = pd.concat([pan_genome_reference_merged, node_centroid_df])
                 #print(pan_genome_reference_merged)
 
-                label = f"{node}_{graph_count}"
-                merged_graph.nodes[node]["label"] = label
+                node_group = relabeled_graph_2.nodes[node].get("name", "error")
+                #print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
+                mapping_groups_2[int(node)] = str(node_group)
+
+                node_name = merged_graph.nodes[node].get("name", error)
+                label = f"{node_name}_{graph_count}"
+                print("label :", label)
+                merged_graph.nodes[node]["name"] = label
                 
                 #node_centroid = pan_genome_reference_newnodes[str(node).removesuffix("_query")]
                 #pan_genome_reference_merged = concat([pan_genome_reference_merged, node_centroid])
