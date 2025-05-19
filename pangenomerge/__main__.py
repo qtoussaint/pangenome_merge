@@ -327,10 +327,10 @@ def main():
                     mapping_groups_new = dict()
                     node_group = merged_graph.nodes[node].get("name", "error")
                     mapping_groups_new[int(node)] = str(f'{node_group}_{graph_count+1}')
-                    node_group = str(f'{node_group}_{graph_count+1}')
+                    node = str(f'{node_group}_{graph_count+1}')
                     merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
 
-                node_centroid = next(iter(merged_graph.nodes[node_group]["seqIDs"]))
+                node_centroid = next(iter(merged_graph.nodes[node]["seqIDs"]))
                 node_centroid = gene_data_all_new.loc[gene_data_all_new["clustering_id"] == node_centroid, "dna_sequence"].values
                 node_centroid = node_centroid[0] # list to string; double check that this doesn't remove centroids
 
@@ -339,7 +339,7 @@ def main():
                 #print("label :", label)
                 #merged_graph.nodes[node]["name"] = label
 
-                node_centroid_df = pd.DataFrame([[f"{node_group}_{graph_count+1}", node_centroid]],
+                node_centroid_df = pd.DataFrame([[f"{node}_{graph_count+1}", node_centroid]],
                                 columns=["id", "sequence"])
 
                 pan_genome_reference_merged = pd.concat([pan_genome_reference_merged, node_centroid_df])
