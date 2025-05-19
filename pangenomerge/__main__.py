@@ -85,7 +85,7 @@ def main():
             graph_file_1 = str(Path(graph_files.iloc[0][0]) / "final_graph.gml")
             graph_file_2 = str(Path(graph_files.iloc[1][0]) / "final_graph.gml")
         else:
-            graph_file_1 = [str(Path(options.outdir) / "merged_graph_" / str(int(graph_count-1)) / ".gml")]
+            graph_file_1 = [str(Path(options.outdir) / "merged_graph_" / str(int(graph_count)) / ".gml")]
             graph_file_2 = [str(Path(graph_files.iloc[int(graph_count)][0])) / "final_graph.gml"]
 
         print("graph_file_1: ", graph_file_1)
@@ -169,7 +169,7 @@ def main():
         if graph_count == 0:
             pangenome_reference_g1 = str(Path(graph_files.iloc[0][0]) / "pan_genome_reference.fa")
         else:
-            pangenome_reference_g1 = str(Path(options.outdir) / "pan_genome_reference_" / str(int(graph_count-1)) / ".fa")
+            pangenome_reference_g1 = str(Path(options.outdir) / "pan_genome_reference_" / str(int(graph_count)) / ".fa")
         
         pangenome_reference_g2 = str(Path(graph_files.iloc[int(graph_count+1)][0]) / "pan_genome_reference.fa")
 
@@ -336,6 +336,9 @@ def main():
 
                 pan_genome_reference_merged = pd.concat([pan_genome_reference_merged, node_centroid_df])
                 print(pan_genome_reference_merged)
+
+                label = f"{node}_{graph_count}"
+                merged_graph.nodes[node]["label"] = label
                 
                 #node_centroid = pan_genome_reference_newnodes[str(node).removesuffix("_query")]
                 #pan_genome_reference_merged = concat([pan_genome_reference_merged, node_centroid])
@@ -409,11 +412,13 @@ def main():
             adj_mutual_info = adjusted_mutual_info_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
             print(f"Adjusted Mutual Information: {adj_mutual_info}")
 
-
         for node in merged_graph.nodes():
-            nx.relabel_nodes(node, "{node}_{graph_count+1}")
-            merged_graph.nodes[node] = merged_graph.nodes[node].removesuffix('_query')
-            merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs'])
+            label = label.removesuffix('_query')
+
+        #for node in merged_graph.nodes():
+        #    nx.relabel_nodes(node, "{node}_{graph_count}")
+        #    merged_graph.nodes[node] = merged_graph.nodes[node].removesuffix('_query')
+        #    merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs'])
             
         #format_metadata_for_gml(merged_graph)
         
@@ -429,7 +434,7 @@ def main():
 
         graph_count += 1
 
-        print("Iteration complete. Merging next graph...")
+        print(f"Iteration {graph_count} complete. Merging next graph...")
 
     print('Finished successfully.')
 
