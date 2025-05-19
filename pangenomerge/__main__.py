@@ -330,7 +330,7 @@ def main():
                     node = str(f'{node_group}_{graph_count+1}')
                     merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
 
-                node_centroid = next(iter(merged_graph.nodes[node]["seqIDs"]))
+                node_centroid = next(iter(merged_graph.nodes[f'{node}']["seqIDs"]))
                 node_centroid = gene_data_all_new.loc[gene_data_all_new["clustering_id"] == node_centroid, "dna_sequence"].values
                 node_centroid = node_centroid[0] # list to string; double check that this doesn't remove centroids
 
@@ -414,14 +414,17 @@ def main():
             adj_mutual_info = adjusted_mutual_info_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
             print(f"Adjusted Mutual Information: {adj_mutual_info}")
 
-        for node in merged_graph.nodes():
-            label = label.removesuffix('_query')
 
         for node in merged_graph.nodes():
         #    nx.relabel_nodes(node, "{node}_{graph_count}")
         #    merged_graph.nodes[node] = merged_graph.nodes[node].removesuffix('_query')
             merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs'])
-
+            merged_graph.nodes[node]['name'] = merged_graph.nodes[node]['name'].removesuffix('_query')
+            
+        mapping_query = dict(zip(merged_graph.nodes, merged_graph.nodes))
+        mapping_query = {key: f"{value.removesuffix('query')}" for key, value in mapping_query.items()}
+        merged_graph_new = nx.relabel_nodes(merged_graph, mapping_query, copy=False)
+        merged_graph = merged_graph_new
             
         #format_metadata_for_gml(merged_graph)
         
