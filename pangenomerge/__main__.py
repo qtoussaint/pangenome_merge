@@ -297,8 +297,8 @@ def main():
         merged_graph = relabeled_graph_1
 
         group = []
-        for group in SeqIO.parse(pangenome_reference_g1, "fasta"):
-            group.append({"id": group.id, "sequence": str(group.seq)})
+        for record in SeqIO.parse(pangenome_reference_g1, "fasta"):
+            group.append({"id": record.id, "sequence": str(record.seq)})
         pan_genome_reference_merged = pd.DataFrame(group)
 
         print(pan_genome_reference_merged)
