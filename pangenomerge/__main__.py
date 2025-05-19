@@ -90,7 +90,7 @@ def main():
 
     ### read in two graphs
 
-    graph_files = pd.read_csv(options.component_graphs, sep='\t')
+    graph_files = pd.read_csv(options.component_graphs, sep='\t', header=None)
     print(graph_files)
     n_graphs = int(len(graph_files))
 
