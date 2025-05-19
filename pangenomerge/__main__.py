@@ -177,10 +177,15 @@ def main():
             pangenome_reference_g1 = str(Path(graph_files.iloc[0][0]) / "pan_genome_reference.fa")
         else:
             pangenome_reference_g1 = str(Path(options.outdir) / "pan_genome_reference_" / str(int(graph_count-1)) / ".fa")
-        pangenome_reference_g2 = str(Path(options.panaroo_graph_2) / "pan_genome_reference.fa")
+        
+        pangenome_reference_g2 = str(Path(graph_files.iloc[int(graph_count+1)][0]) / "pan_genome_reference.fa")
 
+        print("pangenome_reference_g1: ", pangenome_reference_g1)
+        print("pangenome_reference_g2: ", pangenome_reference_g2)
+
+        print("Running mmseqs2...")
         run_mmseqs_easysearch(query=pangenome_reference_g1, target=pangenome_reference_g2, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"))
-
+        print("mmseqs2 complete. Reading and filtering results...")
         # read mmseqs results
         # each "group_" refers to the centroid of that group in the pan_genomes_reference.fa
         mmseqs = pd.read_csv(str(Path(options.outdir) / "mmseqs_clusters.m8"), sep='\t')
@@ -212,6 +217,9 @@ def main():
 
         # only keep the first occurrence per unique target (highest fident then smallest evalue if tie)
         mmseqs_filtered = mmseqs_sorted.groupby("target", as_index=False).first()
+
+        print("Filtered mmseqs...")
+        print("mmseqs: ", mmseqs_filtered)
 
         # in mmseqs, the first graph entered (in this case graph_1) is the query and the second entered (in this case graph_2) is the target
         # so graph_1 is our query in mmseqs and the basegraph in the tokenized merge
