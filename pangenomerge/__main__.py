@@ -169,7 +169,7 @@ def main():
         if graph_count == 0:
             pangenome_reference_g1 = str(Path(graph_files.iloc[0][0]) / "pan_genome_reference.fa")
         else:
-            pangenome_reference_g1 = str(Path(options.outdir) / "pan_genome_reference_" / str(int(graph_count)) / ".fa")
+            pangenome_reference_g1 = str(Path(options.outdir) / f"pan_genome_reference_{graph_count}.fa")
         
         pangenome_reference_g2 = str(Path(graph_files.iloc[int(graph_count+1)][0]) / "pan_genome_reference.fa")
 
