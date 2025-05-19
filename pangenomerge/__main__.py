@@ -317,7 +317,7 @@ def main():
 
                 # add node
                 merged_graph.add_node(node,
-                                    name=relabeled_graph_2.nodes[node]["name"],
+                                    name=[],
                                     seqIDs=relabeled_graph_2.nodes[node]["seqIDs"])
                                     #centroid=relabeled_graph_2.nodes[node]["centroid"]) # note: still in indSID format!!
 
@@ -332,24 +332,16 @@ def main():
                 node_centroid = node_centroid[0] # list to string; double check that this doesn't remove centroids
                 #print(node_centroid)
 
-                #node_centroid = f">{node}\n{node_centroid}"
-                node_centroid_df = pd.DataFrame([[f"{node}_{graph_count+1}", node_centroid]],
-                                columns=["id", "sequence"])
-
-                pan_genome_reference_merged = pd.concat([pan_genome_reference_merged, node_centroid_df])
-                #print(pan_genome_reference_merged)
-
-                node_group = relabeled_graph_2.nodes[node].get("name", "error")
-                #print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
-                mapping_groups_2[int(node)] = str(node_group)
-
                 node_name = merged_graph.nodes[node].get("name", error)
                 label = f"{node_name}_{graph_count}"
                 print("label :", label)
                 merged_graph.nodes[node]["name"] = label
-                
-                #node_centroid = pan_genome_reference_newnodes[str(node).removesuffix("_query")]
-                #pan_genome_reference_merged = concat([pan_genome_reference_merged, node_centroid])
+
+                node_centroid_df = pd.DataFrame([[f"{label}_{graph_count+1}", node_centroid]],
+                                columns=["id", "sequence"])
+
+                pan_genome_reference_merged = pd.concat([pan_genome_reference_merged, node_centroid_df])
+                #print(pan_genome_reference_merged)
 
         for edge in relabeled_graph_2.edges:
             
