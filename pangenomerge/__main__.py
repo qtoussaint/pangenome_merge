@@ -91,11 +91,13 @@ def main():
     ### read in two graphs
 
     graph_files = pd.read_csv(options.component_graphs, sep='\t')
-    n_graphs = len(graph_files)
+    n_graphs = int(len(graph_files))
+
+    print("n_graphs: ", n_graphs)
 
     graph_count = 0
 
-    for graph in 0..n_graphs:
+    for graph in range(1, int(n_graphs-1)):
         
         if graph_count == 0:
             graph_file_1 = str(Path(graph_files[0]) / "final_graph.gml")
