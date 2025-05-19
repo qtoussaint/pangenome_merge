@@ -145,8 +145,6 @@ def main():
             print("matches_g1", matches_g1)
             print("matches_g2", matches_g2)
 
-            break
-
             # now drop rows where the individual seqID wasn't observed (or there's no corresponding seqID from all)
             if graph_count == 0:
                 print("applying dropna...")
