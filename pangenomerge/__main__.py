@@ -125,7 +125,7 @@ def main():
 
             #print("gene_data_all: ", gene_data_all[['annotation_id', 'clustering_id_all']])
             #print("gene_data_g1: ", gene_data_g1[['annotation_id', 'clustering_id_indiv']])
-            #print("gene_data_g2: ", gene_data_g2[['annotation_id', 'clustering_id_indiv']])
+            print("gene_data_g2: ", gene_data_g2[['annotation_id', 'clustering_id_indiv']])
 
             # first match by annotation ids:
             if graph_count == 0:
@@ -143,7 +143,7 @@ def main():
             )
 
             #print("matches_g1", matches_g1)
-            #print("matches_g2", matches_g2)
+            print("matches_g2", matches_g2)
 
             # now drop rows where the individual seqID wasn't observed (or there's no corresponding seqID from all)
             if graph_count == 0:
@@ -330,14 +330,16 @@ def main():
                 node_group = merged_graph.nodes[node].get("name", "error")
                 print("node_group", node_group) # should be group_xxx
                 mapping_groups_new[int(node)] = str(f'{node_group}_{graph_count+1}')
-                merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
+                merged_graph_tmp = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
+                merged_graph = merged_graph_tmp
                 merged_graph.nodes[node]["name"] = str(f'{node_group}_{graph_count+1}')
                 print("merged_graph.nodes[node][name]", merged_graph.nodes[node]["name"])
 
                 print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][seqIDs]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])
 
-                node_centroid = next(iter(merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])) ### ISSUE!
-                # couldn't find seqID
+                node_centroid = next(iter(merged_graph.nodes[f'{node_group}']["seqIDs"])) ### ISSUE!
+                # couldn't find seqID !!
+
                 print("node_centroid", node_centroid)
                 node_centroid = gene_data_all_new.loc[gene_data_all_new["clustering_id"] == node_centroid, "dna_sequence"].values
                 print("node_centroid", node_centroid)
