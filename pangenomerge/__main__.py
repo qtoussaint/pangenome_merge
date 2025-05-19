@@ -316,13 +316,18 @@ def main():
                 # add node
                 merged_graph.add_node(node,
                                     seqIDs=relabeled_graph_2.nodes[node]["seqIDs"])
+                                    #centroid=relabeled_graph_2.nodes[node]["centroid"]) # note: still in indSID format!!
 
                 # add centroid from pan_genome_reference.fa to new merged reference
                 # temporarily just take the sequence from any seqID in node
 
+                print(merged_graph.nodes[node]["seqIDs"])
                 node_centroid = next(iter(merged_graph.nodes[node]["seqIDs"]))
+                print(node_centroid)
                 node_centroid = gene_data_all_new.loc[gene_data_all_new["clustering_id"] == node_centroid, "dna_sequence"].values
+                print(node_centroid)
                 node_centroid = node_centroid[0] # list to string; double check that this doesn't remove centroids
+                print(node_centroid)
 
                 #node_centroid = f">{node}\n{node_centroid}"
                 node_centroid_df = pd.DataFrame([[f"{node}_{graph_count+1}", node_centroid]],
