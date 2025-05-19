@@ -327,8 +327,8 @@ def main():
                     mapping_groups_new = dict()
                     node_group = merged_graph.nodes[node].get("name", "error")
                     mapping_groups_new[int(node)] = str(f'{node_group}_{graph_count+1}')
-                    node = str(f'{node_group}_{graph_count+1}')
                     merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
+                    merged_graph.nodes[node]["name"] = str(node_group)
 
                 node_centroid = next(iter(merged_graph.nodes[f'{node}']["seqIDs"]))
                 node_centroid = gene_data_all_new.loc[gene_data_all_new["clustering_id"] == node_centroid, "dna_sequence"].values
