@@ -301,12 +301,14 @@ def main():
             group.append({"id": record.id, "sequence": str(record.seq)})
         pan_genome_reference_merged = pd.DataFrame(group)
 
-        print(pan_genome_reference_merged)
+        print("pan_genome_reference_merged: ", an_genome_reference_merged)
 
         #pan_genome_reference_merged = SeqIO.parse(open(pangenome_reference_g1),'fasta')
         #pan_genome_reference_newnodes = SeqIO.parse(open(pangenome_reference_g2),'fasta')
 
         gene_data_all_new = pd.read_csv(str(Path(options.graph_all) / "gene_data.csv"))
+
+        print("gene_data_all_new: ", gene_data_all_new)
         
         # merge the two sets of unique nodes into one set of unique nodes
         for node in relabeled_graph_2.nodes:
@@ -326,12 +328,17 @@ def main():
                 # temporarily just take sequence from first seqID in node
                 
                 node_centroid = merged_graph.nodes[node]["seqIDs"][0]
+                print(node_centroid)
+
                 node_centroid = gene_data_all_new[gene_data_all_new["clustering_id"] == node_centroid]
+                print(node_centroid)
+
                 node_centroid = node_centroid[["dna_sequence"]]
                 print(node_centroid)
-                node_centroid = [str("> " / str(node) / "\n" / node_centroid)]
 
+                node_centroid = [str("> " / str(node) / "\n" / node_centroid)]
                 print(node_centroid)
+
                 pan_genome_reference_merged = concat([pan_genome_reference_merged, node_centroid])
                 print(pan_genome_reference_merged)
                 
