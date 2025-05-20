@@ -254,7 +254,6 @@ def main():
         # convert df to dictionary with "target" as keys and "query" as values
         # this maps groups from graph_1 to groups from graph_2
         mapping = dict(zip(mmseqs_filtered["target"], mmseqs_filtered["query"]))
-        print("mapping", mapping)
 
         ### to avoid matching nodes from target that have the same group_id but are not the same:
         # append all nodes in query graph with _query
