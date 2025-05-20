@@ -229,7 +229,7 @@ def main():
         # metadata within the graph)
         # it doesn't map anything between the two graphs
 
-        if graph == 0:
+        if graph_count == 0:
             mapping_groups_1 = dict()
             for node in graph_1.nodes():
                 node_group = graph_1.nodes[node].get("name", "error")
@@ -263,24 +263,17 @@ def main():
         # this appends _query to values (graph_1/query groups)
         mapping = {key: f"{value}_query" for key, value in mapping.items()}
 
-        print("mapping", mapping)
-
-
         # relabel target graph from old labels (keys) to new labels (values, the _query-appended graph_1 groups)
         # MUST SET COPY=FALSE OR NODES NOT IN MAPPING WILL BE DROPPED
         relabeled_graph_2 = nx.relabel_nodes(groupmapped_graph_2, mapping, copy=False)
-        print(relabeled_graph_2.nodes())
 
         # relabel query graph
         #if graph_count == 0:
         mapping_query = dict(zip(groupmapped_graph_1.nodes, groupmapped_graph_1.nodes))
         mapping_query = {key: f"{value}_query" for key, value in mapping_query.items()}
         relabeled_graph_1 = nx.relabel_nodes(groupmapped_graph_1, mapping_query, copy=False)
-        print(relabeled_graph_2.nodes())
         #else:
         #    relabeled_graph_1 = graph_1
-
-        break
 
         ### need to do this to edges as well
         #print(relabeled_graph_1.edges)
