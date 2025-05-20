@@ -280,6 +280,8 @@ def main():
         #else:
         #    relabeled_graph_1 = graph_1
 
+        break
+
         ### need to do this to edges as well
         #print(relabeled_graph_1.edges)
         #print(relabeled_graph_2.edges)
