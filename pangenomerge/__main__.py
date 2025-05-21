@@ -332,12 +332,13 @@ def main():
                 #print("merged_graph.nodes[node][name]", merged_graph.nodes[node]["name"])
                 print("merged_graph.nodes[node][seqIDs]", merged_graph.nodes[node]["seqIDs"])
 
-                break
-
                 #if graph_count != 0:
                 mapping_groups_new = dict()
-                node_group = merged_graph.nodes[node].get("name", "error")
+                node_group = relabeled_graph_2.nodes[node].get("name", "error")
                 print("node_group", node_group) # should be group_xxx from graph_2 gene data
+
+                break
+
                 mapping_groups_new[node] = f'{node_group}_{graph_count+1}'
                 print("mapping_groups_new", mapping_groups_new)
                 merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
