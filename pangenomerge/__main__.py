@@ -356,6 +356,8 @@ def main():
                                 columns=["id", "sequence"])
 
                 pan_genome_reference_merged = pd.concat([pan_genome_reference_merged, node_centroid_df])
+
+                break
                 #print(pan_genome_reference_merged)
 
         for edge in relabeled_graph_2.edges:
