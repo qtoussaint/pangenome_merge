@@ -332,7 +332,7 @@ def main():
                 #print("merged_graph.nodes[node][name]", merged_graph.nodes[node]["name"])
                 print("merged_graph.nodes[node][seqIDs]", merged_graph.nodes[node]["seqIDs"])
 
-
+                break
 
                 #if graph_count != 0:
                 mapping_groups_new = dict()
