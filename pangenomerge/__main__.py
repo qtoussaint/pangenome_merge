@@ -326,7 +326,7 @@ def main():
                 # temporarily just take the sequence from any seqID in node
 
                 print("relabeled_graph_2.nodes[node]name :", relabeled_graph_2.nodes[node]["name"])
-                print("relabeled_graph_2.nodes[node]label :", relabeled_graph_2.nodes[node]["label"])
+                #print("relabeled_graph_2.nodes[node]label :", relabeled_graph_2.nodes[node]["label"])
 
 
                 #if graph_count != 0:
