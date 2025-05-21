@@ -318,6 +318,7 @@ def main():
 
                 # add node
                 merged_graph.add_node(node,
+                                    label=relabeled_graph_2.nodes[node]["label"],
                                     name=relabeled_graph_2.nodes[node]["name"], # group in graph_2, NOT gene data all!
                                     seqIDs=relabeled_graph_2.nodes[node]["seqIDs"])
                                     #centroid=relabeled_graph_2.nodes[node]["centroid"]) # note: still in indSID format!!
@@ -326,6 +327,8 @@ def main():
                 # temporarily just take the sequence from any seqID in node
 
                 print("relabeled_graph_2.nodes[node]name :", relabeled_graph_2.nodes[node]["name"])
+                print("relabeled_graph_2.nodes[node]label :", relabeled_graph_2.nodes[node]["label"])
+
 
                 #if graph_count != 0:
                 mapping_groups_new = dict()
@@ -334,9 +337,9 @@ def main():
                 mapping_groups_new[node] = f'{node_group}_{graph_count+1}'
                 print("mapping_groups_new", mapping_groups_new)
                 merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
-                merged_graph.nodes[f'{node_group}_{graph_count+1}']["name"] = str(f'{node_group}_{graph_count+1}')
+                #merged_graph.nodes[f'{node_group}_{graph_count+1}']["label"] = str(f'{node_group}_{graph_count+1}')
 
-                print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][name]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["name"])
+                print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][label]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["label"])
                 print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][seqIDs]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])
 
                 node_centroid = next(iter(merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])) ### ISSUE!
