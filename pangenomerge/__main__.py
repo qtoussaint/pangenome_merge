@@ -319,7 +319,7 @@ def main():
             if merged_graph.has_node(node) == False:
 
                 # add node
-                merged_graph.add_node(node, seqIDs=relabeled_graph_2.nodes[node]["seqIDs"])
+                merged_graph.add_node(node, seqIDs=list(set(relabeled_graph_2.nodes[node]["seqIDs"])))
                                     #centroid=relabeled_graph_2.nodes[node]["centroid"]) # note: still in indSID format!!
 
                 # add centroid from pan_genome_reference.fa to new merged reference
