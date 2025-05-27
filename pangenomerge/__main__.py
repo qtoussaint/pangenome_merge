@@ -406,10 +406,10 @@ def main():
             seq_ids_1 = []
 
 
-            for thing in merged_graph.nodes():
+            for node in merged_graph.nodes():
                 #print("node", node)
 #                print("merged_graph.nodes['group_52_1']", merged_graph.nodes['group_52_1']['seqIDs'])
-                seq_ids_1 += merged_graph.nodes[thing]["seqIDs"]
+                seq_ids_1 += merged_graph.nodes[node]["seqIDs"]
                 
             seq_ids_2 = []
             for node in graph_all.nodes():
