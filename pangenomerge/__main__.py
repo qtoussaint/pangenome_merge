@@ -312,11 +312,22 @@ def main():
         for node in relabeled_graph_2.nodes:
             if merged_graph.has_node(node) == True:
 
+
+                if node == "group_52":
+                    print("has_node group_52")
+                if node == "group_52_1":
+                    print("has_node group_52_1")
+
                 # add metadata
                 merged_set = list(set(relabeled_graph_2.nodes[node]["seqIDs"]) | set(relabeled_graph_1.nodes[node]["seqIDs"]))
                 merged_graph.nodes[node]["seqIDs"] = merged_set
 
             if merged_graph.has_node(node) == False:
+
+                if node == "group_52":
+                    print("does not have node group_52")
+                if node == "group_52_1":
+                    print("does not have group_52_1")
 
                 # add node
                 merged_graph.add_node(node, seqIDs=list(set(relabeled_graph_2.nodes[node]["seqIDs"])))
@@ -366,7 +377,7 @@ def main():
 
                 pan_genome_reference_merged = pd.concat([pan_genome_reference_merged, node_centroid_df])
 
-                #print(pan_genome_reference_merged)
+        print(pan_genome_reference_merged)
 
         for edge in relabeled_graph_2.edges:
             
@@ -389,11 +400,13 @@ def main():
 
             # obtain shared seq_ids
             seq_ids_1 = []
-            for node in merged_graph.nodes:
+            for node in merged_graph.nodes():
+                #print("node", node)
+#                print("merged_graph.nodes['group_52_1']", merged_graph.nodes['group_52_1']['seqIDs'])
                 seq_ids_1 += merged_graph.nodes[node]["seqIDs"]
                 
             seq_ids_2 = []
-            for node in graph_all.nodes:
+            for node in graph_all.nodes():
                 seq_ids_2 += graph_all.nodes[node]["seqIDs"]
                 
             seq_ids_1 = set(seq_ids_1)
