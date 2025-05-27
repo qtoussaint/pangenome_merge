@@ -326,33 +326,34 @@ def main():
                 # temporarily just take the sequence from any seqID in node
 
                 # print("relabeled_graph_2.nodes[node]name :", relabeled_graph_2.nodes[node]["name"])
-                print("relabeled_graph_2.nodes[node]seqIDs :", relabeled_graph_2.nodes[node]["seqIDs"])
+                #print("relabeled_graph_2.nodes[node]seqIDs :", relabeled_graph_2.nodes[node]["seqIDs"])
 
                 #print("relabeled_graph_2.nodes[node]label :", relabeled_graph_2.nodes[node]["label"])
                 #print("merged_graph.nodes[node][name]", merged_graph.nodes[node]["name"])
-                print("merged_graph.nodes[node][seqIDs]", merged_graph.nodes[node]["seqIDs"])
+                #print("merged_graph.nodes[node][seqIDs]", merged_graph.nodes[node]["seqIDs"])
+                
+                #print("node", node)
 
                 #if graph_count != 0:
                 mapping_groups_new = dict()
                 node_group = relabeled_graph_2.nodes[node].get("name", "error")
-                print("node_group", node_group) # should be group_xxx from graph_2 gene data
-
-                break
+                #print("node_group", node_group) # should be group_xxx from graph_2 gene data
 
                 mapping_groups_new[node] = f'{node_group}_{graph_count+1}'
-                print("mapping_groups_new", mapping_groups_new)
+                #print("mapping_groups_new[node]", mapping_groups_new[node])
                 merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
                 #merged_graph.nodes[f'{node_group}_{graph_count+1}']["label"] = str(f'{node_group}_{graph_count+1}')
 
                 #print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][label]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["label"])
-                print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][seqIDs]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])
+                #print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][seqIDs]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])
+                
+                # for centroids of nodes already in main graph, turn graph_1 node centroids into all_seqIDs then leave them that way forever (instead of updating with new centroids)
+                # to prevent centroids from drifting away over time, and instead maintain consistency
+                node_centroid = next(iter(merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"]))
 
-                node_centroid = next(iter(merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])) ### ISSUE!
-                # couldn't find seqID !!
-
-                print("node_centroid", node_centroid)
+                #print("node_centroid", node_centroid)
                 node_centroid = gene_data_all_new.loc[gene_data_all_new["clustering_id"] == node_centroid, "dna_sequence"].values
-                print("node_centroid", node_centroid)
+                #print("node_centroid", node_centroid)
                 node_centroid = node_centroid[0] # list to string; double check that this doesn't remove centroids
 
                 #node_name = merged_graph.nodes[node].get("name", "error")
@@ -365,7 +366,6 @@ def main():
 
                 pan_genome_reference_merged = pd.concat([pan_genome_reference_merged, node_centroid_df])
 
-                break
                 #print(pan_genome_reference_merged)
 
         for edge in relabeled_graph_2.edges:
