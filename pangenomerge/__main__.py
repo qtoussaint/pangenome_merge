@@ -354,8 +354,10 @@ def main():
                 #print("mapping_groups_new[node]", mapping_groups_new[node])
                 merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
                 #merged_graph.nodes[f'{node_group}_{graph_count+1}']["label"] = str(f'{node_group}_{graph_count+1}')
-
-                #print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][label]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["label"])
+                
+                if node == "group_52":
+                    print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][seqIDs]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])
+                    #print("merged_graph.nodes[f'group_52'][seqIDs]", merged_graph.nodes['group_52']["seqIDs"])
                 #print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][seqIDs]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])
                 
                 # for centroids of nodes already in main graph, turn graph_1 node centroids into all_seqIDs then leave them that way forever (instead of updating with new centroids)
@@ -377,7 +379,9 @@ def main():
 
                 pan_genome_reference_merged = pd.concat([pan_genome_reference_merged, node_centroid_df])
 
-        print(pan_genome_reference_merged)
+        print("pangenome reference merged!!", pan_genome_reference_merged)
+        print("pangenome reference merged id=group_52", pan_genome_reference_merged.loc[pan_genome_reference_merged["id"]=='group_52'])
+        print("pangenome reference merged id=group_52_1", pan_genome_reference_merged.loc[pan_genome_reference_merged["id"]=='group_52_1'])
 
         for edge in relabeled_graph_2.edges:
             
@@ -400,10 +404,12 @@ def main():
 
             # obtain shared seq_ids
             seq_ids_1 = []
-            for node in merged_graph.nodes():
+
+
+            for thing in merged_graph.nodes():
                 #print("node", node)
 #                print("merged_graph.nodes['group_52_1']", merged_graph.nodes['group_52_1']['seqIDs'])
-                seq_ids_1 += merged_graph.nodes[node]["seqIDs"]
+                seq_ids_1 += merged_graph.nodes[thing]["seqIDs"]
                 
             seq_ids_2 = []
             for node in graph_all.nodes():
