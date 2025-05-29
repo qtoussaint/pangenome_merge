@@ -358,7 +358,7 @@ def main():
                 
                 if node == "group_52":
                     print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][seqIDs]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])
-                    #print("merged_graph.nodes[f'group_52'][seqIDs]", merged_graph.nodes['group_52']["seqIDs"])
+                    print("merged_graph.nodes[f'group_52'][seqIDs]", merged_graph.nodes['group_52']["seqIDs"])
                 #print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][seqIDs]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])
                 
                 # for centroids of nodes already in main graph, turn graph_1 node centroids into all_seqIDs then leave them that way forever (instead of updating with new centroids)
@@ -408,8 +408,8 @@ def main():
 
 
             for node in merged_graph.nodes():
-                #print("node", node)
-#                print("merged_graph.nodes['group_52_1']", merged_graph.nodes['group_52_1']['seqIDs'])
+                print("node", node)
+                print("merged_graph.nodes['group_52_1']", merged_graph.nodes['group_52_1']['seqIDs'])
                 seq_ids_1 += merged_graph.nodes[node]["seqIDs"]
                 
             seq_ids_2 = []
