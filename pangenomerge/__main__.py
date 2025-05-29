@@ -330,7 +330,8 @@ def main():
                     print("does not have group_52_1")
 
                 # add node
-                merged_graph.add_node(node, seqIDs=list(set(relabeled_graph_2.nodes[node]["seqIDs"])))
+                merged_graph.add_node(node,
+                                    seqIDs=relabeled_graph_2.nodes[node]["seqIDs"])
                                     #centroid=relabeled_graph_2.nodes[node]["centroid"]) # note: still in indSID format!!
 
                 # add centroid from pan_genome_reference.fa to new merged reference
@@ -348,7 +349,7 @@ def main():
                 #if graph_count != 0:
                 mapping_groups_new = dict()
                 node_group = relabeled_graph_2.nodes[node].get("name", "error")
-                #print("node_group", node_group) # should be group_xxx from graph_2 gene data
+                print("node_group", node_group) # should be group_xxx from graph_2 gene data
 
                 mapping_groups_new[node] = f'{node_group}_{graph_count+1}'
                 #print("mapping_groups_new[node]", mapping_groups_new[node])
