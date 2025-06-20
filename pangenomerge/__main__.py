@@ -97,6 +97,8 @@ def main():
         graph_1 = graph_1[0]
         graph_2 = graph_2[0]
 
+        print(f"{graph_1.edges}")
+
         if options.mode == 'test':
 
             ### match clustering_ids from overall run to clustering_ids from individual runs using annotation_ids (test only)
@@ -322,7 +324,7 @@ def main():
                 merged_set = list(set(relabeled_graph_2.nodes[node]["seqIDs"]) | set(relabeled_graph_1.nodes[node]["seqIDs"]))
                 merged_graph.nodes[node]["seqIDs"] = merged_set
 
-            if merged_graph.has_node(node) == False:
+            else:
 
                 if node == "group_52":
                     print("does not have node group_52")
@@ -354,11 +356,12 @@ def main():
                 mapping_groups_new[node] = f'{node_group}_{graph_count+1}'
                 #print("mapping_groups_new[node]", mapping_groups_new[node])
                 merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
+
                 #merged_graph.nodes[f'{node_group}_{graph_count+1}']["label"] = str(f'{node_group}_{graph_count+1}')
                 
                 if node == "group_52":
                     print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][seqIDs]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])
-                    print("merged_graph.nodes[f'group_52'][seqIDs]", merged_graph.nodes['group_52']["seqIDs"])
+                    print("merged_graph.nodes[f'group_52']", merged_graph.nodes['group_52'])
                 #print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][seqIDs]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])
                 
                 # for centroids of nodes already in main graph, turn graph_1 node centroids into all_seqIDs then leave them that way forever (instead of updating with new centroids)
@@ -380,18 +383,21 @@ def main():
 
                 pan_genome_reference_merged = pd.concat([pan_genome_reference_merged, node_centroid_df])
 
-        print("pangenome reference merged!!", pan_genome_reference_merged)
-        print("pangenome reference merged id=group_52", pan_genome_reference_merged.loc[pan_genome_reference_merged["id"]=='group_52'])
-        print("pangenome reference merged id=group_52_1", pan_genome_reference_merged.loc[pan_genome_reference_merged["id"]=='group_52_1'])
-
         for edge in relabeled_graph_2.edges:
             
                 if merged_graph.has_edge(edge[0], edge[1]):
 
+                    # add bit to add edge metadata here
+
                     break
 
-                if not merged_graph.has_edge(edge[0], edge[1]):
-                    merged_graph.add_edge(edge[0], edge[1])
+                else:
+
+                    # note that this statement is for NODES not EDGES
+                    if (edge[0] in merged_graph.nodes() == True) and (edge[1] in merged_graph.nodes() == True):
+                        merged_graph.add_edge(edge[0], edge[1])
+                    else:
+                        print(f"Nodes in edge not present in merged graph (discarded): {edge}")
         
         if options.mode == 'test' and graph_count == (n_graphs-2):
 
@@ -409,8 +415,9 @@ def main():
 
             for node in merged_graph.nodes():
                 print("node", node)
-                print("merged_graph.nodes['group_52_1']", merged_graph.nodes['group_52_1']['seqIDs'])
-                seq_ids_1 += merged_graph.nodes[node]["seqIDs"]
+                #if node in merged_graph.nodes:
+                    #print(f"merged_graph.nodes[node]['seqIDs']: {merged_graph.nodes[node]['seqIDs']}")
+                #seq_ids_1 += merged_graph.nodes[node]["seqIDs"]
                 
             seq_ids_2 = []
             for node in graph_all.nodes():
