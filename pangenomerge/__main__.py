@@ -315,10 +315,10 @@ def main():
             if merged_graph.has_node(node) == True:
 
 
-                if node == "group_52":
-                    print("has_node group_52")
-                if node == "group_52_1":
-                    print("has_node group_52_1")
+                #if node == "group_52":
+                #    print("has_node group_52")
+                #if node == "group_52_1":
+                #    print("has_node group_52_1")
 
                 # add metadata
                 merged_set = list(set(relabeled_graph_2.nodes[node]["seqIDs"]) | set(relabeled_graph_1.nodes[node]["seqIDs"]))
@@ -326,10 +326,10 @@ def main():
 
             else:
 
-                if node == "group_52":
-                    print("does not have node group_52")
-                if node == "group_52_1":
-                    print("does not have group_52_1")
+                #if node == "group_52":
+                #    print("does not have node group_52")
+                #if node == "group_52_1":
+                #    print("does not have group_52_1")
 
                 # add node
                 merged_graph.add_node(node,
@@ -339,16 +339,6 @@ def main():
                 # add centroid from pan_genome_reference.fa to new merged reference
                 # temporarily just take the sequence from any seqID in node
 
-                # print("relabeled_graph_2.nodes[node]name :", relabeled_graph_2.nodes[node]["name"])
-                #print("relabeled_graph_2.nodes[node]seqIDs :", relabeled_graph_2.nodes[node]["seqIDs"])
-
-                #print("relabeled_graph_2.nodes[node]label :", relabeled_graph_2.nodes[node]["label"])
-                #print("merged_graph.nodes[node][name]", merged_graph.nodes[node]["name"])
-                #print("merged_graph.nodes[node][seqIDs]", merged_graph.nodes[node]["seqIDs"])
-                
-                #print("node", node)
-
-                #if graph_count != 0:
                 mapping_groups_new = dict()
                 node_group = relabeled_graph_2.nodes[node].get("name", "error")
                 print("node_group", node_group) # should be group_xxx from graph_2 gene data
@@ -359,45 +349,86 @@ def main():
 
                 #merged_graph.nodes[f'{node_group}_{graph_count+1}']["label"] = str(f'{node_group}_{graph_count+1}')
                 
-                if node == "group_52":
-                    print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][seqIDs]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])
-                    print("merged_graph.nodes[f'group_52']", merged_graph.nodes['group_52'])
-                #print("merged_graph.nodes[f'{node_group}_{graph_count+1}'][seqIDs]", merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"])
-                
                 # for centroids of nodes already in main graph, turn graph_1 node centroids into all_seqIDs then leave them that way forever (instead of updating with new centroids)
                 # to prevent centroids from drifting away over time, and instead maintain consistency
                 node_centroid = next(iter(merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"]))
 
-                #print("node_centroid", node_centroid)
                 node_centroid = gene_data_all_new.loc[gene_data_all_new["clustering_id"] == node_centroid, "dna_sequence"].values
-                #print("node_centroid", node_centroid)
                 node_centroid = node_centroid[0] # list to string; double check that this doesn't remove centroids
-
-                #node_name = merged_graph.nodes[node].get("name", "error")
-                #label = f"{node_name}_{graph_count+1}"
-                #print("label :", label)
-                #merged_graph.nodes[node]["name"] = label
 
                 node_centroid_df = pd.DataFrame([[f"{node}_{graph_count+1}", node_centroid]],
                                 columns=["id", "sequence"])
 
                 pan_genome_reference_merged = pd.concat([pan_genome_reference_merged, node_centroid_df])
 
+        
         for edge in relabeled_graph_2.edges:
+
+            print(f"Edge: {edge}")
             
-                if merged_graph.has_edge(edge[0], edge[1]):
+            if merged_graph.has_edge(edge[0], edge[1]):
 
-                    # add bit to add edge metadata here
+                # add edge metadata from graph 2 to merged graph
 
-                    break
+                # edge attributes: size (n members), members, genome_ids
 
-                else:
+                # members
+                print(merged_graph.edges[edge]['members'])
 
-                    # note that this statement is for NODES not EDGES
-                    if (edge[0] in merged_graph.nodes() == True) and (edge[1] in merged_graph.nodes() == True):
-                        merged_graph.add_edge(edge[0], edge[1])
+                unadded_metadata = relabeled_graph_2.edges(data=True)[edge]
+                merged_graph.edges[edge]['members'] = list(set(merged_graph.edges[edge]['members'].append(f"_{graph_count}"), unadded_metadata.append(f"_{graph_count+1}")))
+
+                print(merged_graph.edges{edge}['members'])
+
+
+                # genome IDs
+
+                print(merged_graph.edges[edge]['genome_ids'])
+
+                genome_ids = merged_graph.edges[edge]['genome_ids'].append(f"_{graph_count}")
+                merged_graph.edges[edge]['genome_ids'] = ";".join(genome_ids)
+
+                print(merged_graph.edges[edge]['genome_ids'])
+
+                # size
+
+                print(merged_graph.edges[edge]['size'])
+                merged_graph.edges[edge]['size'] = str(len(merged_graph.edges[edge]['members']))
+                print(merged_graph.edges[edge]['size'])
+
+
+            else:
+
+                # note that this statement is for NODES not EDGES
+                # you could also update g2 edges that don't contain "query" to have _graph_count+1 and then update the edges
+                if (edge[0] in merged_graph.nodes() == True) and (edge[1] in merged_graph.nodes() == True):
+                    merged_graph.add_edge(edge[0], edge[1])
+                    # plus add metadata
+
+                if (edge[0] in merged_graph.nodes() == True) and (edge[1] in merged_graph.nodes() == False):
+
+                    if f"{edge[1]}_{graph_count+1}" in merged_graph.nodes() == True:
+                        merged_graph.add_edge(edge[0], f"{edge[1]}_{graph_count+1}")
+                        # plus add metadata
                     else:
-                        print(f"Nodes in edge not present in merged graph (discarded): {edge}")
+                        print(f"Nodes in edge not present in merged graph (ghost nodes): {edge}")
+
+                if edge[0] in merged_graph.nodes() == False and edge[1] in merged_graph.nodes() == True:
+
+                    if f"{edge[0]}_{graph_count+1}" in merged_graph.nodes() == True:
+                        merged_graph.add_edge(f"{edge[0]}_{graph_count+1}", edge[1])
+                        # plus add metadata
+
+                    else:
+                        print(f"Nodes in edge not present in merged graph (ghost nodes): {edge}")
+
+                if edge[0] in merged_graph.nodes() == False and edge[1] in merged_graph.nodes() == False:
+                    
+                    if (f"{edge[0]}_{graph_count+1}" in merged_graph.nodes() == True) and (f"{edge[1]}_{graph_count+1}" in merged_graph.nodes() == True):
+                        merged_graph.add_edge(f"{edge[0]}_{graph_count+1}", f"{edge[1]}_{graph_count+1}")
+                        # plus add metadata
+                    else: 
+                        print(f"Nodes in edge not present in merged graph (ghost nodes): {edge}")
         
         if options.mode == 'test' and graph_count == (n_graphs-2):
 
@@ -412,12 +443,11 @@ def main():
             # obtain shared seq_ids
             seq_ids_1 = []
 
-
             for node in merged_graph.nodes():
-                print("node", node)
+                #print("node", node)
                 #if node in merged_graph.nodes:
                     #print(f"merged_graph.nodes[node]['seqIDs']: {merged_graph.nodes[node]['seqIDs']}")
-                #seq_ids_1 += merged_graph.nodes[node]["seqIDs"]
+                seq_ids_1 += merged_graph.nodes[node]["seqIDs"]
                 
             seq_ids_2 = []
             for node in graph_all.nodes():
@@ -468,7 +498,7 @@ def main():
         for node in merged_graph.nodes():
             print("node ", node)
             merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs'])
-            merged_graph.nodes[node]['name'] = merged_graph.nodes[node]['name'].removesuffix('_query')
+            #merged_graph.nodes[node]['name'] = merged_graph.nodes[node]['name'].removesuffix('_query')
             
         mapping_query = dict(zip(merged_graph.nodes, merged_graph.nodes))
         mapping_query = {key: f"{value.removesuffix('query')}" for key, value in mapping_query.items()}
