@@ -284,8 +284,23 @@ def main():
 
                 # add node
                 merged_graph.add_node(node,
-                                    seqIDs=relabeled_graph_2.nodes[node]["seqIDs"])
-                                    #centroid=relabeled_graph_2.nodes[node]["centroid"]) # note: still in indSID format!!
+                                    centroid=relabeled_graph_2.nodes[node]["centroid"],
+                                    size = relabeled_graph_2.nodes[node]["size"],
+                                    maxLenId = relabeled_graph_2.nodes[node]["maxLenId"],
+                                    members = relabeled_graph_2.nodes[node]["members"],
+                                    seqIDs=relabeled_graph_2.nodes[node]["seqIDs"],
+                                    hasEnd = relabeled_graph_2.nodes[node]["hasEnd"],
+                                    protein=relabeled_graph_2.nodes[node]["protein"],
+                                    dna = relabeled_graph_2.nodes[node]["dna"],
+                                    annotation=relabeled_graph_2.nodes[node]["annotation"],
+                                    description = relabeled_graph_2.nodes[node]["description"],
+                                    lengths=relabeled_graph_2.nodes[node]["lengths"],
+                                    longCentroidID=relabeled_graph_2.nodes[node]["longCentroidID"],
+                                    paralog=relabeled_graph_2.nodes[node]["paralog"],
+                                    mergedDNA=relabeled_graph_2.nodes[node]["mergedDNA"],
+                                    genomeIDs=relabeled_graph_2.nodes[node]["genomeIDs"],
+                                    geneIDs=relabeled_graph_2.nodes[node]["geneIDs"],
+                                    degrees=relabeled_graph_2.nodes[node]["degrees"]) # note: everything except seqids still in indSID format!!
 
                 # add centroid from pan_genome_reference.fa to new merged reference
                 # temporarily just take the sequence from any seqID in node
