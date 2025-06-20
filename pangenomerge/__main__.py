@@ -70,11 +70,7 @@ def main():
     ### read in two graphs
 
     graph_files = pd.read_csv(options.component_graphs, sep='\t', header=None)
-    print(graph_files)
     n_graphs = int(len(graph_files))
-
-    print("n_graphs: ", n_graphs)
-
     graph_count = 0
 
     for graph in range(1, int(n_graphs)):
@@ -97,8 +93,6 @@ def main():
         graph_1 = graph_1[0]
         graph_2 = graph_2[0]
 
-        print(f"{graph_1.edges}")
-
         if options.mode == 'test':
 
             ### match clustering_ids from overall run to clustering_ids from individual runs using annotation_ids (test only)
@@ -112,10 +106,6 @@ def main():
             else:
                 gene_data_g1 = [""]
                 # not necessary because merged graph already has gene_all seqIDs mapped
-            
-            #print("gene_data_all: ", gene_data_all)
-            #print("gene_data_g1: ", gene_data_g1)
-            #print("gene_data_g2: ", gene_data_g2)
 
             # rename column
             gene_data_all = gene_data_all.rename(columns={'clustering_id': 'clustering_id_all'})
@@ -124,10 +114,6 @@ def main():
                 gene_data_g1 = gene_data_g1.rename(columns={'clustering_id': 'clustering_id_indiv'})
             
             gene_data_g2 = gene_data_g2.rename(columns={'clustering_id': 'clustering_id_indiv'})
-
-            #print("gene_data_all: ", gene_data_all[['annotation_id', 'clustering_id_all']])
-            #print("gene_data_g1: ", gene_data_g1[['annotation_id', 'clustering_id_indiv']])
-            print("gene_data_g2: ", gene_data_g2[['annotation_id', 'clustering_id_indiv']])
 
             # first match by annotation ids:
             if graph_count == 0:
@@ -144,16 +130,11 @@ def main():
                 how='left'
             )
 
-            #print("matches_g1", matches_g1)
-            print("matches_g2", matches_g2)
-
             # now drop rows where the individual seqID wasn't observed (or there's no corresponding seqID from all)
             if graph_count == 0:
                 print("applying dropna...")
                 matches_g1 = matches_g1.dropna()
             matches_g2 = matches_g2.dropna()
-
-            print("matches_g2", matches_g2)
 
             # convert to dict for faster lookup than with loc
             if graph_count == 0:
@@ -177,12 +158,10 @@ def main():
         
         pangenome_reference_g2 = str(Path(graph_files.iloc[int(graph_count+1)][0]) / "pan_genome_reference.fa")
 
-        print("pangenome_reference_g1: ", pangenome_reference_g1)
-        print("pangenome_reference_g2: ", pangenome_reference_g2)
-
         print("Running mmseqs2...")
         run_mmseqs_easysearch(query=pangenome_reference_g1, target=pangenome_reference_g2, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"))
         print("mmseqs2 complete. Reading and filtering results...")
+
         # read mmseqs results
         # each "group_" refers to the centroid of that group in the pan_genomes_reference.fa
         mmseqs = pd.read_csv(str(Path(options.outdir) / "mmseqs_clusters.m8"), sep='\t')
@@ -269,29 +248,16 @@ def main():
         relabeled_graph_2 = nx.relabel_nodes(groupmapped_graph_2, mapping, copy=False)
 
         # relabel query graph
-        #if graph_count == 0:
         mapping_query = dict(zip(groupmapped_graph_1.nodes, groupmapped_graph_1.nodes))
         mapping_query = {key: f"{value}_query" for key, value in mapping_query.items()}
         relabeled_graph_1 = nx.relabel_nodes(groupmapped_graph_1, mapping_query, copy=False)
-        #else:
-        #    relabeled_graph_1 = graph_1
-
-
-
-        ### need to do this to edges as well
-        #print(relabeled_graph_1.edges)
-        #print(relabeled_graph_2.edges)
-        # looks like this is done automatically
 
         # now we can modify the tokenized code to iterate like usual, adding new node if string doesn't contain "_query"
         # and merging the nodes that both end in "_query"
         
         if options.mode == 'test':
-
             # read in graph_all
-
             graph_all = [str(Path(options.graph_all) / "final_graph.gml")]
-
             graph_all, isolate_names, id_mapping = load_graphs(graph_all)
             graph_all = graph_all[0]
 
@@ -304,32 +270,17 @@ def main():
             group.append({"id": record.id, "sequence": str(record.seq)})
         pan_genome_reference_merged = pd.DataFrame(group)
 
-        #print("pan_genome_reference_merged: ", pan_genome_reference_merged)
-
         gene_data_all_new = pd.read_csv(str(Path(options.graph_all) / "gene_data.csv"))
-
-        #print("gene_data_all_new: ", gene_data_all_new)
         
         # merge the two sets of unique nodes into one set of unique nodes
         for node in relabeled_graph_2.nodes:
             if merged_graph.has_node(node) == True:
-
-
-                #if node == "group_52":
-                #    print("has_node group_52")
-                #if node == "group_52_1":
-                #    print("has_node group_52_1")
 
                 # add metadata
                 merged_set = list(set(relabeled_graph_2.nodes[node]["seqIDs"]) | set(relabeled_graph_1.nodes[node]["seqIDs"]))
                 merged_graph.nodes[node]["seqIDs"] = merged_set
 
             else:
-
-                #if node == "group_52":
-                #    print("does not have node group_52")
-                #if node == "group_52_1":
-                #    print("does not have group_52_1")
 
                 # add node
                 merged_graph.add_node(node,
@@ -344,10 +295,7 @@ def main():
                 print("node_group", node_group) # should be group_xxx from graph_2 gene data
 
                 mapping_groups_new[node] = f'{node_group}_{graph_count+1}'
-                #print("mapping_groups_new[node]", mapping_groups_new[node])
                 merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
-
-                #merged_graph.nodes[f'{node_group}_{graph_count+1}']["label"] = str(f'{node_group}_{graph_count+1}')
                 
                 # for centroids of nodes already in main graph, turn graph_1 node centroids into all_seqIDs then leave them that way forever (instead of updating with new centroids)
                 # to prevent centroids from drifting away over time, and instead maintain consistency
@@ -370,25 +318,28 @@ def main():
 
                 # add edge metadata from graph 2 to merged graph
 
-                # edge attributes: size (n members), members, genome_ids
+                # edge attributes: size (n members), members (list), genomeIDs (semicolon-sep string)
 
                 # members
                 print(merged_graph.edges[edge]['members'])
+                print(type(merged_graph.edges[edge]['members']))
 
-                unadded_metadata = relabeled_graph_2.edges(data=True)[edge]
-                merged_graph.edges[edge]['members'] = list(set(merged_graph.edges[edge]['members'].append(f"_{graph_count}"), unadded_metadata.append(f"_{graph_count+1}")))
+                merged_graph.edges[edge]['genomeIDs'].append(f"_{graph_count}")
 
-                print(merged_graph.edges{edge}['members'])
+                unadded_metadata = relabeled_graph_2.edges[edge](data=True)
+                merged_graph.edges[edge]['members'] = list(set(merged_graph.edges[edge]['members'], unadded_metadata['members'].append(f"_{graph_count+1}")))
+
+                print(merged_graph.edges[edge]['members'])
 
 
                 # genome IDs
 
-                print(merged_graph.edges[edge]['genome_ids'])
+                print(merged_graph.edges[edge]['genomeIDs'])
 
-                genome_ids = merged_graph.edges[edge]['genome_ids'].append(f"_{graph_count}")
-                merged_graph.edges[edge]['genome_ids'] = ";".join(genome_ids)
+                genomeIDs = merged_graph.edges[edge]['genomeIDs'].append(f"_{graph_count}")
+                merged_graph.edges[edge]['genomeIDs'] = ";".join(genomeIDs)
 
-                print(merged_graph.edges[edge]['genome_ids'])
+                print(merged_graph.edges[edge]['genomeIDs'])
 
                 # size
 
