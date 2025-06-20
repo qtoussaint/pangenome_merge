@@ -292,7 +292,7 @@ def main():
 
                 mapping_groups_new = dict()
                 node_group = relabeled_graph_2.nodes[node].get("name", "error")
-                print("node_group", node_group) # should be group_xxx from graph_2 gene data
+                #print("node_group", node_group) # should be group_xxx from graph_2 gene data
 
                 mapping_groups_new[node] = f'{node_group}_{graph_count+1}'
                 merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
@@ -309,41 +309,46 @@ def main():
 
                 pan_genome_reference_merged = pd.concat([pan_genome_reference_merged, node_centroid_df])
 
-        
-        for edge in relabeled_graph_2.edges:
 
-            print(f"Edge: {edge}")
+        for edge in relabeled_graph_2.edges:
             
             if merged_graph.has_edge(edge[0], edge[1]):
 
                 # add edge metadata from graph 2 to merged graph
-
                 # edge attributes: size (n members), members (list), genomeIDs (semicolon-sep string)
+
+                unadded_metadata = relabeled_graph_2.edges[edge]
 
                 # members
                 print(merged_graph.edges[edge]['members'])
+                print(unadded_metadata['members'])
                 print(type(merged_graph.edges[edge]['members']))
 
-                merged_graph.edges[edge]['genomeIDs'].append(f"_{graph_count}")
-
-                unadded_metadata = relabeled_graph_2.edges[edge](data=True)
-                merged_graph.edges[edge]['members'] = list(set(merged_graph.edges[edge]['members'], unadded_metadata['members'].append(f"_{graph_count+1}")))
+                merged_graph.edges[edge]['members'] = [str(member) + f"_{graph_count}" for member in merged_graph.edges[edge]['members']] # add underscore with graph count to members of g1
+                unadded_metadata['members'] = [str(member) + f"_{graph_count+1}" for member in unadded_metadata['members']] # add underscore w graph count+1 to members of g2
+                merged_graph.edges[edge]['members'].extend(unadded_metadata['members']) # combine members
 
                 print(merged_graph.edges[edge]['members'])
 
-
                 # genome IDs
-
                 print(merged_graph.edges[edge]['genomeIDs'])
+                print(type(merged_graph.edges[edge]['genomeIDs']))
 
-                genomeIDs = merged_graph.edges[edge]['genomeIDs'].append(f"_{graph_count}")
-                merged_graph.edges[edge]['genomeIDs'] = ";".join(genomeIDs)
+                #genomeIDs = list(merged_graph.edges[edge]['genomeIDs'].split(";"))
+                #genomeIDs = [str(genomeid) + f"_{graph_count}" for genomeid in genomeIDs] # add underscore with graph count to genomeIDs of g1
+                #unadded_metadata['genomeIDs'] = list(unadded_metadata['genomeIDs'].split(";"))
+                #unadded_metadata['genomeIDs'] = [str(genomeid) + f"_{graph_count+1}" for genomeid in unadded_metadata['genomeIDs']] # add underscore w graph count+1 to genomeIDs of g2
+                #genomeIDs.extend(unadded_metadata['genomeIDs'])  # combine genomeIDs
+                #merged_graph.edges[edge]['genomeIDs'] = ";".join(genomeIDs)
 
+                # alternative to above (assuming genomeIDs are always the same as members):
+                merged_graph.edges[edge]['genomeIDs'] = ";".join(merged_graph.edges[edge]['members'])
+                
                 print(merged_graph.edges[edge]['genomeIDs'])
 
                 # size
-
                 print(merged_graph.edges[edge]['size'])
+                print(type(merged_graph.edges[edge]['size']))
                 merged_graph.edges[edge]['size'] = str(len(merged_graph.edges[edge]['members']))
                 print(merged_graph.edges[edge]['size'])
 
@@ -353,7 +358,7 @@ def main():
                 # note that this statement is for NODES not EDGES
                 # you could also update g2 edges that don't contain "query" to have _graph_count+1 and then update the edges
                 if (edge[0] in merged_graph.nodes() == True) and (edge[1] in merged_graph.nodes() == True):
-                    merged_graph.add_edge(edge[0], edge[1])
+                    merged_graph.add_edge(edge[0], edge[1], data=relabeled_graph_2.edges[edge])
                     # plus add metadata
 
                 if (edge[0] in merged_graph.nodes() == True) and (edge[1] in merged_graph.nodes() == False):
