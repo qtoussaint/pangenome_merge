@@ -315,74 +315,51 @@ def main():
             if merged_graph.has_edge(edge[0], edge[1]):
 
                 # add edge metadata from graph 2 to merged graph
-                # edge attributes: size (n members), members (list), genomeIDs (semicolon-sep string)
+                # edge attributes: size (n members), members (list), genomeIDs (semicolon-separated string)
 
                 unadded_metadata = relabeled_graph_2.edges[edge]
 
                 # members
-                print(merged_graph.edges[edge]['members'])
-                print(unadded_metadata['members'])
-                print(type(merged_graph.edges[edge]['members']))
-
                 merged_graph.edges[edge]['members'] = [str(member) + f"_{graph_count}" for member in merged_graph.edges[edge]['members']] # add underscore with graph count to members of g1
                 unadded_metadata['members'] = [str(member) + f"_{graph_count+1}" for member in unadded_metadata['members']] # add underscore w graph count+1 to members of g2
                 merged_graph.edges[edge]['members'].extend(unadded_metadata['members']) # combine members
 
-                print(merged_graph.edges[edge]['members'])
-
-                # genome IDs
-                print(merged_graph.edges[edge]['genomeIDs'])
-                print(type(merged_graph.edges[edge]['genomeIDs']))
-
-                #genomeIDs = list(merged_graph.edges[edge]['genomeIDs'].split(";"))
-                #genomeIDs = [str(genomeid) + f"_{graph_count}" for genomeid in genomeIDs] # add underscore with graph count to genomeIDs of g1
-                #unadded_metadata['genomeIDs'] = list(unadded_metadata['genomeIDs'].split(";"))
-                #unadded_metadata['genomeIDs'] = [str(genomeid) + f"_{graph_count+1}" for genomeid in unadded_metadata['genomeIDs']] # add underscore w graph count+1 to genomeIDs of g2
-                #genomeIDs.extend(unadded_metadata['genomeIDs'])  # combine genomeIDs
-                #merged_graph.edges[edge]['genomeIDs'] = ";".join(genomeIDs)
-
-                # alternative to above (assuming genomeIDs are always the same as members):
+                # genome IDs (assuming genomeIDs are always the same as members):
                 merged_graph.edges[edge]['genomeIDs'] = ";".join(merged_graph.edges[edge]['members'])
                 
-                print(merged_graph.edges[edge]['genomeIDs'])
-
                 # size
-                print(merged_graph.edges[edge]['size'])
-                print(type(merged_graph.edges[edge]['size']))
                 merged_graph.edges[edge]['size'] = str(len(merged_graph.edges[edge]['members']))
-                print(merged_graph.edges[edge]['size'])
-
 
             else:
 
                 # note that this statement is for NODES not EDGES
                 # you could also update g2 edges that don't contain "query" to have _graph_count+1 and then update the edges
                 if (edge[0] in merged_graph.nodes() == True) and (edge[1] in merged_graph.nodes() == True):
-                    merged_graph.add_edge(edge[0], edge[1], data=relabeled_graph_2.edges[edge])
-                    # plus add metadata
+                    merged_graph.add_edge(edge[0], edge[1]) # add edge
+                    merged_graph.edges[edge].update(relabeled_graph_2.edges[edge]) # update with all metadata
 
                 if (edge[0] in merged_graph.nodes() == True) and (edge[1] in merged_graph.nodes() == False):
 
                     if f"{edge[1]}_{graph_count+1}" in merged_graph.nodes() == True:
-                        merged_graph.add_edge(edge[0], f"{edge[1]}_{graph_count+1}")
-                        # plus add metadata
+                        merged_graph.add_edge(edge[0], f"{edge[1]}_{graph_count+1}") # add edge
+                        merged_graph.edges[edge[0], f"{edge[1]}_{graph_count+1}"].update(relabeled_graph_2.edges[edge]) # update with all metadata
                     else:
                         print(f"Nodes in edge not present in merged graph (ghost nodes): {edge}")
 
-                if edge[0] in merged_graph.nodes() == False and edge[1] in merged_graph.nodes() == True:
+                if (edge[0] in merged_graph.nodes() == False) and (edge[1] in merged_graph.nodes() == True):
 
                     if f"{edge[0]}_{graph_count+1}" in merged_graph.nodes() == True:
-                        merged_graph.add_edge(f"{edge[0]}_{graph_count+1}", edge[1])
-                        # plus add metadata
+                        merged_graph.add_edge(f"{edge[0]}_{graph_count+1}", edge[1]) # add edge
+                        merged_graph.edges[f"{edge[0]}_{graph_count+1}", edge[1]].update(relabeled_graph_2.edges[edge]) # update with all metadata
 
                     else:
                         print(f"Nodes in edge not present in merged graph (ghost nodes): {edge}")
 
-                if edge[0] in merged_graph.nodes() == False and edge[1] in merged_graph.nodes() == False:
+                if (edge[0] in merged_graph.nodes() == False) and (edge[1] in merged_graph.nodes() == False):
                     
                     if (f"{edge[0]}_{graph_count+1}" in merged_graph.nodes() == True) and (f"{edge[1]}_{graph_count+1}" in merged_graph.nodes() == True):
-                        merged_graph.add_edge(f"{edge[0]}_{graph_count+1}", f"{edge[1]}_{graph_count+1}")
-                        # plus add metadata
+                        merged_graph.add_edge(f"{edge[0]}_{graph_count+1}", f"{edge[1]}_{graph_count+1}") # add edge
+                        merged_graph.edges[f"{edge[0]}_{graph_count+1}", f"{edge[1]}_{graph_count+1}"].update(relabeled_graph_2.edges[edge]) # update with all metadata
                     else: 
                         print(f"Nodes in edge not present in merged graph (ghost nodes): {edge}")
         
