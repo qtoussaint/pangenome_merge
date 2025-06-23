@@ -40,13 +40,15 @@ def get_options():
                     required=True,
                     default=None,
                     help='Output directory.')
-    IO.add_argument('--component-graphs',
+    IO.add_argument('--component_graphs',
+                    metavar='--component-graphs',
                     default=None,
                     required=True,
                     help='Tab-separated list of paths to Panaroo output directories of component subgraphs. \
                     Each directory must contain final_graph.gml and pan_genome_reference.fa. If running in test mode, \
                     must also contain gene_data.csv. Graphs will be merged in the order presented in the file.')
-    IO.add_argument('--graph-all',
+    IO.add_argument('--graph_all',
+                    metavar='--graph-all',
                     default=None,
                     help='Path to Panaroo output directory of pan-genome gene graph created from all samples in component-graphs. \
                     Only required for the test case, where it is used as the ground truth.')
@@ -68,7 +70,7 @@ def main():
 
     ### read in two graphs
 
-    graph_files = pd.read_csv(options.component-graphs, sep='\t', header=None)
+    graph_files = pd.read_csv(options.component_graphs, sep='\t', header=None)
     n_graphs = int(len(graph_files))
     graph_count = 0
 
@@ -96,7 +98,7 @@ def main():
 
             ### match clustering_ids from overall run to clustering_ids from individual runs using annotation_ids (test only)
 
-            gene_data_all = pd.read_csv(str(Path(options.graph-all) / "gene_data.csv"))
+            gene_data_all = pd.read_csv(str(Path(options.graph_all) / "gene_data.csv"))
             gene_data_g2 = pd.read_csv(str(Path(graph_files.iloc[int(graph_count+1)][0]) / "gene_data.csv"))
 
             if graph_count == 0:
@@ -256,7 +258,7 @@ def main():
         
         if options.mode == 'test':
             # read in graph_all
-            graph_all = [str(Path(options.graph-all) / "final_graph.gml")]
+            graph_all = [str(Path(options.graph_all) / "final_graph.gml")]
             graph_all, isolate_names, id_mapping = load_graphs(graph_all)
             graph_all = graph_all[0]
 
@@ -290,7 +292,7 @@ def main():
             group.append({"id": record.id, "sequence": str(record.seq)})
         pan_genome_reference_merged = pd.DataFrame(group)
 
-        gene_data_all_new = pd.read_csv(str(Path(options.graph-all) / "gene_data.csv"))
+        gene_data_all_new = pd.read_csv(str(Path(options.graph_all) / "gene_data.csv"))
         
         # merge the two sets of unique nodes into one set of unique nodes
         for node in relabeled_graph_2.nodes:
