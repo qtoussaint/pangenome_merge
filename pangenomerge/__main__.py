@@ -270,62 +270,42 @@ def main():
         if options.mode != 'test':
             for node_data in relabeled_graph_2.nodes.values():
 
-                print('Start!')
-
                 node_data['centroid'] = [f"{centroid}_g{graph_count+1}" for centroid in node_data['centroid']] # list
-                print(node_data['centroid'])
 
                 node_data['maxLenId'] = str(node_data['maxLenId']) + f'_g{graph_count+1}' # int
-                print(node_data['maxLenId'])
 
                 node_data['members'] = [f"{member}_g{graph_count+1}" for member in node_data['members']] # list
-                print(node_data['members'])
 
                 node_data['genomeIDs'] = ";".join(node_data['members']) # str
-                print(node_data['genomeIDs'])
 
                 seqid_set = {f"{seqid}{f'_g{graph_count+1}'}" for seqid in node_data['seqIDs']}
                 node_data['seqIDs'] = seqid_set # set
-                print(node_data['seqIDs'])
 
                 node_data['longCentroidID'].append(f'from_g{graph_count+1}') #list
-                print(node_data['longCentroidID'])
 
-                print(node_data['geneIDs'])
                 geneids = node_data['geneIDs'].split(";")
-                geneids = [f"{gid}_g{graph_count+1}" for gid in node_data['geneIDs']]
+                geneids = [f"{gid}_g{graph_count+1}" for gid in geneids]
                 node_data['geneIDs'] = ";".join(geneids) # str
-                print(node_data['geneIDs'])
 
             if graph_count == 0:
 
-                print('Start!')
-
                 for node_data in relabeled_graph_1.nodes.values():
                     node_data['centroid'] = [f"{centroid}_g{graph_count}" for centroid in node_data['centroid']] # list
-                    print(node_data['centroid'])
 
                     node_data['maxLenId'] = str(node_data['maxLenId']) + f'_g{graph_count}' # int
-                    print(node_data['maxLenId'])
 
                     node_data['members'] = [f"{member}_g{graph_count}" for member in node_data['members']] # list
-                    print(node_data['members'])
 
                     node_data['genomeIDs'] = ";".join(node_data['members']) # str
-                    print(node_data['genomeIDs'])
 
                     seqid_set = {f"{seqid}{f'_g{graph_count}'}" for seqid in node_data['seqIDs']}
                     node_data['seqIDs'] = seqid_set # set
-                    print(node_data['seqIDs'])
 
                     node_data['longCentroidID'].append(f'from_g{graph_count}') #list
-                    print(node_data['longCentroidID'])
 
-                    print(node_data['geneIDs'])
                     geneids = node_data['geneIDs'].split(";")
-                    geneids = [f"{gid}_g{graph_count}" for gid in node_data['geneIDs']]
+                    geneids = [f"{gid}_g{graph_count}" for gid in geneids]
                     node_data['geneIDs'] = ";".join(geneids) # str
-                    print(node_data['geneIDs'])
 
         ### merge graphs
 
@@ -576,7 +556,7 @@ def main():
 
         graph_count += 1
 
-        print(f"Iteration {graph_count} complete.")
+        print(f"Iteration {graph_count} of {graph_count-1}complete.")
 
         if (graph_count < (n_graphs-1)):
             print("Merging in next graph...")
