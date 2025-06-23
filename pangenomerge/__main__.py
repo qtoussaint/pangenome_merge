@@ -261,6 +261,27 @@ def main():
             graph_all, isolate_names, id_mapping = load_graphs(graph_all)
             graph_all = graph_all[0]
 
+        ### add suffix to relevant metadata to be able to identify which graph they refer to later
+
+        if options.mode != 'test':
+            for node_data in relabeled_graph_2.nodes.values():
+                node_data['centroid'].append(f'_g{graph_count+1}')
+                node_data['maxLenId'].append(f'_g{graph_count+1}')
+                node_data['members'].append(f'_g{graph_count+1}')
+                node_data['seqIDs'].append(f'_g{graph_count+1}')
+                node_data['longCentroidID'].append(f'_g{graph_count+1}')
+                node_data['genomeIDs'].append(f'_g{graph_count+1}')
+                node_data['geneIDs'].append(f'_g{graph_count+1}')
+            if graph_count == 0:
+                for node_data in relabeled_graph_1.nodes.values():
+                    node_data['centroid'].append(f'_g{graph_count}')
+                    node_data['maxLenId'].append(f'_g{graph_count}')
+                    node_data['members'].append(f'_g{graph_count}')
+                    node_data['seqIDs'].append(f'_g{graph_count}')
+                    node_data['longCentroidID'].append(f'_g{graph_count}')
+                    node_data['genomeIDs'].append(f'_g{graph_count}')
+                    node_data['geneIDs'].append(f'_g{graph_count}')
+
         ### merge graphs
 
         merged_graph = relabeled_graph_1
@@ -276,9 +297,31 @@ def main():
         for node in relabeled_graph_2.nodes:
             if merged_graph.has_node(node) == True:
 
-                # add metadata
-                merged_set = list(set(relabeled_graph_2.nodes[node]["seqIDs"]) | set(relabeled_graph_1.nodes[node]["seqIDs"]))
+                # add metadata from g2
+
+                # seqIDs
+                merged_set = list(set(relabeled_graph_2.nodes[node]["seqIDs"]) | set(merged_graph.nodes[node]["seqIDs"]))
                 merged_graph.nodes[node]["seqIDs"] = merged_set
+
+                # geneIDs
+                merged_set = list(set(relabeled_graph_2.nodes[node]["geneIDs"]) | set(merged_graph.nodes[node]["geneIDs"]))
+                merged_graph.nodes[node]["geneIDs"] = merged_set
+
+                # members
+                merged_set = list(set(relabeled_graph_2.nodes[node]["members"]) | set(merged_graph.nodes[node]["members"]))
+                merged_graph.nodes[node]["members"] = merged_set
+
+                # genome IDs
+                merged_graph.nodes[node]["genomeIDs"] = ";".join(merged_set)
+
+                # size
+                size = length(merged_graph.nodes[node]["members"])
+
+                # don't add centroid/longCentroidID/annotation/dna/protein/hasEnd/mergedDNA/paralog/maxLenId (keep as original)
+
+                # lengths
+                merged_set = list(relabeled_graph_2.nodes[node]["lengths"] | relabeled_graph_1.nodes[node]["lengths"])
+                merged_graph.nodes[node]["lengths"] = merged_set
 
             else:
 
@@ -287,6 +330,7 @@ def main():
                                     centroid=relabeled_graph_2.nodes[node]["centroid"],
                                     size = relabeled_graph_2.nodes[node]["size"],
                                     maxLenId = relabeled_graph_2.nodes[node]["maxLenId"],
+                                    lengths = relabeled_graph_2.nodes[node]["lengths"],
                                     members = relabeled_graph_2.nodes[node]["members"],
                                     seqIDs=relabeled_graph_2.nodes[node]["seqIDs"],
                                     hasEnd = relabeled_graph_2.nodes[node]["hasEnd"],
@@ -294,13 +338,12 @@ def main():
                                     dna = relabeled_graph_2.nodes[node]["dna"],
                                     annotation=relabeled_graph_2.nodes[node]["annotation"],
                                     description = relabeled_graph_2.nodes[node]["description"],
-                                    lengths=relabeled_graph_2.nodes[node]["lengths"],
                                     longCentroidID=relabeled_graph_2.nodes[node]["longCentroidID"],
                                     paralog=relabeled_graph_2.nodes[node]["paralog"],
                                     mergedDNA=relabeled_graph_2.nodes[node]["mergedDNA"],
                                     genomeIDs=relabeled_graph_2.nodes[node]["genomeIDs"],
                                     geneIDs=relabeled_graph_2.nodes[node]["geneIDs"],
-                                    degrees=relabeled_graph_2.nodes[node]["degrees"]) # note: everything except seqids still in indSID format!!
+                                    degrees=relabeled_graph_2.nodes[node]["degrees"])
 
                 # add centroid from pan_genome_reference.fa to new merged reference
                 # temporarily just take the sequence from any seqID in node
@@ -377,6 +420,11 @@ def main():
                         merged_graph.edges[f"{edge[0]}_{graph_count+1}", f"{edge[1]}_{graph_count+1}"].update(relabeled_graph_2.edges[edge]) # update with all metadata
                     else: 
                         print(f"Nodes in edge not present in merged graph (ghost nodes): {edge}")
+
+        # update degrees across graph
+        for node in merged_graph:
+            merged_graph.nodes[node]["degree"] == int(merged_graph.degree[node])
+
         
         if options.mode == 'test' and graph_count == (n_graphs-2):
 
