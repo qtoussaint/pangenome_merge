@@ -279,15 +279,15 @@ def main():
 
             if graph_count == 0:
                 for node_data in relabeled_graph_1.nodes.values():
-                node_data['centroid'] = node_data['centroid'].append(f'_g{graph_count+1}') # list
-                node_data['maxLenId'] = str(node_data['maxLenId']) + f'_g{graph_count+1}' # int
-                node_data['members'] = node_data['members'].append(f'_g{graph_count+1}') # list
-                seqid_set = {f"{seqid}{f'_g{graph_count+1}'}" for seqid in node_data['seqIDs']}
-                node_data['seqIDs'] = seqid_set # set
-                node_data['longCentroidID'] = node_data['longCentroidID'].append(f'_g{graph_count+1}') #list
-                node_data['genomeIDs'] = ";".join(node_data['members'].append(f'_g{graph_count+1}')) # str
-                geneids = node_data['geneIDs'].split(";")
-                node_data['geneIDs'] = ";".join(geneids.append(f'_g{graph_count+1}')) # str
+                    node_data['centroid'] = node_data['centroid'].append(f'_g{graph_count+1}') # list
+                    node_data['maxLenId'] = str(node_data['maxLenId']) + f'_g{graph_count+1}' # int
+                    node_data['members'] = node_data['members'].append(f'_g{graph_count+1}') # list
+                    seqid_set = {f"{seqid}{f'_g{graph_count+1}'}" for seqid in node_data['seqIDs']}
+                    node_data['seqIDs'] = seqid_set # set
+                    node_data['longCentroidID'] = node_data['longCentroidID'].append(f'_g{graph_count+1}') #list
+                    node_data['genomeIDs'] = ";".join(node_data['members'].append(f'_g{graph_count+1}')) # str
+                    geneids = node_data['geneIDs'].split(";")
+                    node_data['geneIDs'] = ";".join(geneids.append(f'_g{graph_count+1}')) # str
 
         ### merge graphs
 
