@@ -456,7 +456,7 @@ def main():
 
         # update degrees across graph
         for node in merged_graph:
-            merged_graph.nodes[node]["degree"] == int(merged_graph.degree[node])
+            merged_graph.nodes[node]["degrees"] == int(merged_graph.degree[node])
         
         if options.mode == 'test' and graph_count == (n_graphs-2):
 
@@ -526,15 +526,48 @@ def main():
 
         print("Merge complete. Preparing attribute metadata for export...")
 
+        if graph_count == 0:
+            #for node_data in merged_graph.nodes.values():
+            #    if node_data['name'] contains '_query':
+            #        # relabel node from graph_1 group_xxx to group_xxx_graphcount
+            #        mapping_groups_new = dict()
+            #        new_label = node_data['name'].removesuffix('_query')
+            #        mapping_groups_new[node] = f'{new_label}_{graph_count}'
+            #        merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
+            
+            # relabel node from graph_1 group_xxx to group_xxx_graphcount
+            mapping = {}
+            for node_id, node_data in merged_graph.nodes(data=True):
+                name = node_data.get('name', '')
+                if '_query' in name:
+                    new_name = name.replace('_query', f'_{graph_count}')
+                    mapping[node_id] = new_name
+            merged_graph = nx.relabel_nodes(merged_graph, mapping, copy=False)
+
+        else:
+            for node_data in merged_graph.nodes.values():
+                node_data['seqIDs'] = ";".join(node_data['seqIDs'])
+                #node_data['name'] = node_data['name'].removesuffix('_query')
+            
+            mapping = {}
+            for node_id, node_data in merged_graph.nodes(data=True):
+                name = node_data.get('name', '')
+                if '_query' in name:
+                    new_name = name.removesuffix('_query')
+                    mapping[node_id] = new_name
+            merged_graph = nx.relabel_nodes(merged_graph, mapping, copy=False)
+
+        #for node in merged_graph.nodes():
+        #    merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs'])
+            #merged_graph.nodes[node]['name'] = merged_graph.nodes[node]['name'].removesuffix('_query')
+        
+        #mapping_query = dict(zip(merged_graph.nodes, merged_graph.nodes))
+        #mapping_query = {key: f"{value.removesuffix('query')}" for key, value in mapping_query.items()}
+        #merged_graph_new = nx.relabel_nodes(merged_graph, mapping_query, copy=False)
+        #merged_graph = merged_graph_new
+
         for node in merged_graph.nodes():
             print("node ", node)
-            merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs'])
-            #merged_graph.nodes[node]['name'] = merged_graph.nodes[node]['name'].removesuffix('_query')
-            
-        mapping_query = dict(zip(merged_graph.nodes, merged_graph.nodes))
-        mapping_query = {key: f"{value.removesuffix('query')}" for key, value in mapping_query.items()}
-        merged_graph_new = nx.relabel_nodes(merged_graph, mapping_query, copy=False)
-        merged_graph = merged_graph_new
             
         #format_metadata_for_gml(merged_graph)
         
@@ -556,10 +589,7 @@ def main():
 
         graph_count += 1
 
-        print(f"Iteration {graph_count} of {graph_count-1}complete.")
-
-        if (graph_count < (n_graphs-1)):
-            print("Merging in next graph...")
+        print(f"Iteration {graph_count} of {graph_count+1} complete.")
 
     print('Finished successfully.')
 
