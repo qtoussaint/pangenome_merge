@@ -334,7 +334,7 @@ def main():
                 merged_graph.nodes[node]["seqIDs"] = merged_set
 
                 # geneIDs
-                merged_set = list(set(relabeled_graph_2.nodes[node]["geneIDs"]) | set(merged_graph.nodes[node]["geneIDs"]))
+                merged_set = ";".join([merged_graph.nodes[node]["geneIDs"], relabeled_graph_2.nodes[node]["geneIDs"]])
                 merged_graph.nodes[node]["geneIDs"] = merged_set
 
                 # members
@@ -342,13 +342,13 @@ def main():
                 merged_graph.nodes[node]["members"] = merged_set
 
                 # genome IDs
-                merged_graph.nodes[node]["genomeIDs"] = ";".join(merged_set)
+                merged_graph.nodes[node]["genomeIDs"] = ";".join([merged_graph.nodes[node]["genomeIDs"], relabeled_graph_2.nodes[node]["genomeIDs"]])
 
                 # size
-                size = length(merged_graph.nodes[node]["members"])
+                size = len(merged_graph.nodes[node]["members"])
 
                 # lengths
-                merged_set = list(relabeled_graph_2.nodes[node]["lengths"] | relabeled_graph_1.nodes[node]["lengths"])
+                merged_set = relabeled_graph_1.nodes[node]["lengths"] + relabeled_graph_2.nodes[node]["lengths"]
                 merged_graph.nodes[node]["lengths"] = merged_set
 
                 # (don't add centroid/longCentroidID/annotation/dna/protein/hasEnd/mergedDNA/paralog/maxLenId -- keep as original for now)
@@ -375,7 +375,7 @@ def main():
                                     geneIDs=relabeled_graph_2.nodes[node]["geneIDs"],
                                     degrees=relabeled_graph_2.nodes[node]["degrees"])
 
-                ### add centroid from old g2 pan_genome_reference.fa to new merged pan_genome_reference.fa
+                ### add centroid from g2 pan_genome_reference.fa to new merged pan_genome_reference.fa
 
                 # get node centroid
                 node_centroid = relabeled_graph_2.nodes[node]["centroid"]
@@ -386,8 +386,8 @@ def main():
                 mapping_groups_new[node] = f'{node_group}_{graph_count+1}'
                 merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
                 
-                # for centroids of nodes already in main graph, leave them (instead of updating with new centroids)
-                # to prevent centroids from drifting away over time, and instead maintain consistency
+                # (for centroids of nodes already in main graph, we leave them instead of updating with new centroids
+                # to prevent centroids from drifting away over time, and instead maintain consistency)
 
                 #if options.mode == 'test':
                     #node_centroid = next(iter(merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"]))
