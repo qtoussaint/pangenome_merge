@@ -41,14 +41,14 @@ def get_options():
                     default=None,
                     help='Output directory.')
     IO.add_argument('--component-graphs',
-                    dest='--component_graphs',
+                    dest='component_graphs',
                     default=None,
                     required=True,
                     help='Tab-separated list of paths to Panaroo output directories of component subgraphs. \
                     Each directory must contain final_graph.gml and pan_genome_reference.fa. If running in test mode, \
                     must also contain gene_data.csv. Graphs will be merged in the order presented in the file.')
     IO.add_argument('--graph-all',
-                    dest='--graph_all',
+                    dest='graph_all',
                     default=None,
                     help='Path to Panaroo output directory of pan-genome gene graph created from all samples in component-graphs. \
                     Only required for the test case, where it is used as the ground truth.')
