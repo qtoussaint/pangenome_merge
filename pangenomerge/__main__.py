@@ -267,27 +267,55 @@ def main():
 
         if options.mode != 'test':
             for node_data in relabeled_graph_2.nodes.values():
-                node_data['centroid'] = node_data['centroid'].append(f'_g{graph_count+1}') # list
+                node_data['centroid'] = [f"{centroid}_g{graph_count+1}" for centroid in node_data['centroid']] # list
+                print(node_data['centroid'])
+
                 node_data['maxLenId'] = str(node_data['maxLenId']) + f'_g{graph_count+1}' # int
-                node_data['members'] = node_data['members'].append(f'_g{graph_count+1}') # list
+                print(node_data['maxLenId'])
+
+                node_data['members'] = [f"{member}_g{graph_count+1}" for member in node_data['members']] # list
+                print(node_data['members'])
+
+                node_data['genomeIDs'] = ";".join(node_data['members']) # str
+                print(node_data['genomeIDs'])
+
                 seqid_set = {f"{seqid}{f'_g{graph_count+1}'}" for seqid in node_data['seqIDs']}
                 node_data['seqIDs'] = seqid_set # set
-                node_data['longCentroidID'] = node_data['longCentroidID'].append(f'_g{graph_count+1}') #list
-                node_data['genomeIDs'] = ";".join(node_data['members'].append(f'_g{graph_count+1}')) # str
+                print(node_data['seqIDs'])
+
+                node_data['longCentroidID'].append(f'from_g{graph_count+1}') #list
+                print(node_data['longCentroidID'])
+
                 geneids = node_data['geneIDs'].split(";")
-                node_data['geneIDs'] = ";".join(geneids.append(f'_g{graph_count+1}')) # str
+                geneids = [f"{gid}_g{graph_count+1}" for gid in node_data['geneIDs']]
+                node_data['geneIDs'] = ";".join(geneids) # str
+                print(node_data['geneIDs'])
 
             if graph_count == 0:
                 for node_data in relabeled_graph_1.nodes.values():
-                    node_data['centroid'] = node_data['centroid'].append(f'_g{graph_count+1}') # list
-                    node_data['maxLenId'] = str(node_data['maxLenId']) + f'_g{graph_count+1}' # int
-                    node_data['members'] = node_data['members'].append(f'_g{graph_count+1}') # list
-                    seqid_set = {f"{seqid}{f'_g{graph_count+1}'}" for seqid in node_data['seqIDs']}
+                    node_data['centroid'] = [f"{centroid}_g{graph_count}" for centroid in node_data['centroid']] # list
+                    print(node_data['centroid'])
+
+                    node_data['maxLenId'] = str(node_data['maxLenId']) + f'_g{graph_count}' # int
+                    print(node_data['maxLenId'])
+
+                    node_data['members'] = [f"{member}_g{graph_count}" for member in node_data['members']] # list
+                    print(node_data['members'])
+
+                    node_data['genomeIDs'] = ";".join(node_data['members']) # str
+                    print(node_data['genomeIDs'])
+
+                    seqid_set = {f"{seqid}{f'_g{graph_count}'}" for seqid in node_data['seqIDs']}
                     node_data['seqIDs'] = seqid_set # set
-                    node_data['longCentroidID'] = node_data['longCentroidID'].append(f'_g{graph_count+1}') #list
-                    node_data['genomeIDs'] = ";".join(node_data['members'].append(f'_g{graph_count+1}')) # str
+                    print(node_data['seqIDs'])
+
+                    node_data['longCentroidID'].append(f'from_g{graph_count}') #list
+                    print(node_data['longCentroidID'])
+
                     geneids = node_data['geneIDs'].split(";")
-                    node_data['geneIDs'] = ";".join(geneids.append(f'_g{graph_count+1}')) # str
+                    geneids = [f"{gid}_g{graph_count}" for gid in node_data['geneIDs']]
+                    node_data['geneIDs'] = ";".join(geneids) # str
+                    print(node_data['geneIDs'])
 
         ### merge graphs
 
@@ -298,7 +326,8 @@ def main():
             group.append({"id": record.id, "sequence": str(record.seq)})
         pan_genome_reference_merged = pd.DataFrame(group)
 
-        gene_data_all_new = pd.read_csv(str(Path(options.graph_all) / "gene_data.csv"))
+        #if options.mode == 'test':
+        #    gene_data_all_new = pd.read_csv(str(Path(options.graph_all) / "gene_data.csv"))
         
         # merge the two sets of unique nodes into one set of unique nodes
         for node in relabeled_graph_2.nodes:
