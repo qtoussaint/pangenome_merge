@@ -317,11 +317,11 @@ def main():
                 # size
                 size = length(merged_graph.nodes[node]["members"])
 
-                # don't add centroid/longCentroidID/annotation/dna/protein/hasEnd/mergedDNA/paralog/maxLenId (keep as original)
-
                 # lengths
                 merged_set = list(relabeled_graph_2.nodes[node]["lengths"] | relabeled_graph_1.nodes[node]["lengths"])
                 merged_graph.nodes[node]["lengths"] = merged_set
+
+                # (don't add centroid/longCentroidID/annotation/dna/protein/hasEnd/mergedDNA/paralog/maxLenId -- keep as original for now)
 
             else:
 
@@ -345,22 +345,24 @@ def main():
                                     geneIDs=relabeled_graph_2.nodes[node]["geneIDs"],
                                     degrees=relabeled_graph_2.nodes[node]["degrees"])
 
-                # add centroid from pan_genome_reference.fa to new merged reference
-                # temporarily just take the sequence from any seqID in node
+                ### add centroid from old g2 pan_genome_reference.fa to new merged pan_genome_reference.fa
 
+                # get node centroid
+                node_centroid = relabeled_graph_2.nodes[node]["centroid"]
+
+                # relabel node from graph_2 group_xxx to group_xxx_graphcount
                 mapping_groups_new = dict()
                 node_group = relabeled_graph_2.nodes[node].get("name", "error")
-                #print("node_group", node_group) # should be group_xxx from graph_2 gene data
-
                 mapping_groups_new[node] = f'{node_group}_{graph_count+1}'
                 merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
                 
-                # for centroids of nodes already in main graph, turn graph_1 node centroids into all_seqIDs then leave them that way forever (instead of updating with new centroids)
+                # for centroids of nodes already in main graph, leave them (instead of updating with new centroids)
                 # to prevent centroids from drifting away over time, and instead maintain consistency
-                node_centroid = next(iter(merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"]))
 
-                node_centroid = gene_data_all_new.loc[gene_data_all_new["clustering_id"] == node_centroid, "dna_sequence"].values
-                node_centroid = node_centroid[0] # list to string; double check that this doesn't remove centroids
+                #if options.mode == 'test':
+                    #node_centroid = next(iter(merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"]))
+                    #node_centroid = gene_data_all_new.loc[gene_data_all_new["clustering_id"] == node_centroid, "dna_sequence"].values
+                    #node_centroid = node_centroid[0] # list to string; double check that this doesn't remove centroids
 
                 node_centroid_df = pd.DataFrame([[f"{node}_{graph_count+1}", node_centroid]],
                                 columns=["id", "sequence"])
