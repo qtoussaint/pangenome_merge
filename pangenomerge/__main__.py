@@ -101,7 +101,7 @@ def main():
             gene_data_g2 = pd.read_csv(str(Path(graph_files.iloc[int(graph_count+1)][0]) / "gene_data.csv"))
 
             if graph_count == 0:
-                print("applying gene data...")
+                print("Applying gene data...")
                 gene_data_g1 = pd.read_csv(str(Path(graph_files.iloc[int(graph_count)][0]) / "gene_data.csv"))
             else:
                 gene_data_g1 = [""]
@@ -110,14 +110,14 @@ def main():
             # rename column
             gene_data_all = gene_data_all.rename(columns={'clustering_id': 'clustering_id_all'})
             if graph_count == 0:
-                print("applying rename...")
+                print("Applying rename...")
                 gene_data_g1 = gene_data_g1.rename(columns={'clustering_id': 'clustering_id_indiv'})
             
             gene_data_g2 = gene_data_g2.rename(columns={'clustering_id': 'clustering_id_indiv'})
 
             # first match by annotation ids:
             if graph_count == 0:
-                print("applying match...")
+                print("Applying match...")
                 matches_g1 = gene_data_all[['annotation_id', 'clustering_id_all']].merge(
                     gene_data_g1[['annotation_id', 'clustering_id_indiv']],
                     on='annotation_id',
@@ -132,19 +132,19 @@ def main():
 
             # now drop rows where the individual seqID wasn't observed (or there's no corresponding seqID from all)
             if graph_count == 0:
-                print("applying dropna...")
+                print("Applying dropna...")
                 matches_g1 = matches_g1.dropna()
             matches_g2 = matches_g2.dropna()
 
             # convert to dict for faster lookup than with loc
             if graph_count == 0:
-                print("applying gidmap...")
+                print("Applying gidmap...")
                 gid_map_g1 = dict(zip(matches_g1['clustering_id_indiv'], matches_g1['clustering_id_all']))
             gid_map_g2 = dict(zip(matches_g2['clustering_id_indiv'], matches_g2['clustering_id_all']))
 
             # apply to graphs:
             if graph_count == 0:
-                print("applying ind...")
+                print("Applying ind...")
                 graph_1 = indSID_to_allSID(graph_1, gid_map_g1)
             graph_2 = indSID_to_allSID(graph_2, gid_map_g2)
 
@@ -158,9 +158,9 @@ def main():
         
         pangenome_reference_g2 = str(Path(graph_files.iloc[int(graph_count+1)][0]) / "pan_genome_reference.fa")
 
-        print("Running mmseqs2...")
+        print("Running MMSeqs2...")
         run_mmseqs_easysearch(query=pangenome_reference_g1, target=pangenome_reference_g2, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"))
-        print("mmseqs2 complete. Reading and filtering results...")
+        print("MMSeqs2 complete. Reading and filtering results...")
 
         # read mmseqs results
         # each "group_" refers to the centroid of that group in the pan_genomes_reference.fa
@@ -194,7 +194,7 @@ def main():
         # only keep the first occurrence per unique target (highest fident then smallest evalue if tie)
         mmseqs_filtered = mmseqs_sorted.groupby("target", as_index=False).first()
 
-        print("Filtered mmseqs...")
+        print("Hits filtered. Mapping between graphs...")
         print("mmseqs: ", mmseqs_filtered)
 
         # in mmseqs, the first graph entered (in this case graph_1) is the query and the second entered (in this case graph_2) is the target
@@ -265,8 +265,13 @@ def main():
 
         # if other bits are too slow, replacing looping over nodes with the nodes.values method shown here
 
+        print("Updating graph metadata to prepare for merge...")
+
         if options.mode != 'test':
             for node_data in relabeled_graph_2.nodes.values():
+
+                print('Start!')
+
                 node_data['centroid'] = [f"{centroid}_g{graph_count+1}" for centroid in node_data['centroid']] # list
                 print(node_data['centroid'])
 
@@ -286,12 +291,16 @@ def main():
                 node_data['longCentroidID'].append(f'from_g{graph_count+1}') #list
                 print(node_data['longCentroidID'])
 
+                print(node_data['geneIDs'])
                 geneids = node_data['geneIDs'].split(";")
                 geneids = [f"{gid}_g{graph_count+1}" for gid in node_data['geneIDs']]
                 node_data['geneIDs'] = ";".join(geneids) # str
                 print(node_data['geneIDs'])
 
             if graph_count == 0:
+
+                print('Start!')
+
                 for node_data in relabeled_graph_1.nodes.values():
                     node_data['centroid'] = [f"{centroid}_g{graph_count}" for centroid in node_data['centroid']] # list
                     print(node_data['centroid'])
@@ -312,12 +321,15 @@ def main():
                     node_data['longCentroidID'].append(f'from_g{graph_count}') #list
                     print(node_data['longCentroidID'])
 
+                    print(node_data['geneIDs'])
                     geneids = node_data['geneIDs'].split(";")
                     geneids = [f"{gid}_g{graph_count}" for gid in node_data['geneIDs']]
                     node_data['geneIDs'] = ";".join(geneids) # str
                     print(node_data['geneIDs'])
 
         ### merge graphs
+
+        print("Beginning graph merge...")
 
         merged_graph = relabeled_graph_1
 
@@ -329,6 +341,8 @@ def main():
         #if options.mode == 'test':
         #    gene_data_all_new = pd.read_csv(str(Path(options.graph_all) / "gene_data.csv"))
         
+        print("Merging nodes...")
+
         # merge the two sets of unique nodes into one set of unique nodes
         for node in relabeled_graph_2.nodes:
             if merged_graph.has_node(node) == True:
@@ -405,6 +419,7 @@ def main():
 
                 pan_genome_reference_merged = pd.concat([pan_genome_reference_merged, node_centroid_df])
 
+        print("Merging edges...")
 
         for edge in relabeled_graph_2.edges:
             
@@ -462,9 +477,10 @@ def main():
         # update degrees across graph
         for node in merged_graph:
             merged_graph.nodes[node]["degree"] == int(merged_graph.degree[node])
-
         
         if options.mode == 'test' and graph_count == (n_graphs-2):
+
+            print("Calculating adjusted Rand index (ARI) and adjusted mutual information (AMI)...")
 
             ### gather seqIDs to enable calculation of clustering metrics
             
@@ -528,6 +544,7 @@ def main():
             adj_mutual_info = adjusted_mutual_info_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
             print(f"Adjusted Mutual Information: {adj_mutual_info}")
 
+        print("Merge complete. Preparing attribute metadata for export...")
 
         for node in merged_graph.nodes():
             print("node ", node)
@@ -562,7 +579,7 @@ def main():
         print(f"Iteration {graph_count} complete.")
 
         if (graph_count < (n_graphs-1)):
-            print("Merging next graph...")
+            print("Merging in next graph...")
 
     print('Finished successfully.')
 

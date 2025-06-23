@@ -17,7 +17,7 @@ def run_mmseqs_easysearch(
 
     cmd += str(tmpdir)
     
-    cmd += ' --search-type 2 --format-mode 4 -a --format-output "query,target,fident,nident,alnlen,qlen,tlen,evalue"'
+    cmd += ' --search-type 2 --format-mode 4 -a --format-output "query,target,fident,nident,alnlen,qlen,tlen,evalue" -v 1'
 
     subprocess.run(cmd, shell=True, check=True)
 
