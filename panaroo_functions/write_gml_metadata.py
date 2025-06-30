@@ -1,5 +1,10 @@
 # from panaroo __main.py__ (added function def)
 
+def conv_list(maybe_list):
+    if not isinstance(maybe_list, list):
+        maybe_list = [maybe_list]
+    return (maybe_list)
+
 def format_metadata_for_gml(G):
     # add helpful attributes and write out graph in GML format
     for node in G.nodes():

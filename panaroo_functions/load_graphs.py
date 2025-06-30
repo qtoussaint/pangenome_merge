@@ -54,7 +54,7 @@ def load_graphs(graph_files, n_cpu=1):
             ]
 
         # set up node parameters and remove conflicts.
-        max_mem = -1
+        #max_mem = -1
         for n in G.nodes():
             ncentroids = []
             for sid in G.nodes[n]['centroid'].split(";"):
@@ -75,10 +75,10 @@ def load_graphs(graph_files, n_cpu=1):
             G.nodes[n]['lengths'] = conv_list(G.nodes[n]['lengths'])
             G.nodes[n]['longCentroidID'][1] = update_sid(
                 G.nodes[n]['longCentroidID'][1], member_count)
-            G.nodes[n]['members'] = [m + member_count for m in conv_list(G.nodes[n]['members'])]
-            max_mem = max(max_mem, max(G.nodes[n]['members']))
+            #G.nodes[n]['members'] = [m + member_count for m in conv_list(G.nodes[n]['members'])]
+            #max_mem = max(max_mem, max(G.nodes[n]['members']))
 
-        member_count = max_mem + 1
+        #member_count = max_mem + 1
         graphs[i] = G
 
     return graphs, isolate_names, id_mapping

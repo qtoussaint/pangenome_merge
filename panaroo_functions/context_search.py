@@ -1,7 +1,7 @@
 import networkx as nx
 from panaroo.cdhit import *
 
-# add context search function (collapse families) from Panaroo to check hits
+# add collapse families from Panaroo
 
 def collapse_families(G,
                       seqid_to_centroid,

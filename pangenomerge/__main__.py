@@ -21,6 +21,8 @@ from Bio import SeqIO
 from .manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array
 from .run_mmseqs import run_mmseqs_easysearch
 from panaroo_functions.load_graphs import load_graphs
+from panaroo_functions.write_gml_metadata import format_metadata_for_gml
+
 
 from .__init__ import __version__
 
@@ -81,7 +83,7 @@ def main():
             graph_file_2 = str(Path(graph_files.iloc[1][0]) / "final_graph.gml")
         else:
             graph_file_1 = str(Path(options.outdir) / f"merged_graph_{graph_count}.gml")
-            graph_file_2 = str(Path(graph_files.iloc[int(graph_count)][0]) / "final_graph.gml")
+            graph_file_2 = str(Path(graph_files.iloc[int(graph_count+1)][0]) / "final_graph.gml")
 
         print(f"Beginning iteration {graph_count+1} of {n_graphs-1}...")
         print("graph_file_1: ", graph_file_1)
@@ -526,9 +528,10 @@ def main():
 
         print("Merge complete. Preparing attribute metadata for export...")
 
-        for node_data in merged_graph.nodes.values():
-                node_data['seqIDs'] = ";".join(node_data['seqIDs'])
-                #node_data['name'] = node_data['name'].removesuffix('_query')
+        # update metadata
+        #for node_data in merged_graph.nodes.values():
+        #    node_data['seqIDs'] = ";".join(node_data['seqIDs'])
+        #    node_data['centroid'] = ";".join(node_data['centroid'])
 
         if graph_count == 0:
             #for node_data in merged_graph.nodes.values():
@@ -549,11 +552,10 @@ def main():
                     mapping[node_id] = new_name
             merged_graph = nx.relabel_nodes(merged_graph, mapping, copy=False)
 
-        # need to update node ID instead!
         else:
             mapping = {}
             for node_id, node_data in merged_graph.nodes(data=True):
-                name = node_data.get('name', '')
+                name = node_data.get('id', '')
                 if '_query' in name:
                     new_name = name.removesuffix('_query')
                     mapping[node_id] = new_name
@@ -571,7 +573,7 @@ def main():
         #for node in merged_graph.nodes():
             #print("node ", node)
             
-        #format_metadata_for_gml(merged_graph)
+        format_metadata_for_gml(merged_graph)
         
         print('Writing merged graph to outdir...')
 
@@ -591,7 +593,7 @@ def main():
 
         graph_count += 1
 
-        print(f"Iteration {graph_count} of {graph_count+1} complete.")
+        print(f"Iteration {graph_count} of {n_graphs-1} complete.")
 
     print('Finished successfully.')
 
