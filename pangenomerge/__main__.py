@@ -47,10 +47,17 @@ def get_options():
     IO.add_argument('--component-graphs',
                     dest='component_graphs',
                     default=None,
-                    required=True,
+                    required=False,
                     help='Tab-separated list of paths to Panaroo output directories of component subgraphs. \
                     Each directory must contain final_graph.gml and pan_genome_reference.fa. If running in test mode, \
                     must also contain gene_data.csv. Graphs will be merged in the order presented in the file.')
+    IO.add_argument('--iterative',
+                    dest='iterative',
+                    default=None,
+                    required=False,
+                    help='Tab-separated list of GFFs and their sample IDs for iterative updating of the graph. \
+                    Use only for single samples or sets of samples too diverse to create an initial pan-genome. \
+                    Samples will be merged in the order presented in the file.')
     IO.add_argument('--graph-all',
                     dest='graph_all',
                     default=None,
@@ -72,6 +79,9 @@ def main():
 
     # parse command line arguments
     options = get_options()
+
+    if args.component_graphs is None and args.iterative is None:
+        parser.error("Specifying either --component-graphs or --iterative is required!")
 
     ### read in two graphs
 
