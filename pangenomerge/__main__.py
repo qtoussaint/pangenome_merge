@@ -22,6 +22,8 @@ from .manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d
 from .run_mmseqs import run_mmseqs_easysearch
 from panaroo_functions.load_graphs import load_graphs
 from panaroo_functions.write_gml_metadata import format_metadata_for_gml
+from panaroo_functions.context_search import collapse_families
+
 
 
 from .__init__ import __version__
@@ -57,6 +59,7 @@ def get_options():
     
     other = parser.add_argument_group('Other options')
     other.add_argument('--mmseqs-threads',
+                    dest="mmseqs_threads",
                     default=2,
                     type=int,
                     help='Number of threads for mmSeqs2')
@@ -459,7 +462,23 @@ def main():
         # update degrees across graph
         for node in merged_graph:
             merged_graph.nodes[node]["degrees"] == int(merged_graph.degree[node])
-        
+
+        # collapse over-split families using sequence identity + context search
+        # from panaroo main:
+        collapsed_merged_graph, distances_bwtn_centroids, centroid_to_index = panaroo_functions.collapse_families(
+            merged_graph,
+            seqid_to_centroid=seqid_to_centroid,
+            outdir=options.outdir,
+            correct_mistranslations=False,
+            n_cpu=options.mmseqs_threads,
+            quiet=True)     
+
+        merged_graph = collapsed_merged_graph 
+
+        # update degrees across graph
+        for node in merged_graph:
+            merged_graph.nodes[node]["degrees"] == int(merged_graph.degree[node])
+
         if options.mode == 'test' and graph_count == (n_graphs-2):
 
             print("Calculating adjusted Rand index (ARI) and adjusted mutual information (AMI)...")

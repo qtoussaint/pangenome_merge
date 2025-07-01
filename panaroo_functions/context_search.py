@@ -1,5 +1,5 @@
 import networkx as nx
-from panaroo.cdhit import *
+from panaroo_functions.cdhit import *
 
 # add collapse families from Panaroo
 
