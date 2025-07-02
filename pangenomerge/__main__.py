@@ -22,7 +22,7 @@ from .manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d
 from .run_mmseqs import run_mmseqs_easysearch
 from panaroo_functions.load_graphs import load_graphs
 from panaroo_functions.write_gml_metadata import format_metadata_for_gml
-from panaroo_functions.context_search import collapse_families
+from panaroo_functions.context_search import collapse_families, single_linkage
 
 
 
@@ -480,7 +480,7 @@ def main():
         seqid_to_centroid = {}
         for i, id in enumerate(seq_ids):
             node = seq_ids_nodes[id]
-            seqid_to_centroid[id] = merged_graph.nodes[node]["centroid"]
+            seqid_to_centroid[id] = merged_graph.nodes[node]["centroid"][0] # if multi-centroid, only use first centroid in list
 
         # collapse over-split families using sequence identity + context search
         # from panaroo main:

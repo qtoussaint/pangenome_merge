@@ -3,6 +3,33 @@ from panaroo_functions.cdhit import *
 
 # add collapse families from Panaroo
 
+def single_linkage(G, distances_bwtn_centroids, centroid_to_index, neighbours):
+    index = []
+    neigh_array = []
+    for neigh in neighbours:
+        for sid in G.nodes[neigh]['centroid']:
+            index.append(centroid_to_index[sid])
+            neigh_array.append(neigh)
+    index = np.array(index, dtype=int)
+    neigh_array = np.array(neigh_array)
+
+    n_components, labels = connected_components(
+        csgraph=distances_bwtn_centroids[index][:, index],
+        directed=False,
+        return_labels=True)
+    # labels = labels[index]
+    for neigh in neighbours:
+        l = list(set(labels[neigh_array == neigh]))
+        if len(l) > 1:
+            for i in l[1:]:
+                labels[labels == i] = l[0]
+
+    clusters = [
+        del_dups(list(neigh_array[labels == i])) for i in np.unique(labels)
+    ]
+
+    return (clusters)
+
 def collapse_families(G,
                       seqid_to_centroid,
                       outdir,
@@ -21,7 +48,6 @@ def collapse_families(G,
     #node_count = max(list(G.nodes())) + 10
     # above relies on integer nodes, mine are all strings
     # instead:
-
     if any(isinstance(x, int) for x in list(G.nodes())):
         print("WARNING: will overwrite existing nodes!")
     else:
