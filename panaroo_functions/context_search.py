@@ -236,8 +236,8 @@ def collapse_families(G,
                             nA = cluster[0]
                             for nB in cluster[1:]:
                                 mem_inter = list(
-                                    G.nodes[nA]['members'].intersection(
-                                        G.nodes[nB]['members']))
+                                    set(G.nodes[nA]['members']).intersection(
+                                        set(G.nodes[nB]['members'])))
                                 if len(mem_inter) > 0:
                                     if merge_same_members:
                                         shouldmerge = True

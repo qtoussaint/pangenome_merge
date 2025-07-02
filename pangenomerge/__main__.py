@@ -473,6 +473,8 @@ def main():
         for node in merged_graph:
             merged_graph.nodes[node]["degrees"] == int(merged_graph.degree[node])
 
+        print("Collapsing spurious paralogs...")
+
         # generate dictionary for panaroo collapse families
         seq_ids_nodes = get_seqIDs_in_nodes(merged_graph)
         seq_ids = list(seq_ids_nodes.keys())
