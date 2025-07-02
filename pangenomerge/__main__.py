@@ -80,7 +80,7 @@ def main():
     # parse command line arguments
     options = get_options()
 
-    if IO.component_graphs is None and IO.iterative is None:
+    if options.component_graphs is None and options.iterative is None:
         parser.error("Specifying either --component-graphs or --iterative is required!")
 
     ### read in two graphs
@@ -473,9 +473,17 @@ def main():
         for node in merged_graph:
             merged_graph.nodes[node]["degrees"] == int(merged_graph.degree[node])
 
+        # generate dictionary for panaroo collapse families
+        seq_ids_nodes = get_seqIDs_in_nodes(merged_graph)
+        seq_ids = list(seq_ids_nodes.keys())
+
+        for i, id in enumerate(seq_ids):
+            node = seq_ids_nodes[id]
+            seqid_to_centroid[id] = merged_graph.nodes[node]["centroid"]
+
         # collapse over-split families using sequence identity + context search
         # from panaroo main:
-        collapsed_merged_graph, distances_bwtn_centroids, centroid_to_index = panaroo_functions.collapse_families(
+        collapsed_merged_graph, distances_bwtn_centroids, centroid_to_index = collapse_families(
             merged_graph,
             seqid_to_centroid=seqid_to_centroid,
             outdir=options.outdir,
