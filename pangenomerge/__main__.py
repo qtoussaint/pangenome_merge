@@ -65,11 +65,11 @@ def get_options():
                     Only required for the test case, where it is used as the ground truth.')
     
     other = parser.add_argument_group('Other options')
-    other.add_argument('--mmseqs-threads',
-                    dest="mmseqs_threads",
+    other.add_argument('--threads',
+                    dest="threads",
                     default=2,
                     type=int,
-                    help='Number of threads for mmSeqs2')
+                    help='Number of threads')
     other.add_argument('--version', action='version',
                        version='%(prog)s '+__version__)
 
@@ -174,7 +174,7 @@ def main():
         pangenome_reference_g2 = str(Path(graph_files.iloc[int(graph_count+1)][0]) / "pan_genome_reference.fa")
 
         print("Running MMSeqs2...")
-        run_mmseqs_easysearch(query=pangenome_reference_g1, target=pangenome_reference_g2, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"))
+        run_mmseqs_easysearch(query=pangenome_reference_g1, target=pangenome_reference_g2, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
         print("MMSeqs2 complete. Reading and filtering results...")
 
         # read mmseqs results
@@ -489,7 +489,7 @@ def main():
             seqid_to_centroid=seqid_to_centroid,
             outdir=options.outdir,
             correct_mistranslations=False,
-            n_cpu=options.mmseqs_threads,
+            n_cpu=options.threads,
             quiet=True)     
 
         merged_graph = collapsed_merged_graph 

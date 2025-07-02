@@ -3,7 +3,7 @@ import tempfile
 import os
 import sys
 import re
-from collections import defaultdict
+from collections import defaultdict, Counter # added Counter
 import networkx as nx
 from Bio.Seq import reverse_complement, Seq
 import edlib

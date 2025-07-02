@@ -14,6 +14,31 @@ def del_dups(seq):
     del seq[pos:]
     return (seq)
 
+def gen_node_iterables(G, nodes, feature, split=None):
+    for n in nodes:
+        if split is None:
+            yield G.nodes[n][feature]
+        else:
+            yield G.nodes[n][feature].split(split)
+
+
+def gen_edge_iterables(G, edges, feature):
+    for e in edges:
+        yield G[e[0]][e[1]][feature]
+
+
+def temp_iter(list_list):
+    for n in list_list:
+        yield n
+
+
+def iter_del_dups(iterable):
+    seen = {}
+    for f in itertools.chain.from_iterable(iterable):
+        seen[f] = None
+    return (list(seen.keys()))
+
+
 def single_linkage(G, distances_bwtn_centroids, centroid_to_index, neighbours):
     index = []
     neigh_array = []
