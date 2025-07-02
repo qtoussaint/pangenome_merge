@@ -158,7 +158,7 @@ def collapse_families(G,
                     seen = G.nodes[cluster[0]]['members'].copy()
                     noconflict = True
                     for n in cluster[1:]:
-                        if not seen.isdisjoint(G.nodes[n]['members']):
+                        if not seen.isdisjoint(set(G.nodes[n]['members'])):
                             noconflict = False
                             break
                         seen |= G.nodes[n]['members']
