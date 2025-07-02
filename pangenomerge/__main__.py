@@ -30,7 +30,7 @@ from .__init__ import __version__
 
 
 def get_options():
-    description = 'Merges two or more Panaroo pan-genome gene graphs.'
+    description = 'Merges two or more Panaroo pan-genome gene graphs, or iteratively updates an existing graph.'
     parser = argparse.ArgumentParser(description=description,
                                     prog='pangenomerge')
 
@@ -80,7 +80,7 @@ def main():
     # parse command line arguments
     options = get_options()
 
-    if args.component_graphs is None and args.iterative is None:
+    if IO.component_graphs is None and IO.iterative is None:
         parser.error("Specifying either --component-graphs or --iterative is required!")
 
     ### read in two graphs
@@ -485,7 +485,7 @@ def main():
 
         merged_graph = collapsed_merged_graph 
 
-        # update degrees across graph
+        # update degrees across graph (post-collapsing)
         for node in merged_graph:
             merged_graph.nodes[node]["degrees"] == int(merged_graph.degree[node])
 
