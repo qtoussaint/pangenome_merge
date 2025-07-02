@@ -3,6 +3,17 @@ from panaroo_functions.cdhit import *
 
 # add collapse families from Panaroo
 
+def del_dups(seq):
+    seen = set()
+    pos = 0
+    for item in seq:
+        if item not in seen:
+            seen.add(item)
+            seq[pos] = item
+            pos += 1
+    del seq[pos:]
+    return (seq)
+
 def single_linkage(G, distances_bwtn_centroids, centroid_to_index, neighbours):
     index = []
     neigh_array = []
