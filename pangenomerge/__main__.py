@@ -477,6 +477,7 @@ def main():
         seq_ids_nodes = get_seqIDs_in_nodes(merged_graph)
         seq_ids = list(seq_ids_nodes.keys())
 
+        seqid_to_centroid = {}
         for i, id in enumerate(seq_ids):
             node = seq_ids_nodes[id]
             seqid_to_centroid[id] = merged_graph.nodes[node]["centroid"]

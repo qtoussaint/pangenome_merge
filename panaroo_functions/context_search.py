@@ -18,7 +18,14 @@ def collapse_families(G,
                       depths = [1, 2, 3],
                       search_genome_ids = None):
 
-    node_count = max(list(G.nodes())) + 10
+    #node_count = max(list(G.nodes())) + 10
+    # above relies on integer nodes, mine are all strings
+    # instead:
+
+    if any(isinstance(x, int) for x in list(G.nodes())):
+        print("WARNING: will overwrite existing nodes!")
+    else:
+        node_count = 0
 
     if correct_mistranslations:
         threshold = [0.99, 0.98, 0.95, 0.9]
