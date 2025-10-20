@@ -110,7 +110,7 @@ def main():
     options = get_options()
 
     if options.component_graphs is None and options.iterative is None:
-        parser.error("Specifying either --component-graphs or --iterative is required!")
+        raise ValueError("Specifying either --component-graphs or --iterative is required!")
 
     ### read in two graphs
 
@@ -148,7 +148,7 @@ def main():
                 print("Applying gene data...")
                 gene_data_g1 = pd.read_csv(str(Path(graph_files.iloc[int(graph_count)][0]) / "gene_data.csv"))
             else:
-                gene_data_g1 = [""]
+                gene_data_g1 = None
                 # not necessary because merged graph already has gene_all seqIDs mapped
 
             # rename column
@@ -502,11 +502,11 @@ def main():
 
                 # note that this statement is for NODES not EDGES
                 # you could also update g2 edges that don't contain "query" to have _graph_count+1 and then update the edges
-                if edge[0] in merged_graph.nodes() and edge[1] in merged_graph.nodes() :
+                if edge[0] in merged_graph.nodes() and edge[1] in merged_graph.nodes():
                     merged_graph.add_edge(edge[0], edge[1]) # add edge
                     merged_graph.edges[edge].update(relabeled_graph_2.edges[edge]) # update with all metadata
 
-                if edge[0] in merged_graph.nodes() and edge[1] not in merged_graph.nodes() :
+                if edge[0] in merged_graph.nodes() and edge[1] not in merged_graph.nodes():
 
                     if f"{edge[1]}_{graph_count+1}" in merged_graph.nodes():
                         merged_graph.add_edge(edge[0], f"{edge[1]}_{graph_count+1}") # add edge
@@ -514,18 +514,18 @@ def main():
                     else:
                         print(f"Nodes in edge not present in merged graph (ghost nodes): {edge}")
 
-                if edge[0] not in merged_graph.nodes() and edge[1] in merged_graph.nodes() :
+                if edge[0] not in merged_graph.nodes() and edge[1] in merged_graph.nodes():
 
-                    if f"{edge[0]}_{graph_count+1}" in merged_graph.nodes() :
+                    if f"{edge[0]}_{graph_count+1}" in merged_graph.nodes():
                         merged_graph.add_edge(f"{edge[0]}_{graph_count+1}", edge[1]) # add edge
                         merged_graph.edges[f"{edge[0]}_{graph_count+1}", edge[1]].update(relabeled_graph_2.edges[edge]) # update with all metadata
 
                     else:
                         print(f"Nodes in edge not present in merged graph (ghost nodes): {edge}")
 
-                if edge[0] not in merged_graph.nodes() and edge[1] not in merged_graph.nodes() :
+                if edge[0] not in merged_graph.nodes() and edge[1] not in merged_graph.nodes():
                     
-                    if f"{edge[0]}_{graph_count+1}" in merged_graph.nodes() and ("{edge[1]}_{graph_count+1}" in merged_graph.nodes() :
+                    if f"{edge[0]}_{graph_count+1}" in merged_graph.nodes() and f"{edge[1]}_{graph_count+1}" in merged_graph.nodes():
                         merged_graph.add_edge(f"{edge[0]}_{graph_count+1}", f"{edge[1]}_{graph_count+1}") # add edge
                         merged_graph.edges[f"{edge[0]}_{graph_count+1}", f"{edge[1]}_{graph_count+1}"].update(relabeled_graph_2.edges[edge]) # update with all metadata
                     else: 
@@ -658,7 +658,7 @@ def main():
         else:
             mapping = {}
             for node_id, node_data in merged_graph.nodes(data=True):
-                name = node_data.get('id', '')
+                name = node_data.get('name', '')
                 if '_query' in name:
                     new_name = name.removesuffix('_query')
                     mapping[node_id] = new_name
