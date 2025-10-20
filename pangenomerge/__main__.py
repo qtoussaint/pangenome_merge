@@ -29,6 +29,12 @@ from panaroo_functions.merge_nodes import merge_node_cluster, gen_edge_iterables
 
 from .__init__ import __version__
 
+def sync_names(G):
+    # write over names with nodes
+    # for use after nodes have been updated
+    for n in G.nodes:
+        G.nodes[n]['name'] = str(n)
+    return G
 
 def get_options():
     description = 'Merges two or more Panaroo pan-genome gene graphs, or iteratively updates an existing graph.'
@@ -263,16 +269,17 @@ def main():
         # MUST SET COPY=FALSE OR NODES NOT IN MAPPING WILL BE DROPPED
         # some of these will just be OG group_XXX (not query-appended) from graph 2; the rest will be group_XXX_query from graph 1
         relabeled_graph_2 = nx.relabel_nodes(groupmapped_graph_2, mapping, copy=False)
+        relabeled_graph_2 = sync_names(relabeled_graph_2)
 
         # append ALL nodes in query graph (ALL nodes of the form group_XXX_query with group_XXX from graph 1)
         mapping_query = dict(zip(groupmapped_graph_1.nodes, groupmapped_graph_1.nodes))
         mapping_query = {key: f"{value}_query" for key, value in mapping_query.items()}
         relabeled_graph_1 = nx.relabel_nodes(groupmapped_graph_1, mapping_query, copy=False)
+        relabeled_graph_1 = sync_names(relabeled_graph_1)
 
         missing_keys = set(mapping.keys()) - set(groupmapped_graph_2.nodes)
         if missing_keys:
-            print(f"⚠️ {len(missing_keys)} mapping targets not found in graph_2. Example: {list(missing_keys)[:5]}")
-
+            print(f"{len(missing_keys)} mapping targets not found in graph_2. Example: {list(missing_keys)[:5]}")
 
         # now we can modify the tokenized code to iterate like usual, adding new node if string doesn't contain "_query"
         # and merging the nodes that both end in "_query"
@@ -282,6 +289,8 @@ def main():
             graph_all = [str(Path(options.graph_all) / "final_graph.gml")]
             graph_all, isolate_names, id_mapping = load_graphs(graph_all)
             graph_all = graph_all[0]
+
+            ### DO I NEED TO MAKE NAMES INTO NODE IDS HERE FOR GRAPH_ALL?
 
         ### add suffix to relevant metadata to be able to identify which graph they refer to later
 
@@ -379,6 +388,7 @@ def main():
 
                 # add node
                 merged_graph.add_node(node,
+                                    name=relabeled_graph_2.nodes[node]["name"],
                                     centroid=relabeled_graph_2.nodes[node]["centroid"],
                                     size = relabeled_graph_2.nodes[node]["size"],
                                     maxLenId = relabeled_graph_2.nodes[node]["maxLenId"],
@@ -404,9 +414,10 @@ def main():
 
                 # relabel node from graph_2 group_xxx to group_xxx_graphcount
                 mapping_groups_new = dict()
-                node_group = relabeled_graph_2.nodes[node].get("name", "error")
-                mapping_groups_new[node] = f'{node_group}_{graph_count+1}'
+                #node_group = relabeled_graph_2.nodes[node].get("name", "error")
+                mapping_groups_new[node] = f'{node}_{graph_count+1}'
                 merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
+                merged_graph = sync_names(merged_graph) # could sync names at end of all merges if slow
                 
                 # (for centroids of nodes already in main graph, we leave them instead of updating with new centroids
                 # to prevent centroids from drifting away over time, and instead maintain consistency)
@@ -598,6 +609,7 @@ def main():
                     new_name = name.replace('_query', f'_{graph_count}')
                     mapping[node_id] = new_name
             merged_graph = nx.relabel_nodes(merged_graph, mapping, copy=False)
+            merged_graph = sync_names(merged_graph)
 
         else:
             mapping = {}
@@ -607,6 +619,7 @@ def main():
                     new_name = name.removesuffix('_query')
                     mapping[node_id] = new_name
             merged_graph = nx.relabel_nodes(merged_graph, mapping, copy=False)
+            merged_graph = sync_names(merged_graph)
 
         #for node in merged_graph.nodes():
         #    merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs'])
