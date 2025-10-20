@@ -236,6 +236,7 @@ def main():
 
         # only keep the first occurrence per unique target (highest fident, lowest length difference, then smallest evalue if tie)
         mmseqs_filtered = mmseqs_sorted.drop_duplicates(subset=["target"], keep="first")
+        mmseqs_filtered = mmseqs_filtered.drop_duplicates(subset=["query"], keep="first") # test if dropping query vs. target duplicates first changes results
 
         ### TEST
 
@@ -501,30 +502,30 @@ def main():
 
                 # note that this statement is for NODES not EDGES
                 # you could also update g2 edges that don't contain "query" to have _graph_count+1 and then update the edges
-                if (edge[0] in merged_graph.nodes() == True) and (edge[1] in merged_graph.nodes() == True):
+                if edge[0] in merged_graph.nodes() and edge[1] in merged_graph.nodes() :
                     merged_graph.add_edge(edge[0], edge[1]) # add edge
                     merged_graph.edges[edge].update(relabeled_graph_2.edges[edge]) # update with all metadata
 
-                if (edge[0] in merged_graph.nodes() == True) and (edge[1] in merged_graph.nodes() == False):
+                if edge[0] in merged_graph.nodes() and edge[1] not in merged_graph.nodes() :
 
-                    if f"{edge[1]}_{graph_count+1}" in merged_graph.nodes() == True:
+                    if f"{edge[1]}_{graph_count+1}" in merged_graph.nodes():
                         merged_graph.add_edge(edge[0], f"{edge[1]}_{graph_count+1}") # add edge
                         merged_graph.edges[edge[0], f"{edge[1]}_{graph_count+1}"].update(relabeled_graph_2.edges[edge]) # update with all metadata
                     else:
                         print(f"Nodes in edge not present in merged graph (ghost nodes): {edge}")
 
-                if (edge[0] in merged_graph.nodes() == False) and (edge[1] in merged_graph.nodes() == True):
+                if edge[0] not in merged_graph.nodes() and edge[1] in merged_graph.nodes() :
 
-                    if f"{edge[0]}_{graph_count+1}" in merged_graph.nodes() == True:
+                    if f"{edge[0]}_{graph_count+1}" in merged_graph.nodes() :
                         merged_graph.add_edge(f"{edge[0]}_{graph_count+1}", edge[1]) # add edge
                         merged_graph.edges[f"{edge[0]}_{graph_count+1}", edge[1]].update(relabeled_graph_2.edges[edge]) # update with all metadata
 
                     else:
                         print(f"Nodes in edge not present in merged graph (ghost nodes): {edge}")
 
-                if (edge[0] in merged_graph.nodes() == False) and (edge[1] in merged_graph.nodes() == False):
+                if edge[0] not in merged_graph.nodes() and edge[1] not in merged_graph.nodes() :
                     
-                    if (f"{edge[0]}_{graph_count+1}" in merged_graph.nodes() == True) and (f"{edge[1]}_{graph_count+1}" in merged_graph.nodes() == True):
+                    if f"{edge[0]}_{graph_count+1}" in merged_graph.nodes() and ("{edge[1]}_{graph_count+1}" in merged_graph.nodes() :
                         merged_graph.add_edge(f"{edge[0]}_{graph_count+1}", f"{edge[1]}_{graph_count+1}") # add edge
                         merged_graph.edges[f"{edge[0]}_{graph_count+1}", f"{edge[1]}_{graph_count+1}"].update(relabeled_graph_2.edges[edge]) # update with all metadata
                     else: 
