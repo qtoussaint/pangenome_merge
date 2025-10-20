@@ -36,6 +36,28 @@ def sync_names(G):
         G.nodes[n]['name'] = str(n)
     return G
 
+def relabel_nodes_preserve_attrs(G, mapping):
+    # Return a new graph with nodes relabeled according to mapping, preserving all attributes and without merging any nodes.
+    # Required due to networkx's relabel_nodes() being very naughty
+
+    H = G.__class__()  # same type (Graph, DiGraph, etc.)
+    H.graph.update(G.graph)  # copy global graph attrs
+
+    # Step 1: Add nodes (rename if in mapping)
+    for n, data in G.nodes(data=True):
+        new_n = mapping.get(n, n)
+        if new_n in H:
+            raise ValueError(f"Duplicate node target detected: {new_n}")
+        H.add_node(new_n, **data)
+
+    # Step 2: Add edges (map endpoints)
+    for u, v, data in G.edges(data=True):
+        new_u = mapping.get(u, u)
+        new_v = mapping.get(v, v)
+        H.add_edge(new_u, new_v, **data)
+
+    return H
+
 def get_options():
     description = 'Merges two or more Panaroo pan-genome gene graphs, or iteratively updates an existing graph.'
     parser = argparse.ArgumentParser(description=description,
@@ -199,21 +221,33 @@ def main():
         mmseqs["qlen"] = pd.to_numeric(mmseqs["qlen"], errors='coerce')
         mmseqs["nident"] = pd.to_numeric(mmseqs["nident"], errors='coerce')
 
-        # filter for nt identity >= 98% (global) and length difference <= 5%
+        # define length difference
         max_len = np.maximum(mmseqs['tlen'], mmseqs['qlen'])
-        frac_identity = mmseqs['fident'] >= 0.98
-        len_dif = 1-(np.abs(mmseqs['tlen'] - mmseqs['qlen']) / max_len) >= 0.95
+        mmseqs["len_dif"] = 1 - (np.abs(mmseqs["tlen"] - mmseqs["qlen"]) / max_len)
 
-        scores = frac_identity & len_dif
-        mmseqs = mmseqs[scores].copy()
+        # filter for fraction nt identity >= 98% (global) and length difference <= 5%
+        mmseqs = mmseqs[(mmseqs["fident"] >= 0.98) & (mmseqs["len_dif"] >= 0.95)].copy()
 
-        # iterate over target with each unique value of target, and pick the match with the highest fident; if multiple, pick the one with the smaller E value
+        ### iterate over target with each unique value of target, and pick the match with the highest fident, then highest len_dif (see calculation)
+        # if still multiple matches, pick the first one
 
-        # sort by fident (highest first) and evalue (lowest first)
-        mmseqs_sorted = mmseqs.sort_values(by=["fident", "evalue"], ascending=[False, True])
+        # sort by fident (highest first), len_dif (highest first -- see calculation), and evalue (lowest first)
+        mmseqs_sorted = mmseqs.sort_values(by=["fident", "len_dif", "evalue"], ascending=[False, False, True],)
+
+        # only keep the first occurrence per unique target (highest fident, lowest length difference, then smallest evalue if tie)
+        mmseqs_filtered = mmseqs_sorted.drop_duplicates(subset=["target"], keep="first")
+
+        ### TEST
+
+        print(f"Filtered to {len(mmseqs_filtered)} one-to-one hits.")
+        dups_target = mmseqs_filtered["target"].duplicated().sum()
+        dups_query = mmseqs_filtered["query"].duplicated().sum()
+        print(f"Remaining duplicates — target: {dups_target}, query: {dups_query}")
+
+        ### TEST
 
         # only keep the first occurrence per unique target (highest fident then smallest evalue if tie)
-        mmseqs_filtered = mmseqs_sorted.groupby("target", as_index=False).first()
+        #mmseqs_filtered = mmseqs_sorted.groupby("target", as_index=False).first()
 
         print("Hits filtered. Mapping between graphs...")
         print("mmseqs: ", mmseqs_filtered)
@@ -237,7 +271,7 @@ def main():
                 node_group = graph_1.nodes[node].get("name", "error")
                 print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
                 mapping_groups_1[node] = str(node_group)
-            groupmapped_graph_1 = nx.relabel_nodes(graph_1, mapping_groups_1, copy=False)
+            groupmapped_graph_1 = relabel_nodes_preserve_attrs(graph_1, mapping_groups_1)
         else:
             groupmapped_graph_1 = graph_1
 
@@ -247,7 +281,7 @@ def main():
             print(f"graph: 2, node_index_id: {node}, node_group_id: {node_group}")
             mapping_groups_2[node] = str(node_group)
 
-        groupmapped_graph_2 = nx.relabel_nodes(graph_2, mapping_groups_2, copy=False)
+        groupmapped_graph_2 = relabel_nodes_preserve_attrs(graph_2, mapping_groups_2)
 
         ### map filtered mmseqs2 hits to mapping of nodes between graphs
 
@@ -263,8 +297,6 @@ def main():
 
         # this appends _query to values (graph_1/query groups)
         mapping = {key: f"{value}_query" for key, value in mapping.items()}
-
-
 
         #### TESTING 
 
@@ -282,13 +314,13 @@ def main():
         # relabel target graph from old labels (keys) to new labels (values, the _query-appended graph_1 groups)
         # MUST SET COPY=FALSE OR NODES NOT IN MAPPING WILL BE DROPPED
         # some of these will just be OG group_XXX (not query-appended) from graph 2; the rest will be group_XXX_query from graph 1
-        relabeled_graph_2 = nx.relabel_nodes(groupmapped_graph_2, mapping, copy=False)
+        relabeled_graph_2 = relabel_nodes_preserve_attrs(groupmapped_graph_2, mapping)
         relabeled_graph_2 = sync_names(relabeled_graph_2)
 
-        # append ALL nodes in query graph (ALL nodes of the form group_XXX_query with group_XXX from graph 1)
+        # append _query to ALL nodes in query graph (ALL nodes of the form group_XXX_query with group_XXX from graph 1)
         mapping_query = dict(zip(groupmapped_graph_1.nodes, groupmapped_graph_1.nodes))
         mapping_query = {key: f"{value}_query" for key, value in mapping_query.items()}
-        relabeled_graph_1 = nx.relabel_nodes(groupmapped_graph_1, mapping_query, copy=False)
+        relabeled_graph_1 = relabel_nodes_preserve_attrs(groupmapped_graph_1, mapping_query)
         relabeled_graph_1 = sync_names(relabeled_graph_1)
 
         # now we can modify the tokenized code to iterate like usual, adding new node if string doesn't contain "_query"
@@ -353,7 +385,7 @@ def main():
 
         print("Beginning graph merge...")
 
-        merged_graph = relabeled_graph_1
+        merged_graph = relabeled_graph_1.copy()
 
         group = []
         for record in SeqIO.parse(pangenome_reference_g1, "fasta"):
@@ -427,7 +459,7 @@ def main():
                 mapping_groups_new = dict()
                 #node_group = relabeled_graph_2.nodes[node].get("name", "error")
                 mapping_groups_new[node] = f'{node}_{graph_count+1}'
-                merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
+                merged_graph = relabel_nodes_preserve_attrs(merged_graph, mapping_groups_new)
                 merged_graph = sync_names(merged_graph) # could sync names at end of all merges if slow
                 
                 # (for centroids of nodes already in main graph, we leave them instead of updating with new centroids
@@ -500,7 +532,7 @@ def main():
 
         # update degrees across graph
         for node in merged_graph:
-            merged_graph.nodes[node]["degrees"] == int(merged_graph.degree[node])
+            merged_graph.nodes[node]["degrees"] = int(merged_graph.degree[node])
 
         print("Collapsing spurious paralogs...")
 
@@ -527,7 +559,7 @@ def main():
 
         # update degrees across graph (post-collapsing)
         for node in merged_graph:
-            merged_graph.nodes[node]["degrees"] == int(merged_graph.degree[node])
+            merged_graph.nodes[node]["degrees"] = int(merged_graph.degree[node])
 
         if options.mode == 'test' and graph_count == (n_graphs-2):
 
@@ -609,7 +641,7 @@ def main():
             #        mapping_groups_new = dict()
             #        new_label = node_data['name'].removesuffix('_query')
             #        mapping_groups_new[node] = f'{new_label}_{graph_count}'
-            #        merged_graph = nx.relabel_nodes(merged_graph, mapping_groups_new, copy=False)
+            #        merged_graph = relabel_nodes_preserve_attrs(merged_graph, mapping_groups_new)
             
             # relabel node from graph_1 group_xxx to group_xxx_graphcount
             mapping = {}
@@ -619,7 +651,7 @@ def main():
                 if '_query' in name:
                     new_name = name.replace('_query', f'_{graph_count}')
                     mapping[node_id] = new_name
-            merged_graph = nx.relabel_nodes(merged_graph, mapping, copy=False)
+            merged_graph = relabel_nodes_preserve_attrs(merged_graph, mapping)
             merged_graph = sync_names(merged_graph)
 
         else:
@@ -629,7 +661,7 @@ def main():
                 if '_query' in name:
                     new_name = name.removesuffix('_query')
                     mapping[node_id] = new_name
-            merged_graph = nx.relabel_nodes(merged_graph, mapping, copy=False)
+            merged_graph = relabel_nodes_preserve_attrs(merged_graph, mapping)
             merged_graph = sync_names(merged_graph)
 
         #for node in merged_graph.nodes():
@@ -638,7 +670,7 @@ def main():
         
         #mapping_query = dict(zip(merged_graph.nodes, merged_graph.nodes))
         #mapping_query = {key: f"{value.removesuffix('query')}" for key, value in mapping_query.items()}
-        #merged_graph_new = nx.relabel_nodes(merged_graph, mapping_query, copy=False)
+        #merged_graph_new = relabel_nodes_preserve_attrs(merged_graph, mapping_query)
         #merged_graph = merged_graph_new
 
         #for node in merged_graph.nodes():
