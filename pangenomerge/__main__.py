@@ -202,7 +202,6 @@ def main():
         # filter for nt identity >= 98% (global) and length difference <= 5%
         max_len = np.maximum(mmseqs['tlen'], mmseqs['qlen'])
         nt_identity = mmseqs['nident'] / max_len  >= 0.98
-        nt_identity = max_len / max_len  >= 0.98
         len_dif = 1-(np.abs(mmseqs['tlen'] - mmseqs['qlen']) / max_len) >= 0.95
 
         scores = nt_identity & len_dif
@@ -236,7 +235,7 @@ def main():
             mapping_groups_1 = dict()
             for node in graph_1.nodes():
                 node_group = graph_1.nodes[node].get("name", "error")
-                #print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
+                print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
                 mapping_groups_1[node] = str(node_group)
             groupmapped_graph_1 = nx.relabel_nodes(graph_1, mapping_groups_1, copy=False)
         else:
@@ -245,7 +244,7 @@ def main():
         mapping_groups_2 = dict()
         for node in graph_2.nodes():
             node_group = graph_2.nodes[node].get("name", "error")
-            #print(f"graph: 2, node_index_id: {node}, node_group_id: {node_group}")
+            print(f"graph: 2, node_index_id: {node}, node_group_id: {node_group}")
             mapping_groups_2[node] = str(node_group)
 
         groupmapped_graph_2 = nx.relabel_nodes(graph_2, mapping_groups_2, copy=False)
@@ -265,6 +264,21 @@ def main():
         # this appends _query to values (graph_1/query groups)
         mapping = {key: f"{value}_query" for key, value in mapping.items()}
 
+
+
+        #### TESTING 
+
+        # Debug prints
+        print(list(groupmapped_graph_2.nodes)[:10])
+        print(mmseqs_filtered["target"].unique()[:10])
+
+        # Now it's safe to compare
+        missing_keys = set(mapping.keys()) - set(map(str, groupmapped_graph_2.nodes))
+        if missing_keys:
+            print(f"{len(missing_keys)} mapping targets not found in graph_2. Example: {list(missing_keys)[:5]}")
+
+        #### TESTING 
+
         # relabel target graph from old labels (keys) to new labels (values, the _query-appended graph_1 groups)
         # MUST SET COPY=FALSE OR NODES NOT IN MAPPING WILL BE DROPPED
         # some of these will just be OG group_XXX (not query-appended) from graph 2; the rest will be group_XXX_query from graph 1
@@ -276,10 +290,6 @@ def main():
         mapping_query = {key: f"{value}_query" for key, value in mapping_query.items()}
         relabeled_graph_1 = nx.relabel_nodes(groupmapped_graph_1, mapping_query, copy=False)
         relabeled_graph_1 = sync_names(relabeled_graph_1)
-
-        missing_keys = set(mapping.keys()) - set(groupmapped_graph_2.nodes)
-        if missing_keys:
-            print(f"{len(missing_keys)} mapping targets not found in graph_2. Example: {list(missing_keys)[:5]}")
 
         # now we can modify the tokenized code to iterate like usual, adding new node if string doesn't contain "_query"
         # and merging the nodes that both end in "_query"
