@@ -23,6 +23,7 @@ from .run_mmseqs import run_mmseqs_easysearch
 from panaroo_functions.load_graphs import load_graphs
 from panaroo_functions.write_gml_metadata import format_metadata_for_gml
 from panaroo_functions.context_search import collapse_families, single_linkage
+from panaroo_functions.merge_nodes import merge_node_cluster, gen_edge_iterables, gen_node_iterables, iter_del_dups, del_dups
 
 
 
@@ -238,8 +239,8 @@ def main():
         mapping_groups_2 = dict()
         for node in graph_2.nodes():
             node_group = graph_2.nodes[node].get("name", "error")
-            #print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
-            mapping_groups_2[int(node)] = str(node_group)
+            #print(f"graph: 2, node_index_id: {node}, node_group_id: {node_group}")
+            mapping_groups_2[node] = str(node_group)
 
         groupmapped_graph_2 = nx.relabel_nodes(graph_2, mapping_groups_2, copy=False)
 
@@ -260,12 +261,18 @@ def main():
 
         # relabel target graph from old labels (keys) to new labels (values, the _query-appended graph_1 groups)
         # MUST SET COPY=FALSE OR NODES NOT IN MAPPING WILL BE DROPPED
+        # some of these will just be OG group_XXX (not query-appended) from graph 2; the rest will be group_XXX_query from graph 1
         relabeled_graph_2 = nx.relabel_nodes(groupmapped_graph_2, mapping, copy=False)
 
-        # relabel query graph
+        # append ALL nodes in query graph (ALL nodes of the form group_XXX_query with group_XXX from graph 1)
         mapping_query = dict(zip(groupmapped_graph_1.nodes, groupmapped_graph_1.nodes))
         mapping_query = {key: f"{value}_query" for key, value in mapping_query.items()}
         relabeled_graph_1 = nx.relabel_nodes(groupmapped_graph_1, mapping_query, copy=False)
+
+        missing_keys = set(mapping.keys()) - set(groupmapped_graph_2.nodes)
+        if missing_keys:
+            print(f"⚠️ {len(missing_keys)} mapping targets not found in graph_2. Example: {list(missing_keys)[:5]}")
+
 
         # now we can modify the tokenized code to iterate like usual, adding new node if string doesn't contain "_query"
         # and merging the nodes that both end in "_query"
@@ -486,15 +493,15 @@ def main():
 
         # collapse over-split families using sequence identity + context search
         # from panaroo main:
-        collapsed_merged_graph, distances_bwtn_centroids, centroid_to_index = collapse_families(
-            merged_graph,
-            seqid_to_centroid=seqid_to_centroid,
-            outdir=options.outdir,
-            correct_mistranslations=False,
-            n_cpu=options.threads,
-            quiet=True)     
+        #collapsed_merged_graph, distances_bwtn_centroids, centroid_to_index = collapse_families(
+        #    merged_graph,
+        #    seqid_to_centroid=seqid_to_centroid,
+        #    outdir=options.outdir,
+        #    correct_mistranslations=False,
+        #    n_cpu=options.threads,
+        #    quiet=True)     
 
-        merged_graph = collapsed_merged_graph 
+        #merged_graph = collapsed_merged_graph 
 
         # update degrees across graph (post-collapsing)
         for node in merged_graph:

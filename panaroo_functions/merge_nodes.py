@@ -1,8 +1,8 @@
 import itertools
 from collections import Counter
-from .isvalid import del_dups
+#from .isvalid import del_dups
 import numpy as np
-from intbitset import intbitset
+#from intbitset import intbitset
 
 
 def gen_node_iterables(G, nodes, feature, split=None):
