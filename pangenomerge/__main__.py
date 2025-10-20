@@ -201,10 +201,10 @@ def main():
 
         # filter for nt identity >= 98% (global) and length difference <= 5%
         max_len = np.maximum(mmseqs['tlen'], mmseqs['qlen'])
-        nt_identity = mmseqs['nident'] / max_len  >= 0.98
+        frac_identity = mmseqs['fident'] >= 0.98
         len_dif = 1-(np.abs(mmseqs['tlen'] - mmseqs['qlen']) / max_len) >= 0.95
 
-        scores = nt_identity & len_dif
+        scores = frac_identity & len_dif
         mmseqs = mmseqs[scores].copy()
 
         # iterate over target with each unique value of target, and pick the match with the highest fident; if multiple, pick the one with the smaller E value
@@ -300,7 +300,7 @@ def main():
             graph_all, isolate_names, id_mapping = load_graphs(graph_all)
             graph_all = graph_all[0]
 
-            ### DO I NEED TO MAKE NAMES INTO NODE IDS HERE FOR GRAPH_ALL?
+            ### DO I NEED TO MAKE NAMES INTO NODE IDS HERE FOR GRAPH_ALL? > no, because not comparing names between graphs
 
         ### add suffix to relevant metadata to be able to identify which graph they refer to later
 
@@ -328,25 +328,26 @@ def main():
                 geneids = [f"{gid}_g{graph_count+1}" for gid in geneids]
                 node_data['geneIDs'] = ";".join(geneids) # str
 
-            if graph_count == 0:
+        if graph_count == 0 and options.mode != 'test':
+            
+            for node_data in relabeled_graph_1.nodes.values():
 
-                for node_data in relabeled_graph_1.nodes.values():
-                    node_data['centroid'] = [f"{centroid}_g{graph_count}" for centroid in node_data['centroid']] # list
+                node_data['centroid'] = [f"{centroid}_g{graph_count}" for centroid in node_data['centroid']] # list
 
-                    node_data['maxLenId'] = str(node_data['maxLenId']) + f'_g{graph_count}' # int
+                node_data['maxLenId'] = str(node_data['maxLenId']) + f'_g{graph_count}' # int
 
-                    node_data['members'] = [f"{member}_g{graph_count}" for member in node_data['members']] # list
+                node_data['members'] = [f"{member}_g{graph_count}" for member in node_data['members']] # list
 
-                    node_data['genomeIDs'] = ";".join(node_data['members']) # str
+                node_data['genomeIDs'] = ";".join(node_data['members']) # str
 
-                    seqid_set = {f"{seqid}{f'_g{graph_count}'}" for seqid in node_data['seqIDs']}
-                    node_data['seqIDs'] = seqid_set # set
+                seqid_set = {f"{seqid}{f'_g{graph_count}'}" for seqid in node_data['seqIDs']}
+                node_data['seqIDs'] = seqid_set # set
 
-                    node_data['longCentroidID'].append(f'from_g{graph_count}') #list
+                node_data['longCentroidID'].append(f'from_g{graph_count}') #list
 
-                    geneids = node_data['geneIDs'].split(";")
-                    geneids = [f"{gid}_g{graph_count}" for gid in geneids]
-                    node_data['geneIDs'] = ";".join(geneids) # str
+                geneids = node_data['geneIDs'].split(";")
+                geneids = [f"{gid}_g{graph_count}" for gid in geneids]
+                node_data['geneIDs'] = ";".join(geneids) # str
 
         ### merge graphs
 
