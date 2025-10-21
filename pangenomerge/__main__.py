@@ -25,8 +25,6 @@ from panaroo_functions.write_gml_metadata import format_metadata_for_gml
 from panaroo_functions.context_search import collapse_families, single_linkage
 from panaroo_functions.merge_nodes import merge_node_cluster, gen_edge_iterables, gen_node_iterables, iter_del_dups, del_dups
 
-
-
 from .__init__ import __version__
 
 def sync_names(G):
@@ -251,7 +249,7 @@ def main():
         #mmseqs_filtered = mmseqs_sorted.groupby("target", as_index=False).first()
 
         print("Hits filtered. Mapping between graphs...")
-        print("mmseqs: ", mmseqs_filtered)
+        #print("mmseqs: ", mmseqs_filtered)
 
         # in mmseqs, the first graph entered (in this case graph_1) is the query and the second entered (in this case graph_2) is the target
         # so graph_1 is our query in mmseqs and the basegraph in the tokenized merge
@@ -270,7 +268,7 @@ def main():
             mapping_groups_1 = dict()
             for node in graph_1.nodes():
                 node_group = graph_1.nodes[node].get("name", "error")
-                print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
+                #print(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
                 mapping_groups_1[node] = str(node_group)
             groupmapped_graph_1 = relabel_nodes_preserve_attrs(graph_1, mapping_groups_1)
         else:
@@ -279,7 +277,7 @@ def main():
         mapping_groups_2 = dict()
         for node in graph_2.nodes():
             node_group = graph_2.nodes[node].get("name", "error")
-            print(f"graph: 2, node_index_id: {node}, node_group_id: {node_group}")
+            #print(f"graph: 2, node_index_id: {node}, node_group_id: {node_group}")
             mapping_groups_2[node] = str(node_group)
 
         groupmapped_graph_2 = relabel_nodes_preserve_attrs(graph_2, mapping_groups_2)
@@ -648,7 +646,7 @@ def main():
             mapping = {}
             for node_id, node_data in merged_graph.nodes(data=True):
                 name = node_data.get('name', '')
-                print(f"node name {name}")
+                #print(f"node name {name}")
                 if '_query' in name:
                     new_name = name.replace('_query', f'_{graph_count}')
                     mapping[node_id] = new_name
