@@ -702,12 +702,13 @@ def main():
 
         # skip for now
 
+        # and check metadata bc some nodes from the same graph appear to be mapping together
+
         # also need to remove pangenome reference centroids from new nodes that got merged during collapse
         pan_genome_reference_merged.drop(
             pan_genome_reference_merged.index[pan_genome_reference_merged["id"].isin(to_drop)],
             inplace=True
         )
-        # and check metadata bc some nodes from the same graph are mapping together
 
         # update degrees across graph
         for node in collapsed_merged_graph:
