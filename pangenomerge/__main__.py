@@ -660,6 +660,9 @@ def main():
 
         logging.info("Merging nodes...")
 
+        # create set of nodes to drop from the pangenome reference (since they're being merged)
+        to_drop = set()
+
         # merge the two sets of unique nodes into one set of unique nodes
         for a,b in reordered_pairs:
 
@@ -687,6 +690,9 @@ def main():
             merged_set = collapsed_merged_graph.nodes[a]["lengths"] + collapsed_merged_graph.nodes[b]["lengths"]
             collapsed_merged_graph.nodes[a]["lengths"] = merged_set
 
+            # note to remove from pangenome reference
+            to_drop.add(b)
+            
             # remove second node
             collapsed_merged_graph.remove_node(b)
 
@@ -697,7 +703,10 @@ def main():
         # skip for now
 
         # also need to remove pangenome reference centroids from new nodes that got merged during collapse
-
+        pan_genome_reference_merged.drop(
+            pan_genome_reference_merged.index[pan_genome_reference_merged["id"].isin(to_drop)],
+            inplace=True
+        )
         # and check metadata bc some nodes from the same graph are mapping together
 
         # update degrees across graph
