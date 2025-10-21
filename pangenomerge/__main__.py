@@ -232,6 +232,9 @@ def main():
         # sort by fident (highest first), len_dif (highest first -- see calculation), and evalue (lowest first)
         mmseqs_sorted = mmseqs.sort_values(by=["fident", "len_dif", "evalue"], ascending=[False, False, True],)
 
+        print(f" {len(mmseqs_sorted)} one-to-one hits.")
+        print(f"{mmseqs_sorted}")
+
         # only keep the first occurrence per unique target (highest fident, lowest length difference, then smallest evalue if tie)
         mmseqs_filtered = mmseqs_sorted.drop_duplicates(subset=["target"], keep="first")
         mmseqs_filtered = mmseqs_filtered.drop_duplicates(subset=["query"], keep="first") # test if dropping query vs. target duplicates first changes results
@@ -239,6 +242,7 @@ def main():
         ### TEST
 
         print(f"Filtered to {len(mmseqs_filtered)} one-to-one hits.")
+        print(f"{mmseqs_filtered}")
         dups_target = mmseqs_filtered["target"].duplicated().sum()
         dups_query = mmseqs_filtered["query"].duplicated().sum()
         print(f"Remaining duplicates — target: {dups_target}, query: {dups_query}")
@@ -297,19 +301,6 @@ def main():
         # this appends _query to values (graph_1/query groups)
         mapping = {key: f"{value}_query" for key, value in mapping.items()}
 
-        #### TESTING 
-
-        # Debug prints
-        print(list(groupmapped_graph_2.nodes)[:10])
-        print(mmseqs_filtered["target"].unique()[:10])
-
-        # Now it's safe to compare
-        missing_keys = set(mapping.keys()) - set(map(str, groupmapped_graph_2.nodes))
-        if missing_keys:
-            print(f"{len(missing_keys)} mapping targets not found in graph_2. Example: {list(missing_keys)[:5]}")
-
-        #### TESTING 
-
         # relabel target graph from old labels (keys) to new labels (values, the _query-appended graph_1 groups)
         # MUST SET COPY=FALSE OR NODES NOT IN MAPPING WILL BE DROPPED
         # some of these will just be OG group_XXX (not query-appended) from graph 2; the rest will be group_XXX_query from graph 1
@@ -331,7 +322,6 @@ def main():
             graph_all, isolate_names, id_mapping = load_graphs(graph_all)
             graph_all = graph_all[0]
 
-            ### DO I NEED TO MAKE NAMES INTO NODE IDS HERE FOR GRAPH_ALL? > no, because not comparing names between graphs
 
         ### add suffix to relevant metadata to be able to identify which graph they refer to later
 
@@ -550,13 +540,15 @@ def main():
         from collections import defaultdict
 
         family_threshold = 0.7  # sequence identity threshold
-        context_threshold = 0.6  # contextual similarity threshold (since we now use identity directly)
+        context_threshold = 0.8  # contextual similarity threshold 
 
         # one centroid to one sequence
         centroid_to_seq = {}
         for node, data in merged_graph.nodes(data=True):
             c = data["centroid"][0]
             centroid_to_seq[c] = data["protein"][0]
+
+        print(f"centroid_to_seq: {centroid_to_seq}")
 
         # compute all pairwise identities 
         centroid_identity = {}
@@ -566,9 +558,13 @@ def main():
             identity = 1 - dist
             centroid_identity[(c1, c2)] = identity
             centroid_identity[(c2, c1)] = identity
+        
+        print(f"centroid_identity: {centroid_identity}")
 
         # map centroids to nodes
         centroid_to_node = {data["centroid"][0]: node for node, data in merged_graph.nodes(data=True)}
+
+        print(f"centroid_to_node: {centroid_to_node}")
 
         # define a context similarity function
         def context_similarity_seq(G, nA, nB, centroid_identity, depth=1):
@@ -601,16 +597,34 @@ def main():
             sims = [context_similarity_seq(merged_graph, nA, nB, centroid_identity, depth=d) for d in [1, 2, 3]]
             scores.append((nA, nB, ident, sims))
 
+        
+        print(f"scores: {scores}")
+
         scores_sorted = sorted(scores, key=lambda x: max(x[3]), reverse=True)
+
+        print(f"scores_sorted: {scores_sorted}")
+
+        unique_pairs = []
+        seen_nodes = set()
 
         print("Top 10 context similarities:")
         for s in scores_sorted[:10]:
             print(s)
 
+        for nA, nB, ident, sims in scores_sorted:
+            if nA not in seen_nodes and nB not in seen_nodes:
+                unique_pairs.append((nA, nB, ident, sims))
+                seen_nodes.add(nA)
+                seen_nodes.add(nB)
+
+        print("Top 10 context similarities unique_pairs:")
+        for s in unique_pairs[:10]:
+            print(s)
+
         # filter accepted pairs by identity + context thresholds
         accepted_pairs = [
             (nA, nB, ident, sims)
-            for nA, nB, ident, sims in scores_sorted
+            for nA, nB, ident, sims in unique_pairs
             if ident >= family_threshold and max(sims) >= context_threshold
         ]
 
@@ -631,14 +645,9 @@ def main():
         print(f"Accepted pairs after member filtering: {len(filtered_pairs)}")
         print(f"Filtered pairs: {filtered_pairs}")
 
-        # filter A,B and B,A to just one of the two
-        unique_pairs = set(tuple(sorted((a, b))) for a, b, _, _ in filtered_pairs)
-        print(f"Unique accepted pairs (no duplicates): {len(unique_pairs)}")
-        print(f"Unique accepted pairs (no duplicates): {unique_pairs}")
-
         # ensure 'a' is always the node with '_query'
         reordered_pairs = []
-        for a, b in unique_pairs:
+        for a, b, ident, sims in filtered_pairs:
             if "_query" in b and "_query" not in a:
                 a, b = b, a
             reordered_pairs.append((a, b))
@@ -654,6 +663,7 @@ def main():
 
             # seqIDs
             merged_set = list(set(collapsed_merged_graph.nodes[a]["seqIDs"]) | set(collapsed_merged_graph.nodes[b]["seqIDs"]))
+            print(f"{merged_set}")
             collapsed_merged_graph.nodes[a]["seqIDs"] = merged_set
 
             # geneIDs
