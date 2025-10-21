@@ -650,7 +650,7 @@ def main():
 
         # reorder to ensure 'a' is always the node with '_query'
         reordered_pairs = []
-        for a, b, ident, sims in accepted_pairs:
+        for a, b, ident, sims in unique_pairs:
             if "_query" in b and "_query" not in a:
                 a, b = b, a
             reordered_pairs.append((a, b))
