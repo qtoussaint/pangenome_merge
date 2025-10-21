@@ -604,7 +604,7 @@ def main():
 
         scores_sorted = sorted(
             scores,
-            key=lambda x: (x[2], max(x[3])),  # (centroid identity, context similarity)
+            key=lambda x: (x[2], mean(x[3])),  # (centroid identity, context similarity)
             reverse=True
         )
 
