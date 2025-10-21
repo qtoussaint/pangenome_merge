@@ -556,9 +556,73 @@ def main():
 
         #merged_graph = collapsed_merged_graph 
 
-        # update degrees across graph (post-collapsing)
-        for node in merged_graph:
-            merged_graph.nodes[node]["degrees"] = int(merged_graph.degree[node])
+
+        ##############
+
+        from itertools import combinations
+        from edlib import align
+        from collections import defaultdict
+
+        family_threshold = 0.7  # sequence identity threshold
+        context_threshold = 0.6  # contextual similarity threshold (since we now use identity directly)
+
+        # one centroid to one sequence
+        centroid_to_seq = {}
+        for node, data in merged_graph.nodes(data=True):
+            c = data["centroid"][0]
+            centroid_to_seq[c] = data["protein"][0]
+
+        # compute all pairwise identities 
+        centroid_identity = {}
+        for c1, c2 in combinations(centroid_to_seq.keys(), 2):
+            aln = align(centroid_to_seq[c1], centroid_to_seq[c2], mode="NW", task="distance")
+            dist = aln["editDistance"] / max(len(centroid_to_seq[c1]), len(centroid_to_seq[c2]))
+            identity = 1 - dist
+            centroid_identity[(c1, c2)] = identity
+            centroid_identity[(c2, c1)] = identity
+
+        # map centroids to nodes
+        centroid_to_node = {data["centroid"][0]: node for node, data in merged_graph.nodes(data=True)}
+
+        # define a context similarity function
+        def context_similarity_seq(G, nA, nB, centroid_identity, depth=1):
+            neighA = set(nx.single_source_shortest_path_length(G, nA, cutoff=depth).keys())
+            neighB = set(nx.single_source_shortest_path_length(G, nB, cutoff=depth).keys())
+
+            centroidsA = [G.nodes[n]["centroid"][0] for n in neighA]
+            centroidsB = [G.nodes[n]["centroid"][0] for n in neighB]
+
+            best_ident = 0
+            for ca in centroidsA:
+                for cb in centroidsB:
+                    ident = centroid_identity.get((ca, cb), 0)
+                    if ident > best_ident:
+                        best_ident = ident
+            return best_ident
+
+        # build node pairs (based on centroid similarity)
+        node_pairs = []
+        for (a, b), ident in centroid_identity.items():
+            if ident >= family_threshold:
+                nodeA = centroid_to_node[a]
+                nodeB = centroid_to_node[b]
+                if nodeA != nodeB:
+                    node_pairs.append((nodeA, nodeB, ident))
+
+        # evaluate contextual similarity
+        scores = []
+        for nA, nB, ident in node_pairs:
+            sims = [context_similarity_seq(merged_graph, nA, nB, centroid_identity, depth=d) for d in [1, 2, 3]]
+            scores.append((nA, nB, ident, sims))
+
+        scores_sorted = sorted(scores, key=lambda x: max(x[3]), reverse=True)
+
+        print("Top 10 context similarities:")
+        for s in scores_sorted[:10]:
+            print(s)
+
+
+        #############
 
         if options.mode == 'test' and graph_count == (n_graphs-2):
 
