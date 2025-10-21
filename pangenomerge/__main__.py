@@ -599,47 +599,11 @@ def main():
             sims = [context_similarity_seq(merged_graph, nA, nB, centroid_identity, depth=d) for d in [1, 2, 3]]
             scores.append((nA, nB, ident, sims))
 
-        
-        #print(f"scores: {scores}")
-
-        scores_sorted = sorted(
-            scores,
-            key=lambda x: (x[2], mean(x[3])),  # (centroid identity, context similarity)
-            reverse=True
-        )
-
-        logging.debug(f"scores_sorted: {scores_sorted}")
-
-        unique_pairs = []
-        seen_nodes = set()
-
-        #print("Top 10 context similarities:")
-        #for s in scores_sorted[:10]:
-        #    print(s)
-
-        for nA, nB, ident, sims in scores_sorted:
-            if nA not in seen_nodes and nB not in seen_nodes:
-                unique_pairs.append((nA, nB, ident, sims))
-                seen_nodes.add(nA)
-                seen_nodes.add(nB)
-
-        #print("Top 10 context similarities unique_pairs:")
-        #for s in unique_pairs[:10]:
-        #    print(s)
-
-        # filter accepted pairs by identity + context thresholds
-        accepted_pairs = [
-            (nA, nB, ident, sims)
-            for nA, nB, ident, sims in unique_pairs
-            if ident >= family_threshold and max(sims) >= context_threshold
-        ]
-
-        logging.debug(f"Accepted pairs before member filtering: {len(accepted_pairs)}")
-        logging.debug(f"Accepted pairs: {accepted_pairs}")
-
-        # now filter out those that share any members
+        # filter out those that share any members (spurious)
+        # filter out spurious before dropping duplicate nodes so real ones aren't dropped
+        # due to spurious correlations
         filtered_pairs = []
-        for nA, nB, ident, sims in accepted_pairs:
+        for nA, nB, ident, sims in scores:
             memA = set(merged_graph.nodes[nA].get("members", []))
             memB = set(merged_graph.nodes[nB].get("members", []))
             if memA.isdisjoint(memB):  # keep only if no shared members
@@ -647,17 +611,48 @@ def main():
                 sidsB = set(merged_graph.nodes[nB].get("seqIDs", []))
                 if sidsA.isdisjoint(sidsB):  # keep only if no shared seqids
                     filtered_pairs.append((nA, nB, ident, sims))
-            
-        #print(f"Accepted pairs after member filtering: {len(filtered_pairs)}")
-        #print(f"Filtered pairs: {filtered_pairs}")
+        
+        logging.debug(f"filtered_pairs: {filtered_pairs}")
 
-        # ensure 'a' is always the node with '_query'
+        # sort dataframe by scores
+        # first by fident, then depth1 ident, then depth 2, then depth 3
+        scores_sorted = sorted(
+            filtered_pairs,
+            key=lambda x: (x[2], x[3][0], x[3][1], x[3][2]),  # (centroid identity, context similarity)
+            reverse=True
+        )
+
+        logging.debug(f"scores_sorted: {scores_sorted}")
+
+        # filter accepted pairs by identity + context thresholds
+        accepted_pairs = [
+            (nA, nB, ident, sims)
+            for nA, nB, ident, sims in scores_sorted
+            if (
+                ident >= family_threshold and
+                sims[0] >= context_threshold and
+                (sims[1] >= context_threshold * 0.9 or sims[2] >= context_threshold * 0.9)
+            ):
+                accepted_pairs.append((nA, nB, ident, sims))
+        ]
+
+        # filter out any duplicates (in order, so best match kept)
+        unique_pairs = []
+        seen_nodes = set()
+        for nA, nB, ident, sims in accepted_pairs:
+            if nA not in seen_nodes and nB not in seen_nodes:
+                unique_pairs.append((nA, nB, ident, sims))
+                seen_nodes.add(nA)
+                seen_nodes.add(nB)
+
+        # reorder to ensure 'a' is always the node with '_query'
         reordered_pairs = []
-        for a, b, ident, sims in filtered_pairs:
+        for a, b, ident, sims in accepted_pairs:
             if "_query" in b and "_query" not in a:
                 a, b = b, a
             reordered_pairs.append((a, b))
 
+        # copy to create new graph object
         collapsed_merged_graph = merged_graph.copy()
 
         logging.info("Merging nodes...")
