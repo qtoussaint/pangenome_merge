@@ -543,28 +543,6 @@ def main():
 
         print("Collapsing spurious paralogs...")
 
-        # generate dictionary for panaroo collapse families
-        seq_ids_nodes = get_seqIDs_in_nodes(merged_graph)
-        seq_ids = list(seq_ids_nodes.keys())
-
-        seqid_to_centroid = {}
-        for i, id in enumerate(seq_ids):
-            node = seq_ids_nodes[id]
-            seqid_to_centroid[id] = merged_graph.nodes[node]["centroid"][0] # if multi-centroid, only use first centroid in list
-
-        # collapse over-split families using sequence identity + context search
-        # from panaroo main:
-        #collapsed_merged_graph, distances_bwtn_centroids, centroid_to_index = collapse_families(
-        #    merged_graph,
-        #    seqid_to_centroid=seqid_to_centroid,
-        #    outdir=options.outdir,
-        #    correct_mistranslations=False,
-        #    n_cpu=options.threads,
-        #    quiet=True)     
-
-        #merged_graph = collapsed_merged_graph 
-
-
         ##############
 
         from itertools import combinations
@@ -695,6 +673,9 @@ def main():
             # lengths
             merged_set = collapsed_merged_graph.nodes[a]["lengths"] + collapsed_merged_graph.nodes[b]["lengths"]
             collapsed_merged_graph.nodes[a]["lengths"] = merged_set
+
+            # remove second node
+            collapsed_merged_graph.remove_node(b)
 
             # (don't add centroid/longCentroidID/annotation/dna/protein/hasEnd/mergedDNA/paralog/maxLenId -- keep as original for now)
 
