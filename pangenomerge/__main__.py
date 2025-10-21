@@ -359,6 +359,10 @@ def main():
                 geneids = [f"{gid}_g{graph_count+1}" for gid in geneids]
                 node_data['geneIDs'] = ";".join(geneids) # str
 
+        if options.mode == 'test':
+            for node_data in relabeled_graph_2.nodes.values():
+                node_data['members'] = [f"{member}_g{graph_count+1}" for member in node_data['members']] # list
+
         if graph_count == 0 and options.mode != 'test':
             
             for node_data in relabeled_graph_1.nodes.values():
@@ -379,6 +383,10 @@ def main():
                 geneids = node_data['geneIDs'].split(";")
                 geneids = [f"{gid}_g{graph_count}" for gid in geneids]
                 node_data['geneIDs'] = ";".join(geneids) # str
+
+        if graph_count == 0 and options.mode == 'test':
+            for node_data in relabeled_graph_1.nodes.values():
+                node_data['members'] = [f"{member}_g{graph_count}" for member in node_data['members']] # list
 
         ### merge graphs
 
@@ -621,6 +629,89 @@ def main():
         for s in scores_sorted[:10]:
             print(s)
 
+        # filter accepted pairs by identity + context thresholds
+        accepted_pairs = [
+            (nA, nB, ident, sims)
+            for nA, nB, ident, sims in scores_sorted
+            if ident >= family_threshold and max(sims) >= context_threshold
+        ]
+
+        print(f"Accepted pairs before member filtering: {len(accepted_pairs)}")
+        print(f"Accepted pairs: {accepted_pairs}")
+
+        # now filter out those that share any members
+        filtered_pairs = []
+        for nA, nB, ident, sims in accepted_pairs:
+            memA = set(merged_graph.nodes[nA].get("members", []))
+            memB = set(merged_graph.nodes[nB].get("members", []))
+            if memA.isdisjoint(memB):  # keep only if no shared members
+                sidsA = set(merged_graph.nodes[nA].get("seqIDs", []))
+                sidsB = set(merged_graph.nodes[nB].get("seqIDs", []))
+                if sidsA.isdisjoint(sidsB):  # keep only if no shared seqids
+                    filtered_pairs.append((nA, nB, ident, sims))
+            
+        print(f"Accepted pairs after member filtering: {len(filtered_pairs)}")
+        print(f"Filtered pairs: {filtered_pairs}")
+
+        # filter A,B and B,A to just one of the two
+        unique_pairs = set(tuple(sorted((a, b))) for a, b, _, _ in filtered_pairs)
+        print(f"Unique accepted pairs (no duplicates): {len(unique_pairs)}")
+        print(f"Unique accepted pairs (no duplicates): {unique_pairs}")
+
+        # ensure 'a' is always the node with '_query'
+        reordered_pairs = []
+        for a, b in unique_pairs:
+            if "_query" in b and "_query" not in a:
+                a, b = b, a
+            reordered_pairs.append((a, b))
+
+        collapsed_merged_graph = merged_graph.copy()
+
+        print("Merging nodes...")
+
+        # merge the two sets of unique nodes into one set of unique nodes
+        for a,b in reordered_pairs:
+
+            # add metadata from second node
+
+            # seqIDs
+            merged_set = list(set(collapsed_merged_graph.nodes[a]["seqIDs"]) | set(collapsed_merged_graph.nodes[b]["seqIDs"]))
+            collapsed_merged_graph.nodes[a]["seqIDs"] = merged_set
+
+            # geneIDs
+            merged_set = ";".join([collapsed_merged_graph.nodes[a]["geneIDs"], collapsed_merged_graph.nodes[b]["geneIDs"]])
+            collapsed_merged_graph.nodes[a]["geneIDs"] = merged_set
+
+            # members
+            merged_set = list(set(collapsed_merged_graph.nodes[a]["members"]) | set(collapsed_merged_graph.nodes[b]["members"]))
+            collapsed_merged_graph.nodes[a]["members"] = merged_set
+
+            # genome IDs
+            collapsed_merged_graph.nodes[a]["genomeIDs"] = ";".join([collapsed_merged_graph.nodes[a]["genomeIDs"], collapsed_merged_graph.nodes[b]["genomeIDs"]])
+
+            # size
+            size = len(collapsed_merged_graph.nodes[a]["members"])
+
+            # lengths
+            merged_set = collapsed_merged_graph.nodes[a]["lengths"] + collapsed_merged_graph.nodes[b]["lengths"]
+            collapsed_merged_graph.nodes[a]["lengths"] = merged_set
+
+            # (don't add centroid/longCentroidID/annotation/dna/protein/hasEnd/mergedDNA/paralog/maxLenId -- keep as original for now)
+
+        print("Merging edges...")
+
+        # skip for now
+
+        # also need to remove pangenome reference centroids from new nodes that got merged during collapse
+
+        # and check metadata bc some nodes from the same graph are mapping together
+
+        # update degrees across graph
+        for node in collapsed_merged_graph:
+            collapsed_merged_graph.nodes[node]["degrees"] = int(collapsed_merged_graph.degree[node])
+
+        # write graph 
+        merged_graph = collapsed_merged_graph.copy()
 
         #############
 
