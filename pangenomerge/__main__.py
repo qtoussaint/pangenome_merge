@@ -133,8 +133,8 @@ def main():
             graph_file_2 = str(Path(graph_files.iloc[int(graph_count+1)][0]) / "final_graph.gml")
 
         logging.info(f"Beginning iteration {graph_count+1} of {n_graphs-1}...")
-        logging.info("graph_file_1: {graph_file_1}")
-        logging.info("graph_file_2: {graph_file_2}")
+        logging.info(f"graph_file_1: {graph_file_1}")
+        logging.info(f"graph_file_2: {graph_file_2}")
 
         graph_1, isolate_names, id_mapping = load_graphs([graph_file_1])
         graph_2, isolate_names, id_mapping = load_graphs([graph_file_2])
