@@ -104,6 +104,11 @@ def get_options():
 
     return parser.parse_args()
 
+logging.basicConfig(
+    level=logging.INFO,  # Set the minimum severity to show
+    format="[%(levelname)s] %(message)s",
+)
+
 def main():
 
     # parse command line arguments
@@ -128,8 +133,8 @@ def main():
             graph_file_2 = str(Path(graph_files.iloc[int(graph_count+1)][0]) / "final_graph.gml")
 
         logging.info(f"Beginning iteration {graph_count+1} of {n_graphs-1}...")
-        logging.info("graph_file_1: ", graph_file_1)
-        logging.info("graph_file_2: ", graph_file_2)
+        logging.info("graph_file_1: {graph_file_1}")
+        logging.info("graph_file_2: {graph_file_2}")
 
         graph_1, isolate_names, id_mapping = load_graphs([graph_file_1])
         graph_2, isolate_names, id_mapping = load_graphs([graph_file_2])
@@ -625,16 +630,14 @@ def main():
         logging.debug(f"scores_sorted: {scores_sorted}")
 
         # filter accepted pairs by identity + context thresholds
-        accepted_pairs = [
-            (nA, nB, ident, sims)
-            for nA, nB, ident, sims in scores_sorted
+        accepted_pairs = []
+        for nA, nB, ident, sims in scores_sorted:
             if (
-                ident >= family_threshold and
-                sims[0] >= context_threshold and
-                (sims[1] >= context_threshold * 0.9 or sims[2] >= context_threshold * 0.9)
+                ident >= family_threshold
+                and sims[0] >= context_threshold
+                and (sims[1] >= context_threshold * 0.9 or sims[2] >= context_threshold * 0.9)
             ):
                 accepted_pairs.append((nA, nB, ident, sims))
-        ]
 
         # filter out any duplicates (in order, so best match kept)
         unique_pairs = []
