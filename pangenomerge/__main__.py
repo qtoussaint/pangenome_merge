@@ -899,7 +899,7 @@ def main():
             for node_id, node_data in merged_graph.nodes(data=True):
                 name = node_data.get('name', '')
                 if '_query' in name:
-                    new_name = name.replace('_query', f'_{graph_count+1}')
+                    new_name = name.removesuffix('_query'')
                     mapping[node_id] = new_name
                     logging.debug(f"Changed: {name} to {new_name}")
                 if '_query' not in name:
