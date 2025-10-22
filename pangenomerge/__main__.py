@@ -61,11 +61,23 @@ def get_options():
                     default=None,
                     help='Path to Panaroo output directory of pan-genome gene graph created from all samples in component-graphs. \
                     Only required for the test case, where it is used as the ground truth.')
+
+    parameters = parser.add_argument_group('Parameters')
+    parameters.add_argument('--family-threshold',
+                    dest='family_threshold',
+                    default=0.7,
+                    required=False,
+                    help='Sequence identity threshold for putative spurious paralogs. Default: 0.7')
+    parameters.add_argument('--context-threshold',
+                    dest='context_threshold',
+                    default=0.7,
+                    required=False,
+                    help='Sequence identity threshold for neighbors of putative spurious paralogs. Default: 0.7')
     
     other = parser.add_argument_group('Other options')
     other.add_argument('--threads',
                     dest="threads",
-                    default=2,
+                    default=1,
                     type=int,
                     help='Number of threads')
     other.add_argument('--debug',
@@ -599,9 +611,9 @@ def main():
         # debug statement...
         logging.debug(f"Before collapse: {len(merged_graph.nodes())} nodes")
 
-        # define context search parameters
-        family_threshold = 0.7  # sequence identity threshold
-        context_threshold = 0.7  # contextual similarity threshold 
+        # context search parameters defined in options
+        family_threshold = family_threshold  # sequence identity threshold
+        context_threshold = context_threshold  # contextual similarity threshold 
 
         # one centroid to one sequence
         centroid_to_seq = {}
