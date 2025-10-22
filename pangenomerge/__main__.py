@@ -532,9 +532,9 @@ def main():
                 new_node_name = f"{node}_{graph_count+2}"
 
                 # get node centroid sequence
-                node_centroid_seq = relabeled_graph_2.nodes[node]["protein"][0] \
-                    if isinstance(relabeled_graph_2.nodes[node]["protein"], list) \
-                    else relabeled_graph_2.nodes[node]["protein"]
+                node_centroid_seq = relabeled_graph_2.nodes[node]["dna"][0] \
+                    if isinstance(relabeled_graph_2.nodes[node]["dna"], list) \
+                    else relabeled_graph_2.nodes[node]["dna"]
 
                 # update merged pangenome reference
                 pan_genome_reference_merged.loc[len(pan_genome_reference_merged)] = [new_node_name, node_centroid_seq]
