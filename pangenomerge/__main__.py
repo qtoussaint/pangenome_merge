@@ -14,6 +14,9 @@ from sklearn.metrics import rand_score,mutual_info_score,adjusted_rand_score,adj
 from pathlib import Path
 from Bio import SeqIO
 import logging
+from itertools import combinations
+from edlib import align
+from collections import defaultdict
 
 from .manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array
 from .run_mmseqs import run_mmseqs_easysearch
@@ -22,41 +25,7 @@ from panaroo_functions.write_gml_metadata import format_metadata_for_gml
 from panaroo_functions.context_search import collapse_families, single_linkage
 from panaroo_functions.merge_nodes import merge_node_cluster, gen_edge_iterables, gen_node_iterables, iter_del_dups, del_dups
 
-from itertools import combinations
-from edlib import align
-from collections import defaultdict
-
-
 from .__init__ import __version__
-
-def sync_names(G):
-    # write over names with nodes
-    # for use after nodes have been updated
-    for n in G.nodes:
-        G.nodes[n]['name'] = str(n)
-    return G
-
-def relabel_nodes_preserve_attrs(G, mapping):
-    # Return a new graph with nodes relabeled according to mapping, preserving all attributes and without merging any nodes.
-    # Required due to networkx's relabel_nodes() being very naughty
-
-    H = G.__class__()  # same type (Graph, DiGraph, etc.)
-    H.graph.update(G.graph)  # copy global graph attrs
-
-    # Step 1: Add nodes (rename if in mapping)
-    for n, data in G.nodes(data=True):
-        new_n = mapping.get(n, n)
-        if new_n in H:
-            raise ValueError(f"Duplicate node target detected: {new_n}")
-        H.add_node(new_n, **data)
-
-    # Step 2: Add edges (map endpoints)
-    for u, v, data in G.edges(data=True):
-        new_u = mapping.get(u, u)
-        new_v = mapping.get(v, v)
-        H.add_edge(new_u, new_v, **data)
-
-    return H
 
 def get_options():
     description = 'Merges two or more Panaroo pan-genome gene graphs, or iteratively updates an existing graph.'
@@ -99,15 +68,28 @@ def get_options():
                     default=2,
                     type=int,
                     help='Number of threads')
+    other.add_argument('--debug',
+                    dest='debug",
+                    required=False,
+                    default=False,
+                    choices=[True, False],
+                    type=bool,
+                    help='Add --debug True to run with debug messaging. Default: INFO.')
     other.add_argument('--version', action='version',
                        version='%(prog)s '+__version__)
 
     return parser.parse_args()
 
-logging.basicConfig(
-    level=logging.DEBUG,  # Set the minimum severity to show
-    format="[%(levelname)s] %(message)s",
-)
+if other.debug == True:
+    logging.basicConfig(
+    # set logging to 'debug' level
+    level=logging.DEBUG,
+    format="[%(levelname)s] %(message)s",)
+else:
+    logging.basicConfig(
+    # set logging to 'info' level (default)
+    level=logging.INFO,
+    format="[%(levelname)s] %(message)s",)
 
 def main():
 
@@ -922,7 +904,7 @@ def main():
         for node in list(merged_graph.nodes())[:20]:
             logging.debug(f"  node: {node}")
 
-        # ensure metadata written in correct order
+        # ensure metadata written in correct format
         format_metadata_for_gml(merged_graph)
 
         # debug statement...
