@@ -614,9 +614,9 @@ def main():
         # debug statement...
         logging.debug(f"Before collapse: {len(merged_graph.nodes())} nodes")
 
-        # context search parameters defined in options
-        family_threshold = family_threshold  # sequence identity threshold
-        context_threshold = context_threshold  # contextual similarity threshold 
+        # context search parameters defined in arguments
+        family_threshold = parameters.family_threshold  # sequence identity threshold
+        context_threshold = parameters.context_threshold  # contextual similarity threshold 
 
         # one centroid to one sequence
         centroid_to_seq = {}
