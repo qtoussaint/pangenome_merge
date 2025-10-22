@@ -197,9 +197,11 @@ def main():
                 graph_1 = indSID_to_allSID(graph_1, gid_map_g1)
             graph_2 = indSID_to_allSID(graph_2, gid_map_g2)
 
-        for node in graph_1.nodes():
-            logging.debug(f"graph_1 protein {graph_1.nodes[node]["protein"]}")
-            
+
+        logging.debug(f"--- GRAPH {graph_count} LOAD ---")
+        logging.debug(f"graph_1 nodes: {list(graph_1.nodes())[:20]} ... total {len(graph_1.nodes())}")
+        logging.debug(f"graph_2 nodes: {list(graph_2.nodes())[:20]} ... total {len(graph_2.nodes())}")
+
         ### map nodes from ggcaller graphs to the COG labels in the centroid from pangenome
 
         ### run mmseqs2 to identify matching COGs
@@ -284,9 +286,24 @@ def main():
                 node_group = graph_1.nodes[node].get("name", "error")
                 logging.debug(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
                 mapping_groups_1[node] = str(node_group)
+
+                logging.debug("mapping_groups_1 sample:")
+                for k,v in list(mapping_groups_1.items())[:10]:
+                    logging.debug(f"  {k} to {v}")
+
             groupmapped_graph_1 = relabel_nodes_preserve_attrs(graph_1, mapping_groups_1)
+
+            logging.debug(f"After relabel_nodes_preserve_attrs() graph_1 node sample: {list(groupmapped_graph_1.nodes())[:10]}")
+
         else:
             groupmapped_graph_1 = graph_1
+
+            logging.debug("mapping_groups_1 sample:")
+            for k,v in list(mapping_groups_1.items())[:10]:
+                logging.debug(f"  {k} to {v}")
+
+            logging.debug(f"After relabel_nodes_preserve_attrs() graph_1 node sample: {list(groupmapped_graph_1.nodes())[:10]}")
+
 
         mapping_groups_2 = dict()
         for node in graph_2.nodes():
@@ -294,7 +311,13 @@ def main():
             logging.debug(f"graph: 2, node_index_id: {node}, node_group_id: {node_group}")
             mapping_groups_2[node] = str(node_group)
 
+        logging.debug("mapping_groups_2 sample:")
+        for k,v in list(mapping_groups_2.items())[:10]:
+            logging.debug(f"  {k} to {v}")
+
         groupmapped_graph_2 = relabel_nodes_preserve_attrs(graph_2, mapping_groups_2)
+
+        logging.debug(f"After relabel_nodes_preserve_attrs() graph_2 node sample: {list(groupmapped_graph_2.nodes())[:10]}")
 
         ### map filtered mmseqs2 hits to mapping of nodes between graphs
 
@@ -322,6 +345,14 @@ def main():
         mapping_query = {key: f"{value}_query" for key, value in mapping_query.items()}
         relabeled_graph_1 = relabel_nodes_preserve_attrs(groupmapped_graph_1, mapping_query)
         relabeled_graph_1 = sync_names(relabeled_graph_1)
+
+        logging.debug("MMseqs mapping (target to query_query):")
+        for k,v in list(mapping.items())[:10]:
+            logging.debug(f"  {k} to {v}")
+
+        logging.debug(f"Relabeled graph_2 nodes sample: {list(relabeled_graph_2.nodes())[:10]}")
+        logging.debug(f"Relabeled graph_1 (_query appended) nodes sample: {list(relabeled_graph_1.nodes())[:10]}")
+
 
         # now we can modify the tokenized code to iterate like usual, adding new node if string doesn't contain "_query"
         # and merging the nodes that both end in "_query"
@@ -393,6 +424,9 @@ def main():
         logging.info("Beginning graph merge...")
 
         merged_graph = relabeled_graph_1.copy()
+
+        logging.debug(f"Merging graphs. merged_graph currently has {len(merged_graph.nodes())} nodes.")
+        logging.debug(f"Incoming relabeled_graph_2 has {len(relabeled_graph_2.nodes())} nodes.")
 
         group = []
         for record in SeqIO.parse(pangenome_reference_g1, "fasta"):
@@ -541,9 +575,14 @@ def main():
         for node in merged_graph:
             merged_graph.nodes[node]["degrees"] = int(merged_graph.degree[node])
 
+        
+        logging.debug(f"After merge: merged_graph node sample: {list(merged_graph.nodes())[:20]}")
+
         logging.info("Collapsing spurious paralogs...")
 
         ##############
+
+        logging.debug(f"Before collapse: {len(merged_graph.nodes())} nodes")
 
         from itertools import combinations
         from edlib import align
@@ -730,8 +769,12 @@ def main():
         for node in collapsed_merged_graph:
             collapsed_merged_graph.nodes[node]["degrees"] = int(collapsed_merged_graph.degree[node])
 
+        
+        logging.debug(f"After collapse: {len(collapsed_merged_graph.nodes())} nodes")
+
         # write graph 
         merged_graph = collapsed_merged_graph.copy()
+        
 
         #############
 
@@ -847,10 +890,20 @@ def main():
         #merged_graph_new = relabel_nodes_preserve_attrs(merged_graph, mapping_query)
         #merged_graph = merged_graph_new
 
-        for node in merged_graph.nodes():
-            logging.debug(f"merged_graph protein {merged_graph.nodes[node]["protein"]}")
+
+        logging.debug("After updating node names:")
+        for node in list(merged_graph.nodes())[:20]:
+            logging.debug(f"  node: {node}")
+
+
+        #for node in merged_graph.nodes():
+            #logging.debug(f"merged_graph protein {merged_graph.nodes[node]["protein"]}")
             
         format_metadata_for_gml(merged_graph)
+
+        logging.debug("After formatting metadata:")
+        for node in list(merged_graph.nodes())[:20]:
+            logging.debug(f"  node: {node}")
         
         logging.info('Writing merged graph to outdir...')
 
