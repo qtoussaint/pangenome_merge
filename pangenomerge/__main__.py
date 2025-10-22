@@ -105,7 +105,7 @@ def get_options():
     return parser.parse_args()
 
 logging.basicConfig(
-    level=logging.INFO,  # Set the minimum severity to show
+    level=logging.DEBUG,  # Set the minimum severity to show
     format="[%(levelname)s] %(message)s",
 )
 
@@ -197,6 +197,9 @@ def main():
                 graph_1 = indSID_to_allSID(graph_1, gid_map_g1)
             graph_2 = indSID_to_allSID(graph_2, gid_map_g2)
 
+        for node in graph_1.nodes():
+            logging.debug(f"graph_1 protein {graph_1.nodes[node]["protein"]}")
+            
         ### map nodes from ggcaller graphs to the COG labels in the centroid from pangenome
 
         ### run mmseqs2 to identify matching COGs
@@ -709,7 +712,6 @@ def main():
                     merged_members = set(merged_edge.get("members", [])) | set(edge_attrs.get("members", []))
                     merged_edge["members"] = list(merged_members)
                     merged_edge["size"] = len(merged_members)
-                    merged_edge["genomeIDs"] = ";".join(merged_members)
             
             # remove second node
             collapsed_merged_graph.remove_node(b)
@@ -845,8 +847,8 @@ def main():
         #merged_graph_new = relabel_nodes_preserve_attrs(merged_graph, mapping_query)
         #merged_graph = merged_graph_new
 
-        #for node in merged_graph.nodes():
-            #print("node ", node)
+        for node in merged_graph.nodes():
+            logging.debug(f"merged_graph protein {merged_graph.nodes[node]["protein"]}")
             
         format_metadata_for_gml(merged_graph)
         
