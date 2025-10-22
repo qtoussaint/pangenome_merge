@@ -69,11 +69,13 @@ def get_options():
     parameters.add_argument('--family-threshold',
                     dest='family_threshold',
                     default=0.7,
+                    type=float,
                     required=False,
                     help='Sequence identity threshold for putative spurious paralogs. Default: 0.7')
     parameters.add_argument('--context-threshold',
                     dest='context_threshold',
                     default=0.7,
+                    type=float,
                     required=False,
                     help='Sequence identity threshold for neighbors of putative spurious paralogs. Default: 0.7')
     
@@ -615,8 +617,8 @@ def main():
         logging.debug(f"Before collapse: {len(merged_graph.nodes())} nodes")
 
         # set context search parameters
-        family_threshold = options.family_threshold  # sequence identity threshold
-        context_threshold = options.context_threshold  # contextual similarity threshold 
+        family_threshold = float(options.family_threshold)  # sequence identity threshold
+        context_threshold = float(options.context_threshold)  # contextual similarity threshold 
 
         # one centroid to one sequence
         centroid_to_seq = {}
