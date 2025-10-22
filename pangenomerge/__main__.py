@@ -69,27 +69,18 @@ def get_options():
                     type=int,
                     help='Number of threads')
     other.add_argument('--debug',
-                    dest='debug",
-                    required=False,
-                    default=False,
-                    choices=[True, False],
-                    type=bool,
-                    help='Add --debug True to run with debug messaging. Default: INFO.')
+                    action='store_true',
+                    help="Set logging to 'debug' instead of 'info' (default)")
     other.add_argument('--version', action='version',
                        version='%(prog)s '+__version__)
 
     return parser.parse_args()
 
-if other.debug == True:
-    logging.basicConfig(
-    # set logging to 'debug' level
-    level=logging.DEBUG,
-    format="[%(levelname)s] %(message)s",)
+# set logging to 'debug' or 'info' (default)
+if args.debug:
+    logging.basicConfig(level=logging.DEBUG, format="[%(levelname)s] %(message)s")
 else:
-    logging.basicConfig(
-    # set logging to 'info' level (default)
-    level=logging.INFO,
-    format="[%(levelname)s] %(message)s",)
+    logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
 def main():
 
