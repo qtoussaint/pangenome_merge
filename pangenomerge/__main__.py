@@ -88,19 +88,19 @@ def get_options():
 
     return parser.parse_args()
 
-# set logging to 'debug' or 'info' (default)
-if args.debug:
-    logging.basicConfig(level=logging.DEBUG, format="[%(levelname)s] %(message)s")
-else:
-    logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
-
 def main():
 
     # parse command line arguments
     options = get_options()
 
     if options.component_graphs is None and options.iterative is None:
-        raise ValueError("Specifying either --component-graphs or --iterative is required!")
+        logging.critical("Specifying either --component-graphs or --iterative is required!")
+
+    # set logging to 'debug' or 'info' (default)
+    if options.debug:
+        logging.basicConfig(level=logging.DEBUG, format="[%(levelname)s] %(message)s")
+    else:
+        logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
     ### read in two graphs
 
