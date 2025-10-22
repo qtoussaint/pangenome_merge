@@ -517,26 +517,27 @@ def main():
                                     geneIDs=relabeled_graph_2.nodes[node]["geneIDs"],
                                     degrees=relabeled_graph_2.nodes[node]["degrees"])
 
-                # relabel node from graph_2 group_xxx to group_xxx_graphcount
-                mapping_groups_new = dict()
-                mapping_groups_new[node] = f'{node}_{graph_count+2}'
-                merged_graph = relabel_nodes_preserve_attrs(merged_graph, mapping_groups_new)
-                merged_graph = sync_names(merged_graph) # could sync names at end of all merges if slow
 
                 ### add centroid from g2 pan_genome_reference.fa to merged pan_genome_reference.fa
 
                 # (for centroids of nodes already in main graph, we leave them instead of updating with new centroids
                 # to prevent centroids from drifting away over time, and instead maintain consistency)
 
-                # get node centroid
-                node_centroid = relabeled_graph_2.nodes[node]["centroid"]
+                # relabel node from graph_2 group_xxx to group_xxx_graphcount
+                mapping_groups_new = {node: f"{node}_{graph_count+2}"}
+                merged_graph = relabel_nodes_preserve_attrs(merged_graph, mapping_groups_new)
+                merged_graph = sync_names(merged_graph)  # could sync names at end of all merges if slow
 
-                # get updated node name, centroid
-                node_centroid_df = pd.DataFrame([[f"{node}_{graph_count+2}", node_centroid]],
-                                columns=["id", "sequence"])
+                # get updated node name
+                new_node_name = f"{node}_{graph_count+2}"
+
+                # get node centroid
+                node_centroid_seq = relabeled_graph_2.nodes[node]["centroid"][0] \
+                    if isinstance(relabeled_graph_2.nodes[node]["centroid"], list) \
+                    else relabeled_graph_2.nodes[node]["centroid"]
 
                 # update merged pangenome reference
-                pan_genome_reference_merged = pd.concat([pan_genome_reference_merged, node_centroid_df])
+                pan_genome_reference_merged.loc[len(pan_genome_reference_merged)] = [new_node_name, node_centroid_seq]
 
         # info statement...
         logging.info("Merging edges...")
@@ -544,7 +545,6 @@ def main():
         # debug statement...
         logging.debug(f"After merge but before edge merge: merged_graph node sample: {list(merged_graph.nodes())[:20]}")
         logging.debug(f"After merge but before edge merge: {len(merged_graph.nodes())} nodes")
-
 
         # add in metadata from merged edges; add in new edges
 
@@ -915,7 +915,19 @@ def main():
         with open(reference_out, "w") as fasta_out:
             for _, row in pan_genome_reference_merged.iterrows():
                 fasta_out.write(f">{row['id']}\n{row['sequence']}\n")
-        
+
+        # debug statement...
+        graph_node_ids = set(merged_graph.nodes())
+        ref_ids = set(pan_genome_reference_merged["id"])
+        missing_in_ref = graph_node_ids - ref_ids
+        extra_in_ref = ref_ids - graph_node_ids
+        if missing_in_ref:
+            logging.warning(f"{len(missing_in_ref)} nodes in graph but missing from reference")
+            logging.debug(f"Examples: {list(missing_in_ref)[:10]}")
+        if extra_in_ref:
+            logging.warning(f"{len(extra_in_ref)} IDs in reference but missing in graph")
+            logging.debug(f"Examples: {list(extra_in_ref)[:10]}")
+
         # add 1 to graph count
         graph_count += 1
 
