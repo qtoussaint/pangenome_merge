@@ -19,6 +19,7 @@ def format_metadata_for_gml(G):
         G.nodes[node]['degrees'] = G.degree[node]
         G.nodes[node]['members'] = list(G.nodes[node]['members'])
         G.nodes[node]['seqIDs'] = list(G.nodes[node]['seqIDs'])
+        G.nodes[node]['name'] = G.nodes[node]['name']
 
     for edge in G.edges():
         G.edges[edge[0], edge[1]]['genomeIDs'] = ";".join(
