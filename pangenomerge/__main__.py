@@ -212,6 +212,9 @@ def main():
         
         pangenome_reference_g2 = str(Path(graph_files.iloc[int(graph_count+1)][0]) / "pan_genome_reference.fa")
 
+        logging.debug(f"pangenome reference g1: {pangenome_reference_g1}")
+        logging.debug(f"pangenome reference g2: {pangenome_reference_g2}")
+
         logging.info("Running MMSeqs2...")
         run_mmseqs_easysearch(query=pangenome_reference_g1, target=pangenome_reference_g2, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
         logging.info("MMSeqs2 complete. Reading and filtering results...")
@@ -284,7 +287,7 @@ def main():
             mapping_groups_1 = dict()
             for node in graph_1.nodes():
                 node_group = graph_1.nodes[node].get("name", "error")
-                logging.debug(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
+                #logging.debug(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
                 mapping_groups_1[node] = str(node_group)
 
             logging.debug("mapping_groups_1 sample:")
@@ -299,7 +302,7 @@ def main():
             mapping_groups_1 = dict()
             for node in graph_1.nodes():
                 node_group = graph_1.nodes[node].get("name", "error")
-                logging.debug(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
+                #logging.debug(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
                 mapping_groups_1[node] = str(node_group)
 
             logging.debug("mapping_groups_1 sample:")
@@ -438,6 +441,13 @@ def main():
         for record in SeqIO.parse(pangenome_reference_g1, "fasta"):
             group.append({"id": record.id, "sequence": str(record.seq)})
         pan_genome_reference_merged = pd.DataFrame(group)
+
+        logging.debug(f"pan_genome_reference_merged: {pan_genome_reference_merged}")
+
+        if graph_count == 0:
+            pan_genome_reference_merged["id"] = pan_genome_reference_merged["id"].astype(str) + f"_{graph_count+1}"
+
+        logging.debug(f"pan_genome_reference_merged_updated: {pan_genome_reference_merged}")
 
         #if options.mode == 'test':
         #    gene_data_all_new = pd.read_csv(str(Path(options.graph_all) / "gene_data.csv"))
