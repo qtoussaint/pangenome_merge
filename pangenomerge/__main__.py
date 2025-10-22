@@ -12,13 +12,8 @@ import numpy as np
 import sklearn.metrics as sklearn_metrics
 from sklearn.metrics import rand_score,mutual_info_score,adjusted_rand_score,adjusted_mutual_info_score
 from pathlib import Path
-
 from Bio import SeqIO
-
 import logging
-
-# add directory above __main__.py to sys.path to allow searching for modules there
-#sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from .manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array
 from .run_mmseqs import run_mmseqs_easysearch
@@ -26,6 +21,11 @@ from panaroo_functions.load_graphs import load_graphs
 from panaroo_functions.write_gml_metadata import format_metadata_for_gml
 from panaroo_functions.context_search import collapse_families, single_linkage
 from panaroo_functions.merge_nodes import merge_node_cluster, gen_edge_iterables, gen_node_iterables, iter_del_dups, del_dups
+
+from itertools import combinations
+from edlib import align
+from collections import defaultdict
+
 
 from .__init__ import __version__
 
@@ -197,7 +197,7 @@ def main():
                 graph_1 = indSID_to_allSID(graph_1, gid_map_g1)
             graph_2 = indSID_to_allSID(graph_2, gid_map_g2)
 
-
+        # debug statement...
         logging.debug(f"--- GRAPH {graph_count} LOAD ---")
         logging.debug(f"graph_1 nodes: {list(graph_1.nodes())[:20]} ... total {len(graph_1.nodes())}")
         logging.debug(f"graph_2 nodes: {list(graph_2.nodes())[:20]} ... total {len(graph_2.nodes())}")
@@ -205,18 +205,27 @@ def main():
         ### map nodes from ggcaller graphs to the COG labels in the centroid from pangenome
 
         ### run mmseqs2 to identify matching COGs
+
+        # read in pangenome reference from graph 1
         if graph_count == 0:
             pangenome_reference_g1 = str(Path(graph_files.iloc[0][0]) / "pan_genome_reference.fa")
         else:
             pangenome_reference_g1 = str(Path(options.outdir) / f"pan_genome_reference_{graph_count}.fa")
         
+        # read in pangenome reference from graph 2
         pangenome_reference_g2 = str(Path(graph_files.iloc[int(graph_count+1)][0]) / "pan_genome_reference.fa")
 
+        # debug statement...
         logging.debug(f"pangenome reference g1: {pangenome_reference_g1}")
         logging.debug(f"pangenome reference g2: {pangenome_reference_g2}")
 
+        # info statement...
         logging.info("Running MMSeqs2...")
+
+        # run mmseqs on the two pangenome references
         run_mmseqs_easysearch(query=pangenome_reference_g1, target=pangenome_reference_g2, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
+        
+        # info statement...
         logging.info("MMSeqs2 complete. Reading and filtering results...")
 
         # read mmseqs results
@@ -247,6 +256,7 @@ def main():
         # sort by fident (highest first), len_dif (highest first -- see calculation), and evalue (lowest first)
         mmseqs_sorted = mmseqs.sort_values(by=["fident", "len_dif", "evalue"], ascending=[False, False, True],)
 
+        # debug statement...
         logging.debug(f" {len(mmseqs_sorted)} one-to-one hits.")
         logging.debug(f"{mmseqs_sorted}")
 
@@ -254,21 +264,15 @@ def main():
         mmseqs_filtered = mmseqs_sorted.drop_duplicates(subset=["target"], keep="first")
         mmseqs_filtered = mmseqs_filtered.drop_duplicates(subset=["query"], keep="first") # test if dropping query vs. target duplicates first changes results
 
-        ### TEST
-
+        # debug statement...
         logging.debug(f"Filtered to {len(mmseqs_filtered)} one-to-one hits.")
         logging.debug(f"{mmseqs_filtered}")
         dups_target = mmseqs_filtered["target"].duplicated().sum()
         dups_query = mmseqs_filtered["query"].duplicated().sum()
         logging.debug(f"Remaining duplicates — target: {dups_target}, query: {dups_query}")
 
-        ### TEST
-
-        # only keep the first occurrence per unique target (highest fident then smallest evalue if tie)
-        #mmseqs_filtered = mmseqs_sorted.groupby("target", as_index=False).first()
-
+        # info statement...
         logging.info("Hits filtered. Mapping between graphs...")
-        #print("mmseqs: ", mmseqs_filtered)
 
         # in mmseqs, the first graph entered (in this case graph_1) is the query and the second entered (in this case graph_2) is the target
         # so graph_1 is our query in mmseqs and the basegraph in the tokenized merge
@@ -283,49 +287,64 @@ def main():
         # metadata within the graph)
         # it doesn't map anything between the two graphs
 
+        # change integer node labels into group labels from 'name' attribute (graph 1)
         if graph_count == 0:
+
+            # map 'name' attribute to integer node label
             mapping_groups_1 = dict()
             for node in graph_1.nodes():
                 node_group = graph_1.nodes[node].get("name", "error")
                 #logging.debug(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
                 mapping_groups_1[node] = str(node_group)
 
+            # debug statement...
             logging.debug("mapping_groups_1 sample:")
             for k,v in list(mapping_groups_1.items())[:10]:
                 logging.debug(f"  {k} to {v}")
 
+            # relabel nodes
             groupmapped_graph_1 = relabel_nodes_preserve_attrs(graph_1, mapping_groups_1)
 
+            # debug statement...
             logging.debug(f"After relabel_nodes_preserve_attrs() graph_1 node sample: {list(groupmapped_graph_1.nodes())[:10]}")
-
+        
         else:
+
+            # map 'name' attribute to integer node label
             mapping_groups_1 = dict()
             for node in graph_1.nodes():
                 node_group = graph_1.nodes[node].get("name", "error")
                 #logging.debug(f"graph: 1, node_index_id: {node}, node_group_id: {node_group}")
                 mapping_groups_1[node] = str(node_group)
 
+            # debug statement...
             logging.debug("mapping_groups_1 sample:")
             for k,v in list(mapping_groups_1.items())[:10]:
                 logging.debug(f"  {k} to {v}")
-
+            
+            # relabel nodes
             groupmapped_graph_1 = relabel_nodes_preserve_attrs(graph_1, mapping_groups_1)
 
+            # debug statement...
             logging.debug(f"After relabel_nodes_preserve_attrs() graph_1 node sample: {list(groupmapped_graph_1.nodes())[:10]}")
 
-
+        # change integer node labels into group labels from 'name' attribute (graph 2)
+        # map 'name' attribute to integer node label
         mapping_groups_2 = dict()
         for node in graph_2.nodes():
             node_group = graph_2.nodes[node].get("name", "error")
-            logging.debug(f"graph: 2, node_index_id: {node}, node_group_id: {node_group}")
+            #logging.debug(f"graph: 2, node_index_id: {node}, node_group_id: {node_group}")
             mapping_groups_2[node] = str(node_group)
 
+        # debug statement...
         logging.debug("mapping_groups_2 sample:")
         for k,v in list(mapping_groups_2.items())[:10]:
             logging.debug(f"  {k} to {v}")
 
+        # relabel nodes
         groupmapped_graph_2 = relabel_nodes_preserve_attrs(graph_2, mapping_groups_2)
 
+        # debug statement...
         logging.debug(f"After relabel_nodes_preserve_attrs() graph_2 node sample: {list(groupmapped_graph_2.nodes())[:10]}")
 
         ### map filtered mmseqs2 hits to mapping of nodes between graphs
@@ -344,41 +363,36 @@ def main():
         mapping = {key: f"{value}_query" for key, value in mapping.items()}
 
         # relabel target graph from old labels (keys) to new labels (values, the _query-appended graph_1 groups)
-        # MUST SET COPY=FALSE OR NODES NOT IN MAPPING WILL BE DROPPED
         # some of these will just be OG group_XXX (not query-appended) from graph 2; the rest will be group_XXX_query from graph 1
         relabeled_graph_2 = relabel_nodes_preserve_attrs(groupmapped_graph_2, mapping)
         relabeled_graph_2 = sync_names(relabeled_graph_2)
 
-        # append _query to ALL nodes in query graph (ALL nodes of the form group_XXX_query with group_XXX from graph 1)
+        # append _query to ALL nodes in query graph 
         mapping_query = dict(zip(groupmapped_graph_1.nodes, groupmapped_graph_1.nodes))
         mapping_query = {key: f"{value}_query" for key, value in mapping_query.items()}
         relabeled_graph_1 = relabel_nodes_preserve_attrs(groupmapped_graph_1, mapping_query)
         relabeled_graph_1 = sync_names(relabeled_graph_1)
 
+        # debug statement...
         logging.debug("MMseqs mapping (target to query_query):")
         for k,v in list(mapping.items())[:10]:
             logging.debug(f"  {k} to {v}")
 
+        # debug statement...
         logging.debug(f"Relabeled graph_2 nodes sample: {list(relabeled_graph_2.nodes())[:10]}")
         logging.debug(f"Relabeled graph_1 (_query appended) nodes sample: {list(relabeled_graph_1.nodes())[:10]}")
 
-
-        # now we can modify the tokenized code to iterate like usual, adding new node if string doesn't contain "_query"
-        # and merging the nodes that both end in "_query"
-        
+        # read in graph of all isolates (for ARI/AMI calculation)
         if options.mode == 'test':
-            # read in graph_all
             graph_all = [str(Path(options.graph_all) / "final_graph.gml")]
             graph_all, isolate_names, id_mapping = load_graphs(graph_all)
             graph_all = graph_all[0]
 
-
-        ### add suffix to relevant metadata to be able to identify which graph they refer to later
-
-        # if other bits are too slow, replacing looping over nodes with the nodes.values method shown here
-
+        # info statement...
         logging.info("Updating graph metadata to prepare for merge...")
-
+        
+        ### add suffix to relevant metadata to be able to identify which graph they refer to later
+        # if other bits are too slow, replacing looping over nodes with the nodes.values method shown here
         if options.mode != 'test':
             for node_data in relabeled_graph_2.nodes.values():
 
@@ -430,35 +444,43 @@ def main():
 
         ### merge graphs
 
+        # info statement...
         logging.info("Beginning graph merge...")
 
+        # make copy of base graph to avoid accidentally changing base graph
         merged_graph = relabeled_graph_1.copy()
 
+        # debug statement...
         logging.debug(f"Merging graphs. merged_graph currently has {len(merged_graph.nodes())} nodes.")
         logging.debug(f"Incoming relabeled_graph_2 has {len(relabeled_graph_2.nodes())} nodes.")
 
+        # read in pangenome reference for base graph
         group = []
         for record in SeqIO.parse(pangenome_reference_g1, "fasta"):
             group.append({"id": record.id, "sequence": str(record.seq)})
         pan_genome_reference_merged = pd.DataFrame(group)
 
+        # debug statement...
         logging.debug(f"pan_genome_reference_merged: {pan_genome_reference_merged}")
 
+        # update the pangenome reference group labels from the base graph the first time it's used
         if graph_count == 0:
             pan_genome_reference_merged["id"] = pan_genome_reference_merged["id"].astype(str) + f"_{graph_count+1}"
 
+        # debug statement...
         logging.debug(f"pan_genome_reference_merged_updated: {pan_genome_reference_merged}")
 
-        #if options.mode == 'test':
-        #    gene_data_all_new = pd.read_csv(str(Path(options.graph_all) / "gene_data.csv"))
-        
+        # info statement...
         logging.info("Merging nodes...")
+
+        # iterate, adding new node if node doesn't contain "_query"
+        # and merging the nodes that both end in "_query"
 
         # merge the two sets of unique nodes into one set of unique nodes
         for node in relabeled_graph_2.nodes:
             if merged_graph.has_node(node) == True:
 
-                # add metadata from g2
+                # add metadata from graph 2
 
                 # seqIDs
                 merged_set = list(set(relabeled_graph_2.nodes[node]["seqIDs"]) | set(merged_graph.nodes[node]["seqIDs"]))
@@ -507,35 +529,36 @@ def main():
                                     geneIDs=relabeled_graph_2.nodes[node]["geneIDs"],
                                     degrees=relabeled_graph_2.nodes[node]["degrees"])
 
-                ### add centroid from g2 pan_genome_reference.fa to new merged pan_genome_reference.fa
+                # relabel node from graph_2 group_xxx to group_xxx_graphcount
+                mapping_groups_new = dict()
+                mapping_groups_new[node] = f'{node}_{graph_count+2}'
+                merged_graph = relabel_nodes_preserve_attrs(merged_graph, mapping_groups_new)
+                merged_graph = sync_names(merged_graph) # could sync names at end of all merges if slow
+
+                ### add centroid from g2 pan_genome_reference.fa to merged pan_genome_reference.fa
+
+                # (for centroids of nodes already in main graph, we leave them instead of updating with new centroids
+                # to prevent centroids from drifting away over time, and instead maintain consistency)
 
                 # get node centroid
                 node_centroid = relabeled_graph_2.nodes[node]["centroid"]
 
-                # relabel node from graph_2 group_xxx to group_xxx_graphcount
-                mapping_groups_new = dict()
-                #node_group = relabeled_graph_2.nodes[node].get("name", "error")
-                mapping_groups_new[node] = f'{node}_{graph_count+2}'
-                merged_graph = relabel_nodes_preserve_attrs(merged_graph, mapping_groups_new)
-                merged_graph = sync_names(merged_graph) # could sync names at end of all merges if slow
-                
-                # (for centroids of nodes already in main graph, we leave them instead of updating with new centroids
-                # to prevent centroids from drifting away over time, and instead maintain consistency)
-
-                #if options.mode == 'test':
-                    #node_centroid = next(iter(merged_graph.nodes[f'{node_group}_{graph_count+1}']["seqIDs"]))
-                    #node_centroid = gene_data_all_new.loc[gene_data_all_new["clustering_id"] == node_centroid, "dna_sequence"].values
-                    #node_centroid = node_centroid[0] # list to string; double check that this doesn't remove centroids
-
+                # get updated node name, centroid
                 node_centroid_df = pd.DataFrame([[f"{node}_{graph_count+2}", node_centroid]],
                                 columns=["id", "sequence"])
 
+                # update merged pangenome reference
                 pan_genome_reference_merged = pd.concat([pan_genome_reference_merged, node_centroid_df])
 
+        # info statement...
         logging.info("Merging edges...")
 
+        # debug statement...
         logging.debug(f"After merge but before edge merge: merged_graph node sample: {list(merged_graph.nodes())[:20]}")
         logging.debug(f"After merge but before edge merge: {len(merged_graph.nodes())} nodes")
+
+
+        # add in metadata from merged edges; add in new edges
 
         for edge in relabeled_graph_2.edges:
             
@@ -578,7 +601,6 @@ def main():
                     if f"{edge[0]}_{graph_count+2}" in merged_graph.nodes():
                         merged_graph.add_edge(f"{edge[0]}_{graph_count+2}", edge[1]) # add edge
                         merged_graph.edges[f"{edge[0]}_{graph_count+2}", edge[1]].update(relabeled_graph_2.edges[edge]) # update with all metadata
-
                     else:
                         logging.error(f"Nodes in edge not present in merged graph (ghost nodes): {edge}")
 
@@ -594,20 +616,17 @@ def main():
         for node in merged_graph:
             merged_graph.nodes[node]["degrees"] = int(merged_graph.degree[node])
 
-        
+        # debug statement...
         logging.debug(f"After merge and edge merge: merged_graph node sample: {list(merged_graph.nodes())[:20]}")
         logging.debug(f"After merge and edge merge: {len(merged_graph.nodes())} nodes")
 
+        # info statement...
         logging.info("Collapsing spurious paralogs...")
 
-        ##############
-
+        # debug statement...
         logging.debug(f"Before collapse: {len(merged_graph.nodes())} nodes")
 
-        from itertools import combinations
-        from edlib import align
-        from collections import defaultdict
-
+        # define context search parameters
         family_threshold = 0.7  # sequence identity threshold
         context_threshold = 0.7  # contextual similarity threshold 
 
@@ -617,7 +636,8 @@ def main():
             c = data["centroid"][0]
             centroid_to_seq[c] = data["protein"][0]
 
-        #print(f"centroid_to_seq: {centroid_to_seq}")
+        # debug statement...
+        logging.debug(f"centroid_to_seq: {centroid_to_seq}")
 
         # compute all pairwise identities 
         centroid_identity = {}
@@ -628,12 +648,14 @@ def main():
             centroid_identity[(c1, c2)] = identity
             centroid_identity[(c2, c1)] = identity
         
-        #print(f"centroid_identity: {centroid_identity}")
+        # debug statement...
+        logging.debug(f"centroid_identity: {centroid_identity}")
 
         # map centroids to nodes
         centroid_to_node = {data["centroid"][0]: node for node, data in merged_graph.nodes(data=True)}
 
-        #print(f"centroid_to_node: {centroid_to_node}")
+        # debug statement...
+        logging.debug(f"centroid_to_node: {centroid_to_node}")
 
         # define a context similarity function
         def context_similarity_seq(G, nA, nB, centroid_identity, depth=1):
@@ -679,6 +701,7 @@ def main():
                 if sidsA.isdisjoint(sidsB):  # keep only if no shared seqids
                     filtered_pairs.append((nA, nB, ident, sims))
         
+        # debug statement...
         logging.debug(f"filtered_pairs: {filtered_pairs}")
 
         # sort dataframe by scores
@@ -689,6 +712,7 @@ def main():
             reverse=True
         )
 
+        # debug statement...
         logging.debug(f"scores_sorted: {scores_sorted}")
 
         # filter accepted pairs by identity + context thresholds
@@ -720,6 +744,7 @@ def main():
         # copy to create new graph object
         collapsed_merged_graph = merged_graph.copy()
 
+        # info statement...
         logging.info("Merging nodes and edges...")
 
         # create set of nodes to drop from the pangenome reference (since they're being merged)
@@ -777,8 +802,6 @@ def main():
 
             # (don't add centroid/longCentroidID/annotation/dna/protein/hasEnd/mergedDNA/paralog/maxLenId -- keep as original for now)
 
-        # check metadata bc some nodes from the same graph appear to be mapping together !!!
-
         # also need to remove pangenome reference centroids from new nodes that got merged during collapse
         pan_genome_reference_merged.drop(
             pan_genome_reference_merged.index[pan_genome_reference_merged["id"].isin(to_drop)],
@@ -789,17 +812,16 @@ def main():
         for node in collapsed_merged_graph:
             collapsed_merged_graph.nodes[node]["degrees"] = int(collapsed_merged_graph.degree[node])
 
-        
+        # debug statement...
         logging.debug(f"After collapse: {len(collapsed_merged_graph.nodes())} nodes")
 
-        # write graph 
+        # write graph back to merged_graph
         merged_graph = collapsed_merged_graph.copy()
         
-
-        #############
-
+        # calculate clustering performance (if test mode)
         if options.mode == 'test' and graph_count == (n_graphs-2):
 
+            # info statement...
             logging.info("Calculating adjusted Rand index (ARI) and adjusted mutual information (AMI)...")
 
             ### gather seqIDs to enable calculation of clustering metrics
@@ -814,9 +836,6 @@ def main():
             seq_ids_1 = []
 
             for node in merged_graph.nodes():
-                #print("node", node)
-                #if node in merged_graph.nodes:
-                    #print(f"merged_graph.nodes[node]['seqIDs']: {merged_graph.nodes[node]['seqIDs']}")
                 seq_ids_1 += merged_graph.nodes[node]["seqIDs"]
                 
             seq_ids_2 = []
@@ -826,7 +845,8 @@ def main():
             seq_ids_1 = set(seq_ids_1)
             seq_ids_2 = set(seq_ids_2)
                 
-            common_seq_ids = seq_ids_1 & seq_ids_2  # take intersection
+            # take intersection
+            common_seq_ids = seq_ids_1 & seq_ids_2 
             
             # print how many seq_ids were excluded
             only_in_graph_1 = seq_ids_1 - seq_ids_2
@@ -841,13 +861,13 @@ def main():
             # get desired value order from row 0 of rand_input_all_filtered
             desired_order = list(rand_input_all_filtered.iloc[0])
 
-            # Create mapping from row 0 values in rand_input_merged_filtered to column names
+            # create mapping from row 0 values in rand_input_merged_filtered to column names
             val_to_col = {val: col for col, val in zip(rand_input_merged_filtered.columns, rand_input_merged_filtered.iloc[0])}
 
-            # Reorder columns based on desired value order
+            # reorder columns based on desired value order
             columns_in_order = [val_to_col[val] for val in desired_order if val in val_to_col]
 
-            # Apply the column reordering
+            # apply the column reordering
             rand_input_merged_filtered = rand_input_merged_filtered[columns_in_order]
             
             # put sorted clusters into Rand index
@@ -864,27 +884,16 @@ def main():
             adj_mutual_info = adjusted_mutual_info_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
             logging.info(f"Adjusted Mutual Information: {adj_mutual_info}")
 
+        # info statement...
         logging.info("Merge complete. Preparing attribute metadata for export...")
 
-        # update metadata
-        #for node_data in merged_graph.nodes.values():
-        #    node_data['seqIDs'] = ";".join(node_data['seqIDs'])
-        #    node_data['centroid'] = ";".join(node_data['centroid'])
-
+        ### clean node names in merged graph
         if graph_count == 0:
-            #for node_data in merged_graph.nodes.values():
-            #    if node_data['name'] contains '_query':
-            #        # relabel node from graph_1 group_xxx to group_xxx_graphcount
-            #        mapping_groups_new = dict()
-            #        new_label = node_data['name'].removesuffix('_query')
-            #        mapping_groups_new[node] = f'{new_label}_{graph_count}'
-            #        merged_graph = relabel_nodes_preserve_attrs(merged_graph, mapping_groups_new)
-            
-            # relabel node from graph_1 group_xxx_query to group_xxx_graphcount
+            # remove _query suffix, add graph count 
+            # (relabel node from graph_1 group_xxx_query to group_xxx_x)
             mapping = {}
             for node_id, node_data in merged_graph.nodes(data=True):
                 name = node_data.get('name', '')
-                #print(f"node name {name}")
                 if '_query' in name:
                     new_name = name.replace('_query', f'_{graph_count+1}')
                     mapping[node_id] = new_name
@@ -893,8 +902,9 @@ def main():
                     logging.debug(f"Retained: {name}")
             merged_graph = relabel_nodes_preserve_attrs(merged_graph, mapping)
             merged_graph = sync_names(merged_graph)
-
         else:
+            # remove _query suffix
+            # (relabel query nodes node from group_xxx_x_query to group_xxx_x)
             mapping = {}
             for node_id, node_data in merged_graph.nodes(data=True):
                 name = node_data.get('name', '')
@@ -904,34 +914,23 @@ def main():
                     logging.debug(f"Changed: {name} to {new_name}")
                 if '_query' not in name:
                     logging.debug(f"Retained: {name}")
-
             merged_graph = relabel_nodes_preserve_attrs(merged_graph, mapping)
             merged_graph = sync_names(merged_graph)
 
-        #for node in merged_graph.nodes():
-        #    merged_graph.nodes[node]['seqIDs'] = ";".join(merged_graph.nodes[node]['seqIDs'])
-            #merged_graph.nodes[node]['name'] = merged_graph.nodes[node]['name'].removesuffix('_query')
-        
-        #mapping_query = dict(zip(merged_graph.nodes, merged_graph.nodes))
-        #mapping_query = {key: f"{value.removesuffix('query')}" for key, value in mapping_query.items()}
-        #merged_graph_new = relabel_nodes_preserve_attrs(merged_graph, mapping_query)
-        #merged_graph = merged_graph_new
-
-
+        # debug statement...
         logging.debug("After updating node names:")
         for node in list(merged_graph.nodes())[:20]:
             logging.debug(f"  node: {node}")
 
-
-        #for node in merged_graph.nodes():
-            #logging.debug(f"merged_graph protein {merged_graph.nodes[node]["protein"]}")
-            
+        # ensure metadata written in correct order
         format_metadata_for_gml(merged_graph)
 
+        # debug statement...
         logging.debug("After formatting metadata:")
         for node in list(merged_graph.nodes())[:20]:
             logging.debug(f"  node: {node}")
         
+        # info statement...
         logging.info('Writing merged graph to outdir...')
 
         # write new graph to GML
@@ -944,14 +943,14 @@ def main():
         with open(reference_out, "w") as fasta_out:
             for _, row in pan_genome_reference_merged.iterrows():
                 fasta_out.write(f">{row['id']}\n{row['sequence']}\n")
-
-        #print(pan_genome_reference_merged)
-        #pan_genome_reference_merged.to_csv(reference_out, header=False, index=False)
-
+        
+        # add 1 to graph count
         graph_count += 1
 
+        # print progress statement...
         logging.info(f"Iteration {graph_count} of {n_graphs-1} complete.")
 
+    # info statement...
     logging.info('Finished successfully.')
 
     #return merge
