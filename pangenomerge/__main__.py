@@ -18,12 +18,15 @@ from itertools import combinations
 from edlib import align
 from collections import defaultdict
 
+# import custom functions
 from .manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array
 from .run_mmseqs import run_mmseqs_easysearch
 from panaroo_functions.load_graphs import load_graphs
 from panaroo_functions.write_gml_metadata import format_metadata_for_gml
 from panaroo_functions.context_search import collapse_families, single_linkage
 from panaroo_functions.merge_nodes import merge_node_cluster, gen_edge_iterables, gen_node_iterables, iter_del_dups, del_dups
+from .relabel_nodes import relabel_nodes_preserve_attrs,sync_names
+from .context_similarity import context_similarity_seq
 
 from .__init__ import __version__
 
@@ -641,22 +644,6 @@ def main():
 
         # debug statement...
         logging.debug(f"centroid_to_node: {centroid_to_node}")
-
-        # define a context similarity function
-        def context_similarity_seq(G, nA, nB, centroid_identity, depth=1):
-            neighA = set(nx.single_source_shortest_path_length(G, nA, cutoff=depth).keys())
-            neighB = set(nx.single_source_shortest_path_length(G, nB, cutoff=depth).keys())
-
-            centroidsA = [G.nodes[n]["centroid"][0] for n in neighA]
-            centroidsB = [G.nodes[n]["centroid"][0] for n in neighB]
-
-            best_ident = 0
-            for ca in centroidsA:
-                for cb in centroidsB:
-                    ident = centroid_identity.get((ca, cb), 0)
-                    if ident > best_ident:
-                        best_ident = ident
-            return best_ident
 
         # build node pairs (based on centroid similarity)
         node_pairs = []
