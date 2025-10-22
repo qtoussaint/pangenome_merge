@@ -547,7 +547,7 @@ def main():
         from collections import defaultdict
 
         family_threshold = 0.7  # sequence identity threshold
-        context_threshold = 0.8  # contextual similarity threshold 
+        context_threshold = 0.7  # contextual similarity threshold 
 
         # one centroid to one sequence
         centroid_to_seq = {}
@@ -658,7 +658,7 @@ def main():
         # copy to create new graph object
         collapsed_merged_graph = merged_graph.copy()
 
-        logging.info("Merging nodes...")
+        logging.info("Merging nodes and edges...")
 
         # create set of nodes to drop from the pangenome reference (since they're being merged)
         to_drop = set()
@@ -690,19 +690,33 @@ def main():
             merged_set = collapsed_merged_graph.nodes[a]["lengths"] + collapsed_merged_graph.nodes[b]["lengths"]
             collapsed_merged_graph.nodes[a]["lengths"] = merged_set
 
-            # note to remove from pangenome reference
+            # note to remove node from pangenome reference
             to_drop.add(b)
+
+            # move edges from b to a before removing b
+            for neighbor in list(collapsed_merged_graph.neighbors(b)):
+                if neighbor == a:
+                    continue
+                if collapsed_merged_graph.has_edge(b, neighbor):
+                    edge_attrs = dict(collapsed_merged_graph.get_edge_data(b, neighbor))
+                else:
+                    edge_attrs = {}
+
+                if not collapsed_merged_graph.has_edge(a, neighbor):
+                    collapsed_merged_graph.add_edge(a, neighbor, **edge_attrs)
+                else:
+                    merged_edge = collapsed_merged_graph.edges[a, neighbor]
+                    merged_members = set(merged_edge.get("members", [])) | set(edge_attrs.get("members", []))
+                    merged_edge["members"] = list(merged_members)
+                    merged_edge["size"] = len(merged_members)
+                    merged_edge["genomeIDs"] = ";".join(merged_members)
             
             # remove second node
             collapsed_merged_graph.remove_node(b)
 
             # (don't add centroid/longCentroidID/annotation/dna/protein/hasEnd/mergedDNA/paralog/maxLenId -- keep as original for now)
 
-        logging.info("Merging edges...")
-
-        # skip for now
-
-        # and check metadata bc some nodes from the same graph appear to be mapping together
+        # check metadata bc some nodes from the same graph appear to be mapping together !!!
 
         # also need to remove pangenome reference centroids from new nodes that got merged during collapse
         pan_genome_reference_merged.drop(
