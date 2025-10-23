@@ -458,7 +458,7 @@ def main():
         #    pan_genome_reference_merged["id"] = pan_genome_reference_merged["id"].astype(str) + f"_{graph_count+1}"
 
         # debug statement...
-        logging.debug(f"pan_genome_reference_merged_updated: {pan_genome_reference_merged}")
+        #logging.debug(f"pan_genome_reference_merged_updated: {pan_genome_reference_merged}")
 
         # info statement...
         logging.info("Merging nodes...")
@@ -625,7 +625,7 @@ def main():
         for node, data in merged_graph.nodes(data=True):
             c = data["centroid"][0]
 
-            seqs = merged_graph.nodes[node]["protein"].split(";")
+            seqs = merged_graph.nodes[node]["protein"]
             node_centroid_seq = max(seqs, key=len)
 
             centroid_to_seq[c] = node_centroid_seq
@@ -633,14 +633,79 @@ def main():
         # debug statement...
         logging.debug(f"centroid_to_seq: {centroid_to_seq}")
 
-        # compute all pairwise identities 
+        def write_fasta(seqs_dict, filename):
+            with open(filename, "w") as f:
+                for name, seq in seqs_dict.items():
+                    f.write(f">{name}\n{seq}\n")
+
+        # create temporary FASTA files
+        query_fa = Path(options.outdir) / "centroids_query.fa"
+        target_fa = Path(options.outdir) / "centroids_target.fa"
+
+        write_fasta(centroid_to_seq, query_fa)
+        write_fasta(centroid_to_seq, target_fa)
+
+        # info statement
+        logging.info("Computing pairwise identities...")
+
+        # info statement...
+        logging.info("Running MMSeqs2...")
+
+        # run mmseqs on the two pangenome references
+        run_mmseqs_easysearch(query=query_fa, target=target_fa, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
+        
+        # info statement...
+        logging.info("MMSeqs2 complete. Reading and filtering results...")
+
+        # read mmseqs results
+        # each "group_" refers to the centroid of that group in the pan_genomes_reference.fa
+        mmseqs = pd.read_csv(str(Path(options.outdir) / "mmseqs_clusters.m8"), sep='\t')
+
+        ### match hits from mmseqs
+
+        # change the second graph node names to the first graph node names for nodes that match according to mmseqs
+
+        # make sure metrics are numeric
+        mmseqs["fident"] = pd.to_numeric(mmseqs["fident"], errors='coerce')
+        mmseqs["evalue"] = pd.to_numeric(mmseqs["evalue"], errors='coerce')
+        mmseqs["tlen"] = pd.to_numeric(mmseqs["tlen"], errors='coerce')
+        mmseqs["qlen"] = pd.to_numeric(mmseqs["qlen"], errors='coerce')
+        mmseqs["nident"] = pd.to_numeric(mmseqs["nident"], errors='coerce')
+
+        # define length difference
+        max_len = np.maximum(mmseqs['tlen'], mmseqs['qlen'])
+        mmseqs["len_dif"] = 1 - (np.abs(mmseqs["tlen"] - mmseqs["qlen"]) / max_len)
+
+        # filter for fraction nt identity >= 98% (global) and length difference <= 5%
+        mmseqs = mmseqs[(mmseqs["fident"] >= 0.70) & (mmseqs["len_dif"] >= 0.50)].copy()
+
+        ### iterate over target with each unique value of target, and pick the match with the highest fident, then highest len_dif (see calculation)
+        # if still multiple matches, pick the first one
+
+        # sort by fident (highest first), len_dif (highest first -- see calculation), and evalue (lowest first)
+        mmseqs_sorted = mmseqs.sort_values(by=["fident", "len_dif", "evalue"], ascending=[False, False, True],)
+
+        # debug statement...
+        logging.debug(f" {len(mmseqs_sorted)} one-to-one hits.")
+        logging.debug(f"{mmseqs_sorted}")
+
+        # only keep the first occurrence per unique target (highest fident, lowest length difference, then smallest evalue if tie)
+        #mmseqs_filtered = mmseqs_sorted.drop_duplicates(subset=["target"], keep="first")
+        #mmseqs_filtered = mmseqs_filtered.drop_duplicates(subset=["query"], keep="first") # test if dropping query vs. target duplicates first changes results
+
+        # compute pairwise identities
         centroid_identity = {}
         for c1, c2 in combinations(centroid_to_seq.keys(), 2):
-            aln = align(centroid_to_seq[c1], centroid_to_seq[c2], mode="NW", task="distance")
-            dist = aln["editDistance"] / max(len(centroid_to_seq[c1]), len(centroid_to_seq[c2]))
-            identity = 1 - dist
-            centroid_identity[(c1, c2)] = identity
-            centroid_identity[(c2, c1)] = identity
+            # safer lookup; use query/target matches
+            match = mmseqs_sorted[
+                ((mmseqs_sorted["query"] == c1) & (mmseqs_sorted["target"] == c2)) |
+                ((mmseqs_sorted["query"] == c2) & (mmseqs_sorted["target"] == c1))
+            ]
+            if not match.empty:
+                ident = match.iloc[0]["fident"]
+                centroid_identity[(c1, c2)] = ident
+                centroid_identity[(c2, c1)] = ident
+
         
         # debug statement...
         logging.debug(f"centroid_identity: {centroid_identity}")
