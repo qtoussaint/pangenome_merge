@@ -624,7 +624,11 @@ def main():
         centroid_to_seq = {}
         for node, data in merged_graph.nodes(data=True):
             c = data["centroid"][0]
-            centroid_to_seq[c] = data["protein"][0]
+
+            seqs = merged_graph.nodes[node]["protein"].split(";")
+            node_centroid_seq = max(seqs, key=len)
+            
+            centroid_to_seq[c] = node_centroid_seq
 
         # debug statement...
         logging.debug(f"centroid_to_seq: {centroid_to_seq}")
@@ -921,10 +925,10 @@ def main():
         pan_genome_reference_merged = pd.DataFrame(columns=["id", "sequence"])
 
         for node in merged_graph.nodes():
+
             # get node centroid sequence
-            node_centroid_seq = merged_graph.nodes[node]["dna"][0] \
-                if isinstance(merged_graph.nodes[node]["dna"], list) \
-                else merged_graph.nodes[node]["dna"]
+            seqs = merged_graph.nodes[node]["dna"].split(";")
+            node_centroid_seq = max(seqs, key=len)
 
             # update merged pangenome reference
             pan_genome_reference_merged.loc[len(pan_genome_reference_merged)] = [node, node_centroid_seq]
