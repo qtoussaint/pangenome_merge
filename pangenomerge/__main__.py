@@ -388,20 +388,20 @@ def main():
 
                 node_data['centroid'] = [f"{centroid}_g{graph_count+2}" for centroid in node_data['centroid']] # list
 
-                node_data['maxLenId'] = str(node_data['maxLenId']) + f'_g{graph_count+2}' # int
+                #node_data['maxLenId'] = str(node_data['maxLenId']) + f'_g{graph_count+2}' # int
 
                 node_data['members'] = [f"{member}_g{graph_count+2}" for member in node_data['members']] # list
 
-                node_data['genomeIDs'] = ";".join(node_data['members']) # str
+                #node_data['genomeIDs'] = ";".join(node_data['members']) # str
 
-                seqid_set = {f"{seqid}{f'_g{graph_count+2}'}" for seqid in node_data['seqIDs']}
-                node_data['seqIDs'] = seqid_set # set
+                #seqid_set = {f"{seqid}{f'_g{graph_count+2}'}" for seqid in node_data['seqIDs']}
+                #node_data['seqIDs'] = seqid_set # set
 
-                node_data['longCentroidID'].append(f'from_g{graph_count+2}') #list
+                #node_data['longCentroidID'].append(f'from_g{graph_count+2}') #list
 
-                geneids = node_data['geneIDs'].split(";")
-                geneids = [f"{gid}_g{graph_count+2}" for gid in geneids]
-                node_data['geneIDs'] = ";".join(geneids) # str
+                #geneids = node_data['geneIDs'].split(";")
+                #geneids = [f"{gid}_g{graph_count+2}" for gid in geneids]
+                #node_data['geneIDs'] = ";".join(geneids) # str
 
         if options.mode == 'test':
             for node_data in relabeled_graph_2.nodes.values():
@@ -413,20 +413,20 @@ def main():
 
                 node_data['centroid'] = [f"{centroid}_g{graph_count+1}" for centroid in node_data['centroid']] # list
 
-                node_data['maxLenId'] = str(node_data['maxLenId']) + f'_g{graph_count+1}' # int
+                #node_data['maxLenId'] = str(node_data['maxLenId']) + f'_g{graph_count+1}' # int
 
                 node_data['members'] = [f"{member}_g{graph_count+1}" for member in node_data['members']] # list
 
-                node_data['genomeIDs'] = ";".join(node_data['members']) # str
+                #node_data['genomeIDs'] = ";".join(node_data['members']) # str
 
-                seqid_set = {f"{seqid}{f'_g{graph_count+1}'}" for seqid in node_data['seqIDs']}
-                node_data['seqIDs'] = seqid_set # set
+                #seqid_set = {f"{seqid}{f'_g{graph_count+1}'}" for seqid in node_data['seqIDs']}
+                #node_data['seqIDs'] = seqid_set # set
 
-                node_data['longCentroidID'].append(f'from_g{graph_count+1}') #list
+                #node_data['longCentroidID'].append(f'from_g{graph_count+1}') #list
 
-                geneids = node_data['geneIDs'].split(";")
-                geneids = [f"{gid}_g{graph_count+1}" for gid in geneids]
-                node_data['geneIDs'] = ";".join(geneids) # str
+                #geneids = node_data['geneIDs'].split(";")
+                #geneids = [f"{gid}_g{graph_count+1}" for gid in geneids]
+                #node_data['geneIDs'] = ";".join(geneids) # str
 
         if graph_count == 0 and options.mode == 'test':
             for node_data in relabeled_graph_1.nodes.values():
@@ -445,17 +445,17 @@ def main():
         logging.debug(f"Incoming relabeled_graph_2 has {len(relabeled_graph_2.nodes())} nodes.")
 
         # read in pangenome reference for base graph
-        group = []
-        for record in SeqIO.parse(pangenome_reference_g1, "fasta"):
-            group.append({"id": record.id, "sequence": str(record.seq)})
-        pan_genome_reference_merged = pd.DataFrame(group)
+        #group = []
+        #for record in SeqIO.parse(pangenome_reference_g1, "fasta"):
+        #    group.append({"id": record.id, "sequence": str(record.seq)})
+        #pan_genome_reference_merged = pd.DataFrame(group)
 
         # debug statement...
-        logging.debug(f"pan_genome_reference_merged: {pan_genome_reference_merged}")
+        #logging.debug(f"pan_genome_reference_merged: {pan_genome_reference_merged}")
 
         # update the pangenome reference group labels from the base graph the first time it's used
-        if graph_count == 0:
-            pan_genome_reference_merged["id"] = pan_genome_reference_merged["id"].astype(str) + f"_{graph_count+1}"
+        #if graph_count == 0:
+        #    pan_genome_reference_merged["id"] = pan_genome_reference_merged["id"].astype(str) + f"_{graph_count+1}"
 
         # debug statement...
         logging.debug(f"pan_genome_reference_merged_updated: {pan_genome_reference_merged}")
@@ -477,22 +477,22 @@ def main():
                 merged_graph.nodes[node]["seqIDs"] = merged_set
 
                 # geneIDs
-                merged_set = ";".join([merged_graph.nodes[node]["geneIDs"], relabeled_graph_2.nodes[node]["geneIDs"]])
-                merged_graph.nodes[node]["geneIDs"] = merged_set
+                #merged_set = ";".join([merged_graph.nodes[node]["geneIDs"], relabeled_graph_2.nodes[node]["geneIDs"]])
+                #merged_graph.nodes[node]["geneIDs"] = merged_set
 
                 # members
                 merged_set = list(set(relabeled_graph_2.nodes[node]["members"]) | set(merged_graph.nodes[node]["members"]))
                 merged_graph.nodes[node]["members"] = merged_set
 
                 # genome IDs
-                merged_graph.nodes[node]["genomeIDs"] = ";".join([merged_graph.nodes[node]["genomeIDs"], relabeled_graph_2.nodes[node]["genomeIDs"]])
+                #merged_graph.nodes[node]["genomeIDs"] = ";".join([merged_graph.nodes[node]["genomeIDs"], relabeled_graph_2.nodes[node]["genomeIDs"]])
 
                 # size
-                size = len(merged_graph.nodes[node]["members"])
+                #size = len(merged_graph.nodes[node]["members"])
 
                 # lengths
-                merged_set = relabeled_graph_1.nodes[node]["lengths"] + relabeled_graph_2.nodes[node]["lengths"]
-                merged_graph.nodes[node]["lengths"] = merged_set
+                #merged_set = relabeled_graph_1.nodes[node]["lengths"] + relabeled_graph_2.nodes[node]["lengths"]
+                #merged_graph.nodes[node]["lengths"] = merged_set
 
                 # (don't add centroid/longCentroidID/annotation/dna/protein/hasEnd/mergedDNA/paralog/maxLenId -- keep as original for now)
 
@@ -534,12 +534,12 @@ def main():
                 new_node_name = f"{node}_{graph_count+2}"
 
                 # get node centroid sequence
-                node_centroid_seq = relabeled_graph_2.nodes[node]["dna"][0] \
-                    if isinstance(relabeled_graph_2.nodes[node]["dna"], list) \
-                    else relabeled_graph_2.nodes[node]["dna"]
+                #node_centroid_seq = relabeled_graph_2.nodes[node]["dna"][0] \
+                #    if isinstance(relabeled_graph_2.nodes[node]["dna"], list) \
+                #    else relabeled_graph_2.nodes[node]["dna"]
 
                 # update merged pangenome reference
-                pan_genome_reference_merged.loc[len(pan_genome_reference_merged)] = [new_node_name, node_centroid_seq]
+                #pan_genome_reference_merged.loc[len(pan_genome_reference_merged)] = [new_node_name, node_centroid_seq]
 
         # info statement...
         logging.info("Merging edges...")
@@ -565,10 +565,10 @@ def main():
                 merged_graph.edges[edge]['members'].extend(unadded_metadata['members']) # combine members
 
                 # genome IDs (assuming genomeIDs are always the same as members):
-                merged_graph.edges[edge]['genomeIDs'] = ";".join(merged_graph.edges[edge]['members'])
+                #merged_graph.edges[edge]['genomeIDs'] = ";".join(merged_graph.edges[edge]['members'])
                 
                 # size
-                merged_graph.edges[edge]['size'] = str(len(merged_graph.edges[edge]['members']))
+                #merged_graph.edges[edge]['size'] = str(len(merged_graph.edges[edge]['members']))
 
             else:
 
@@ -627,7 +627,7 @@ def main():
 
             seqs = merged_graph.nodes[node]["protein"].split(";")
             node_centroid_seq = max(seqs, key=len)
-            
+
             centroid_to_seq[c] = node_centroid_seq
 
         # debug statement...
@@ -726,7 +726,7 @@ def main():
         logging.info("Merging nodes and edges...")
 
         # create set of nodes to drop from the pangenome reference (since they're being merged)
-        to_drop = set()
+        #to_drop = set()
 
         # merge the two sets of unique nodes into one set of unique nodes
         for a,b in reordered_pairs:
@@ -738,25 +738,25 @@ def main():
             collapsed_merged_graph.nodes[a]["seqIDs"] = merged_set
 
             # geneIDs
-            merged_set = ";".join([collapsed_merged_graph.nodes[a]["geneIDs"], collapsed_merged_graph.nodes[b]["geneIDs"]])
-            collapsed_merged_graph.nodes[a]["geneIDs"] = merged_set
+            #merged_set = ";".join([collapsed_merged_graph.nodes[a]["geneIDs"], collapsed_merged_graph.nodes[b]["geneIDs"]])
+            #collapsed_merged_graph.nodes[a]["geneIDs"] = merged_set
 
             # members
             merged_set = list(set(collapsed_merged_graph.nodes[a]["members"]) | set(collapsed_merged_graph.nodes[b]["members"]))
             collapsed_merged_graph.nodes[a]["members"] = merged_set
 
             # genome IDs
-            collapsed_merged_graph.nodes[a]["genomeIDs"] = ";".join([collapsed_merged_graph.nodes[a]["genomeIDs"], collapsed_merged_graph.nodes[b]["genomeIDs"]])
+            #collapsed_merged_graph.nodes[a]["genomeIDs"] = ";".join([collapsed_merged_graph.nodes[a]["genomeIDs"], collapsed_merged_graph.nodes[b]["genomeIDs"]])
 
             # size
-            size = len(collapsed_merged_graph.nodes[a]["members"])
+            #size = len(collapsed_merged_graph.nodes[a]["members"])
 
             # lengths
-            merged_set = collapsed_merged_graph.nodes[a]["lengths"] + collapsed_merged_graph.nodes[b]["lengths"]
-            collapsed_merged_graph.nodes[a]["lengths"] = merged_set
+            #merged_set = collapsed_merged_graph.nodes[a]["lengths"] + collapsed_merged_graph.nodes[b]["lengths"]
+            #collapsed_merged_graph.nodes[a]["lengths"] = merged_set
 
             # note to remove node from pangenome reference
-            to_drop.add(b)
+            #to_drop.add(b)
 
             # move edges from b to a before removing b
             for neighbor in list(collapsed_merged_graph.neighbors(b)):
@@ -781,10 +781,10 @@ def main():
             # (don't add centroid/longCentroidID/annotation/dna/protein/hasEnd/mergedDNA/paralog/maxLenId -- keep as original for now)
 
         # also need to remove pangenome reference centroids from new nodes that got merged during collapse
-        pan_genome_reference_merged.drop(
-            pan_genome_reference_merged.index[pan_genome_reference_merged["id"].isin(to_drop)],
-            inplace=True
-        )
+        #pan_genome_reference_merged.drop(
+        #    pan_genome_reference_merged.index[pan_genome_reference_merged["id"].isin(to_drop)],
+        #    inplace=True
+        #)
 
         # update degrees across graph
         for node in collapsed_merged_graph:
