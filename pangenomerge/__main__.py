@@ -869,7 +869,8 @@ def main():
             for node_id, node_data in merged_graph.nodes(data=True):
                 name = node_data.get('name', '')
                 if '_query' in name:
-                    new_name = name.replace('_query', f'_{graph_count+1}')
+                    new_name = re.sub(r'_query.*$', f'_{graph_count+1}', name)
+                    #new_name = name.replace('_query', f'_{graph_count+1}')
                     mapping[node_id] = new_name
                     logging.debug(f"Changed: {name} to {new_name}")
                 if '_query' not in name:
@@ -883,7 +884,8 @@ def main():
             for node_id, node_data in merged_graph.nodes(data=True):
                 name = node_data.get('name', '')
                 if '_query' in name:
-                    new_name = name.replace('_query', "")
+                    new_name = re.sub(r'_query.*$', "", name)
+                    #new_name = name.replace('_query', "")
                     mapping[node_id] = new_name
                     logging.debug(f"Changed: {name} to {new_name}")
                 if '_query' not in name:
@@ -914,6 +916,21 @@ def main():
         # write new pan-genome references to fasta
         reference_out = str(Path(options.outdir) / f"pan_genome_reference_{graph_count+1}.fa")
 
+        ######## change so that pangenome reference is only based on final graph nodes!
+
+        pan_genome_reference_merged = pd.DataFrame(columns=["id", "sequence"])
+
+        for node in merged_graph.nodes():
+            # get node centroid sequence
+            node_centroid_seq = merged_graph.nodes[node]["dna"][0] \
+                if isinstance(merged_graph.nodes[node]["dna"], list) \
+                else merged_graph.nodes[node]["dna"]
+
+            # update merged pangenome reference
+            pan_genome_reference_merged.loc[len(pan_genome_reference_merged)] = [node, node_centroid_seq]
+
+        ########
+
         with open(reference_out, "w") as fasta_out:
             for _, row in pan_genome_reference_merged.iterrows():
                 fasta_out.write(f">{row['id']}\n{row['sequence']}\n")
@@ -925,10 +942,10 @@ def main():
         extra_in_ref = ref_ids - graph_node_ids
         if missing_in_ref:
             logging.warning(f"{len(missing_in_ref)} nodes in graph but missing from reference")
-            logging.debug(f"Examples: {list(missing_in_ref)[:10]}")
+            logging.warning(f"Examples: {list(missing_in_ref)[:10]}")
         if extra_in_ref:
             logging.warning(f"{len(extra_in_ref)} IDs in reference but missing in graph")
-            logging.debug(f"Examples: {list(extra_in_ref)[:10]}")
+            logging.warning(f"Examples: {list(extra_in_ref)[:10]}")
 
         # add 1 to graph count
         graph_count += 1
