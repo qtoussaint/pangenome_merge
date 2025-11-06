@@ -1,3 +1,5 @@
 # pangenome_merge
 
-Mapping Clusters of Orthologous Genes (COGs) between two pan-genome gene graphs
+🚧🚧🚧 Under construction 🚧🚧🚧
+
+Merges two bacterial pan-genome gene graphs (must be output from Panaroo)
