@@ -664,7 +664,7 @@ def main():
             centroid_to_seq[c] = node_centroid_seq
 
         # debug statement...
-        logging.debug(f"centroid_to_seq: {centroid_to_seq[:10]}")
+        logging.debug(f"centroid_to_seq: {list(centroid_to_seq.items())[:10]}")
 
         def write_fasta(seqs_dict, filename):
             with open(filename, "w") as f:
