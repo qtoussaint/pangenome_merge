@@ -27,6 +27,7 @@ from panaroo_functions.context_search import collapse_families, single_linkage
 from panaroo_functions.merge_nodes import merge_node_cluster, gen_edge_iterables, gen_node_iterables, iter_del_dups, del_dups
 from .relabel_nodes import relabel_nodes_preserve_attrs,sync_names
 from .context_similarity import context_similarity_seq
+from .context_similarity import build_ident_lookup
 
 from .__init__ import __version__
 
