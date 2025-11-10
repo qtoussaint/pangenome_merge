@@ -75,10 +75,10 @@ def get_options():
                     help='Sequence identity threshold for putative spurious paralogs. Default: 0.7')
     parameters.add_argument('--context-threshold',
                     dest='context_threshold',
-                    default=0.7,
+                    default=0.9,
                     type=float,
                     required=False,
-                    help='Sequence identity threshold for neighbors of putative spurious paralogs. Default: 0.7')
+                    help='Sequence identity threshold for neighbors of putative spurious paralogs. Default: 0.9')
     
     other = parser.add_argument_group('Other options')
     other.add_argument('--threads',
@@ -708,13 +708,6 @@ def main():
         # remove self-matches (query == target)
         mmseqs = mmseqs[mmseqs["query"] != mmseqs["target"]]
 
-        print(f"mmseqs filtered: {len(mmseqs)} hits remaining")
-
-        # optional debugging
-        logging.debug(mmseqs.head())
-
-        ### compute contextual similarity
-
         # remove rows where both have "_query"
         mmseqs = mmseqs[~((mmseqs["target"].str.contains("_query")) & (mmseqs["query"].str.contains("_query")))]
 
@@ -723,8 +716,15 @@ def main():
             ~((~mmseqs["target"].str.contains("_query")) & (~mmseqs["query"].str.contains("_query")))
         ]
 
+        print(f"mmseqs filtered: {len(mmseqs)} hits remaining")
+
+        # optional debugging
+        logging.debug(mmseqs.head())
+
+        ### compute contextual similarity
+
         # can still accidentally map together things from same genome by mapping a query node that's been merged into with a g2 node
-        # will need to check that member sets for the nodes don't overlap
+        # will need to check that member sets for the nodes are disjoint (don't contain any of the same genomes)
 
         ident_lookup = build_ident_lookup(mmseqs)
 
@@ -740,19 +740,6 @@ def main():
             sims = [s1, s2, s3]
 
             scores.append((nA, nB, ident, sims))
-
-        #scores = []
-        #for _, row in mmseqs.iterrows():
-        #    nA = row["query"]
-        #    nB = row["target"]
-        #    ident = row["fident"]
-
-        #    sims = [context_similarity_seq(merged_graph, nA, nB, mmseqs, depth=d) for d in [1, 2, 3]]
-        #    if sims[0] < 0.9:
-        #        sims[1] = [context_similarity_seq(merged_graph, nA, nB, mmseqs, depth=d) for d in [2]]
-        #        if sims[1] < 0.9:
-        #            sims[2] = [context_similarity_seq(merged_graph, nA, nB, mmseqs, depth=d) for d in [3]]
-        #    scores.append((nA, nB, ident, sims))
 
         logging.debug(f"scores: {scores}")
 
@@ -912,6 +899,8 @@ def main():
             logging.info(f"shared seqIDs: {len(common_seq_ids)}")
             logging.info(f"seqIDs only in merged (excluded): {len(only_in_graph_1)}")
             logging.info(f"seqIDs only in all (excluded): {len(only_in_graph_2)}")
+            logging.debug(f"seqIDs only in merged (excluded): {only_in_graph_1}")
+            logging.debug(f"seqIDs only in all (excluded): {only_in_graph_2}")
 
             rand_input_merged_filtered = rand_input_merged.loc[:, rand_input_merged.loc[0].isin(common_seq_ids)]
             rand_input_all_filtered = rand_input_all.loc[:, rand_input_all.loc[0].isin(common_seq_ids)]
