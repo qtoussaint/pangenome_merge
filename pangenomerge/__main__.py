@@ -773,7 +773,7 @@ def main():
                 ident >= family_threshold
                 and sims[0] >= context_threshold
                 and (sims[1] >= context_threshold or sims[2] >= context_threshold)
-                and set(merged_graph.nodes(nA)[members]).isdisjoint(set(merged_graph.nodes(nB)[members])) # check they do not share any members (gene from within same genome will not be merged)
+                and set(merged_graph.nodes[nA]['members']).isdisjoint(set(merged_graph.nodes[nB]['members'])) # check they do not share any members (gene from within same genome will not be merged)
             ):
                 accepted_pairs.append((nA, nB, ident, sims))
 
