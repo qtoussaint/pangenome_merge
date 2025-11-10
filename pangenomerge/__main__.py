@@ -383,54 +383,80 @@ def main():
         
         ### add suffix to relevant metadata to be able to identify which graph they refer to later
         # if other bits are too slow, replacing looping over nodes with the nodes.values method shown here
-        if options.mode != 'test':
-            for node_data in relabeled_graph_2.nodes.values():
+
+        # NODES
+
+        for node_data in relabeled_graph_2.nodes.values():
+
+            node_data['members'] = [f"{member}_g{graph_count+2}" for member in node_data['members']] # list
+
+            node_data['genomeIDs'] = ";".join(node_data['members']) # str
+
+            if options.mode != 'test':
+
+                seqid_set = {f"{seqid}{f'_g{graph_count+2}'}" for seqid in node_data['seqIDs']}
+                node_data['seqIDs'] = seqid_set # set
+
+                geneids = node_data['geneIDs'].split(";")
+                geneids = [f"{gid}_g{graph_count+2}" for gid in geneids]
+                node_data['geneIDs'] = ";".join(geneids) # str
+
+                node_data['longCentroidID'].append(f'from_g{graph_count+2}') #list
+
+                node_data['maxLenId'] = str(node_data['maxLenId']) + f'_g{graph_count+2}' # int
 
                 node_data['centroid'] = [f"{centroid}_g{graph_count+2}" for centroid in node_data['centroid']] # list
 
-                #node_data['maxLenId'] = str(node_data['maxLenId']) + f'_g{graph_count+2}' # int
+        if graph_count == 0: # if first iteration, do the same to the base graph
 
-                node_data['members'] = [f"{member}_g{graph_count+2}" for member in node_data['members']] # list
-
-                #node_data['genomeIDs'] = ";".join(node_data['members']) # str
-
-                #seqid_set = {f"{seqid}{f'_g{graph_count+2}'}" for seqid in node_data['seqIDs']}
-                #node_data['seqIDs'] = seqid_set # set
-
-                #node_data['longCentroidID'].append(f'from_g{graph_count+2}') #list
-
-                #geneids = node_data['geneIDs'].split(";")
-                #geneids = [f"{gid}_g{graph_count+2}" for gid in geneids]
-                #node_data['geneIDs'] = ";".join(geneids) # str
-
-        if options.mode == 'test':
-            for node_data in relabeled_graph_2.nodes.values():
-                node_data['members'] = [f"{member}_g{graph_count+2}" for member in node_data['members']] # list
-
-        if graph_count == 0 and options.mode != 'test':
-            
             for node_data in relabeled_graph_1.nodes.values():
-
-                node_data['centroid'] = [f"{centroid}_g{graph_count+1}" for centroid in node_data['centroid']] # list
-
-                #node_data['maxLenId'] = str(node_data['maxLenId']) + f'_g{graph_count+1}' # int
 
                 node_data['members'] = [f"{member}_g{graph_count+1}" for member in node_data['members']] # list
 
-                #node_data['genomeIDs'] = ";".join(node_data['members']) # str
+                node_data['genomeIDs'] = ";".join(node_data['members']) # str
 
-                #seqid_set = {f"{seqid}{f'_g{graph_count+1}'}" for seqid in node_data['seqIDs']}
-                #node_data['seqIDs'] = seqid_set # set
+            if options.mode != 'test':
 
-                #node_data['longCentroidID'].append(f'from_g{graph_count+1}') #list
+                seqid_set = {f"{seqid}{f'_g{graph_count+1}'}" for seqid in node_data['seqIDs']}
+                node_data['seqIDs'] = seqid_set # set
 
-                #geneids = node_data['geneIDs'].split(";")
-                #geneids = [f"{gid}_g{graph_count+1}" for gid in geneids]
-                #node_data['geneIDs'] = ";".join(geneids) # str
+                node_data['longCentroidID'].append(f'from_g{graph_count+1}') #list
 
-        if graph_count == 0 and options.mode == 'test':
-            for node_data in relabeled_graph_1.nodes.values():
-                node_data['members'] = [f"{member}_g{graph_count}" for member in node_data['members']] # list
+                node_data['centroid'] = [f"{centroid}_g{graph_count+1}" for centroid in node_data['centroid']] # list
+
+                node_data['maxLenId'] = str(node_data['maxLenId']) + f'_g{graph_count+1}' # int
+
+                geneids = node_data['geneIDs'].split(";")
+                geneids = [f"{gid}_g{graph_count+1}" for gid in geneids]
+                node_data['geneIDs'] = ";".join(geneids) # str
+
+        # EDGES
+
+        # edge attributes: size (n members), members (list), genomeIDs (semicolon-separated string)
+
+        for edge in relabeled_graph_2.edges:
+            
+            # members
+            relabeled_graph_2.edges[edge]['members'] = [str(member) + f"_g{graph_count+2}" for member in relabeled_graph_2.edges[edge]['members']] # add underscore w graph count+2 to members of g2
+
+            # genome IDs (assuming genomeIDs are always the same as members):
+            relabeled_graph_2.edges[edge]['genomeIDs'] = ";".join(relabeled_graph_2.edges[edge]['members'])
+
+            # size
+            relabeled_graph_2.edges[edge]['size'] = str(len(relabeled_graph_2.edges[edge]['members']))
+
+        if graph_count == 0: # if first iteration, do the same to the base graph
+
+            for edge in relabeled_graph_1.edges:
+                
+                # members
+                relabeled_graph_1.edges[edge]['members'] = [str(member) + f"_g{graph_count+1}" for member in relabeled_graph_1.edges[edge]['members']] # add underscore with graph count+1 to members of g1
+
+                # genome IDs (assuming genomeIDs are always the same as members):
+                relabeled_graph_1.edges[edge]['genomeIDs'] = ";".join(relabeled_graph_1.edges[edge]['members'])
+
+                # size
+                relabeled_graph_1.edges[edge]['size'] = str(len(relabeled_graph_1.edges[edge]['members']))
 
         ### merge graphs
 
@@ -477,22 +503,22 @@ def main():
                 merged_graph.nodes[node]["seqIDs"] = merged_set
 
                 # geneIDs
-                #merged_set = ";".join([merged_graph.nodes[node]["geneIDs"], relabeled_graph_2.nodes[node]["geneIDs"]])
-                #merged_graph.nodes[node]["geneIDs"] = merged_set
+                merged_set = ";".join([merged_graph.nodes[node]["geneIDs"], relabeled_graph_2.nodes[node]["geneIDs"]])
+                merged_graph.nodes[node]["geneIDs"] = merged_set
 
                 # members
                 merged_set = list(set(relabeled_graph_2.nodes[node]["members"]) | set(merged_graph.nodes[node]["members"]))
                 merged_graph.nodes[node]["members"] = merged_set
 
                 # genome IDs
-                #merged_graph.nodes[node]["genomeIDs"] = ";".join([merged_graph.nodes[node]["genomeIDs"], relabeled_graph_2.nodes[node]["genomeIDs"]])
+                merged_graph.nodes[node]["genomeIDs"] = ";".join([merged_graph.nodes[node]["genomeIDs"], relabeled_graph_2.nodes[node]["genomeIDs"]])
 
                 # size
-                #size = len(merged_graph.nodes[node]["members"])
+                size = len(merged_graph.nodes[node]["members"])
 
                 # lengths
-                #merged_set = relabeled_graph_1.nodes[node]["lengths"] + relabeled_graph_2.nodes[node]["lengths"]
-                #merged_graph.nodes[node]["lengths"] = merged_set
+                merged_set = relabeled_graph_1.nodes[node]["lengths"] + relabeled_graph_2.nodes[node]["lengths"]
+                merged_graph.nodes[node]["lengths"] = merged_set
 
                 # (don't add centroid/longCentroidID/annotation/dna/protein/hasEnd/mergedDNA/paralog/maxLenId -- keep as original for now)
 
@@ -560,24 +586,30 @@ def main():
                 unadded_metadata = relabeled_graph_2.edges[edge]
 
                 # members
-                merged_graph.edges[edge]['members'] = [str(member) + f"_{graph_count+1}" for member in merged_graph.edges[edge]['members']] # add underscore with graph count to members of g1
-                unadded_metadata['members'] = [str(member) + f"_{graph_count+2}" for member in unadded_metadata['members']] # add underscore w graph count+1 to members of g2
                 merged_graph.edges[edge]['members'].extend(unadded_metadata['members']) # combine members
 
                 # genome IDs (assuming genomeIDs are always the same as members):
-                #merged_graph.edges[edge]['genomeIDs'] = ";".join(merged_graph.edges[edge]['members'])
+                merged_graph.edges[edge]['genomeIDs'] = ";".join(merged_graph.edges[edge]['members'])
                 
                 # size
-                #merged_graph.edges[edge]['size'] = str(len(merged_graph.edges[edge]['members']))
+                merged_graph.edges[edge]['size'] = str(len(merged_graph.edges[edge]['members']))
 
             else:
 
                 # note that this statement is for NODES not EDGES
-                # you could also update g2 edges that don't contain "query" to have _graph_count+2 and then update the edges
+
+                # edge[0] and edge[1] are node names from nodes in g2
+                # e.g. group_XXX_g2 or group_YYY_query
+
+                # we first found any edges that exist in the merged graph, e.g. group_XXX_query <-> group_YYY_query
+                # we are now looking for group_XXX_query <-> group_YYY_g2 and group_XXX_g2 <-> group_YYY_g2 and any group_XXX_query <-> group_YYY_query only present in the new graph
+
+                # this finds new group_XXX_query <-> group_YYY_query mappings only present in the g2 (since part of "else" statement)
                 if edge[0] in merged_graph.nodes() and edge[1] in merged_graph.nodes():
                     merged_graph.add_edge(edge[0], edge[1]) # add edge
                     merged_graph.edges[edge].update(relabeled_graph_2.edges[edge]) # update with all metadata
 
+                # these find group_XXX_query <-> group_YYY_g2
                 if edge[0] in merged_graph.nodes() and edge[1] not in merged_graph.nodes():
 
                     if f"{edge[1]}_{graph_count+2}" in merged_graph.nodes():
@@ -594,6 +626,7 @@ def main():
                     else:
                         logging.error(f"Nodes in edge not present in merged graph (ghost nodes): {edge}")
 
+                # this finds group_XXX_g2 <-> group_YYY_g2
                 if edge[0] not in merged_graph.nodes() and edge[1] not in merged_graph.nodes():
                     
                     if f"{edge[0]}_{graph_count+2}" in merged_graph.nodes() and f"{edge[1]}_{graph_count+2}" in merged_graph.nodes():
@@ -623,7 +656,7 @@ def main():
         # one centroid to one sequence
         centroid_to_seq = {}
         for node, data in merged_graph.nodes(data=True):
-            c = data["centroid"][0]
+            c = node
 
             seqs = merged_graph.nodes[node]["protein"]
             node_centroid_seq = max(seqs, key=len)
@@ -631,7 +664,7 @@ def main():
             centroid_to_seq[c] = node_centroid_seq
 
         # debug statement...
-        logging.debug(f"centroid_to_seq: {centroid_to_seq}")
+        logging.debug(f"centroid_to_seq: {centroid_to_seq[:10]}")
 
         def write_fasta(seqs_dict, filename):
             with open(filename, "w") as f:
@@ -658,100 +691,74 @@ def main():
         logging.info("MMSeqs2 complete. Reading and filtering results...")
 
         # read mmseqs results
-        # each "group_" refers to the centroid of that group in the pan_genomes_reference.fa
-        mmseqs = pd.read_csv(str(Path(options.outdir) / "mmseqs_clusters.m8"), sep='\t')
+        mmseqs = pd.read_csv(Path(options.outdir) / "mmseqs_clusters.m8", sep="\t")
 
-        ### match hits from mmseqs
-
-        # change the second graph node names to the first graph node names for nodes that match according to mmseqs
-
-        # make sure metrics are numeric
-        mmseqs["fident"] = pd.to_numeric(mmseqs["fident"], errors='coerce')
-        mmseqs["evalue"] = pd.to_numeric(mmseqs["evalue"], errors='coerce')
-        mmseqs["tlen"] = pd.to_numeric(mmseqs["tlen"], errors='coerce')
-        mmseqs["qlen"] = pd.to_numeric(mmseqs["qlen"], errors='coerce')
-        mmseqs["nident"] = pd.to_numeric(mmseqs["nident"], errors='coerce')
+        # ensure numeric columns
+        for col in ["fident", "evalue", "tlen", "qlen", "nident"]:
+            mmseqs[col] = pd.to_numeric(mmseqs[col], errors="coerce")
 
         # define length difference
-        max_len = np.maximum(mmseqs['tlen'], mmseqs['qlen'])
+        max_len = np.maximum(mmseqs["tlen"], mmseqs["qlen"])
         mmseqs["len_dif"] = 1 - (np.abs(mmseqs["tlen"] - mmseqs["qlen"]) / max_len)
 
-        # filter for fraction nt identity >= 98% (global) and length difference <= 5%
-        mmseqs = mmseqs[(mmseqs["fident"] >= 0.70) & (mmseqs["len_dif"] >= 0.50)].copy()
+        # filter for identity ≥ 70% and length difference ≥ 50%
+        mmseqs = mmseqs[(mmseqs["fident"] >= family_threshold) & (mmseqs["len_dif"] >= 0.50)].copy()
 
-        ### iterate over target with each unique value of target, and pick the match with the highest fident, then highest len_dif (see calculation)
-        # if still multiple matches, pick the first one
+        # remove self-matches (query == target)
+        mmseqs = mmseqs[mmseqs["query"] != mmseqs["target"]]
 
-        # sort by fident (highest first), len_dif (highest first -- see calculation), and evalue (lowest first)
-        mmseqs_sorted = mmseqs.sort_values(by=["fident", "len_dif", "evalue"], ascending=[False, False, True],)
+        print(f"mmseqs filtered: {len(mmseqs)} hits remaining")
 
-        # debug statement...
-        logging.debug(f" {len(mmseqs_sorted)} one-to-one hits.")
-        logging.debug(f"{mmseqs_sorted}")
+        # optional debugging
+        logging.debug(mmseqs.head())
 
-        # only keep the first occurrence per unique target (highest fident, lowest length difference, then smallest evalue if tie)
-        #mmseqs_filtered = mmseqs_sorted.drop_duplicates(subset=["target"], keep="first")
-        #mmseqs_filtered = mmseqs_filtered.drop_duplicates(subset=["query"], keep="first") # test if dropping query vs. target duplicates first changes results
+        ### compute contextual similarity
 
-        # compute pairwise identities
-        centroid_identity = {}
-        for c1, c2 in combinations(centroid_to_seq.keys(), 2):
-            # safer lookup; use query/target matches
-            match = mmseqs_sorted[
-                ((mmseqs_sorted["query"] == c1) & (mmseqs_sorted["target"] == c2)) |
-                ((mmseqs_sorted["query"] == c2) & (mmseqs_sorted["target"] == c1))
-            ]
-            if not match.empty:
-                ident = match.iloc[0]["fident"]
-                centroid_identity[(c1, c2)] = ident
-                centroid_identity[(c2, c1)] = ident
+        # remove rows where both have "_query"
+        mmseqs = mmseqs[~((mmseqs["target"].str.contains("_query")) & (mmseqs["query"].str.contains("_query")))]
 
-        
-        # debug statement...
-        logging.debug(f"centroid_identity: {centroid_identity}")
+        # remove rows where NEITHER has "_query"
+        mmseqs = mmseqs[
+            ~((~mmseqs["target"].str.contains("_query")) & (~mmseqs["query"].str.contains("_query")))
+        ]
 
-        # map centroids to nodes
-        centroid_to_node = {data["centroid"][0]: node for node, data in merged_graph.nodes(data=True)}
+        # can still accidentally map together things from same genome by mapping a query node that's been merged into with a g2 node
+        # will need to check that member sets for the nodes don't overlap
 
-        # debug statement...
-        logging.debug(f"centroid_to_node: {centroid_to_node}")
+        ident_lookup = build_ident_lookup(mmseqs)
 
-        # build node pairs (based on centroid similarity)
-        node_pairs = []
-        for (a, b), ident in centroid_identity.items():
-            if ident >= family_threshold:
-                nodeA = centroid_to_node[a]
-                nodeB = centroid_to_node[b]
-                if nodeA != nodeB:
-                    node_pairs.append((nodeA, nodeB, ident))
-
-        # evaluate contextual similarity
         scores = []
-        for nA, nB, ident in node_pairs:
-            sims = [context_similarity_seq(merged_graph, nA, nB, centroid_identity, depth=d) for d in [1, 2, 3]]
+        for row in mmseqs.itertuples(index=False):
+            nA = row.query
+            nB = row.target
+            ident = row.fident
+
+            s1 = context_similarity_seq(merged_graph, nA, nB, ident_lookup, depth=1)
+            s2 = s1 if s1 >= 0.9 else context_similarity_seq(merged_graph, nA, nB, ident_lookup, depth=2)
+            s3 = s2 if s2 >= 0.9 else context_similarity_seq(merged_graph, nA, nB, ident_lookup, depth=3)
+            sims = [s1, s2, s3]
+
             scores.append((nA, nB, ident, sims))
 
-        # filter out those that share any members (spurious)
-        # filter out spurious before dropping duplicate nodes so real ones aren't dropped
-        # due to spurious correlations
-        filtered_pairs = []
-        for nA, nB, ident, sims in scores:
-            memA = set(merged_graph.nodes[nA].get("members", []))
-            memB = set(merged_graph.nodes[nB].get("members", []))
-            if memA.isdisjoint(memB):  # keep only if no shared members
-                sidsA = set(merged_graph.nodes[nA].get("seqIDs", []))
-                sidsB = set(merged_graph.nodes[nB].get("seqIDs", []))
-                if sidsA.isdisjoint(sidsB):  # keep only if no shared seqids
-                    filtered_pairs.append((nA, nB, ident, sims))
-        
-        # debug statement...
-        logging.debug(f"filtered_pairs: {filtered_pairs}")
+        #scores = []
+        #for _, row in mmseqs.iterrows():
+        #    nA = row["query"]
+        #    nB = row["target"]
+        #    ident = row["fident"]
+
+        #    sims = [context_similarity_seq(merged_graph, nA, nB, mmseqs, depth=d) for d in [1, 2, 3]]
+        #    if sims[0] < 0.9:
+        #        sims[1] = [context_similarity_seq(merged_graph, nA, nB, mmseqs, depth=d) for d in [2]]
+        #        if sims[1] < 0.9:
+        #            sims[2] = [context_similarity_seq(merged_graph, nA, nB, mmseqs, depth=d) for d in [3]]
+        #    scores.append((nA, nB, ident, sims))
+
+        logging.debug(f"scores: {scores}")
 
         # sort dataframe by scores
-        # first by fident, then depth1 ident, then depth 2, then depth 3
         scores_sorted = sorted(
-            filtered_pairs,
-            key=lambda x: (x[2], x[3][0], x[3][1], x[3][2]),  # (centroid identity, context similarity)
+            scores,
+            key=lambda x: (x[2], x[3][0], x[3][1], x[3][2]),
             reverse=True
         )
 
@@ -764,7 +771,8 @@ def main():
             if (
                 ident >= family_threshold
                 and sims[0] >= context_threshold
-                and (sims[1] >= context_threshold * 0.9 or sims[2] >= context_threshold * 0.9)
+                and (sims[1] >= context_threshold or sims[2] >= context_threshold)
+                and set(merged_graph.nodes(nA)[members]).isdisjoint(set(merged_graph.nodes(nB)[members])) # check they do not share any members (gene from within same genome will not be merged)
             ):
                 accepted_pairs.append((nA, nB, ident, sims))
 
@@ -783,6 +791,9 @@ def main():
             if "_query" in b and "_query" not in a:
                 a, b = b, a
             reordered_pairs.append((a, b))
+
+        # info statement
+        logging.info("Copy graph file...")
 
         # copy to create new graph object
         collapsed_merged_graph = merged_graph.copy()
@@ -803,22 +814,22 @@ def main():
             collapsed_merged_graph.nodes[a]["seqIDs"] = merged_set
 
             # geneIDs
-            #merged_set = ";".join([collapsed_merged_graph.nodes[a]["geneIDs"], collapsed_merged_graph.nodes[b]["geneIDs"]])
-            #collapsed_merged_graph.nodes[a]["geneIDs"] = merged_set
+            merged_set = ";".join([collapsed_merged_graph.nodes[a]["geneIDs"], collapsed_merged_graph.nodes[b]["geneIDs"]])
+            collapsed_merged_graph.nodes[a]["geneIDs"] = merged_set
 
             # members
             merged_set = list(set(collapsed_merged_graph.nodes[a]["members"]) | set(collapsed_merged_graph.nodes[b]["members"]))
             collapsed_merged_graph.nodes[a]["members"] = merged_set
 
             # genome IDs
-            #collapsed_merged_graph.nodes[a]["genomeIDs"] = ";".join([collapsed_merged_graph.nodes[a]["genomeIDs"], collapsed_merged_graph.nodes[b]["genomeIDs"]])
+            collapsed_merged_graph.nodes[a]["genomeIDs"] = ";".join([collapsed_merged_graph.nodes[a]["genomeIDs"], collapsed_merged_graph.nodes[b]["genomeIDs"]])
 
             # size
-            #size = len(collapsed_merged_graph.nodes[a]["members"])
+            size = len(collapsed_merged_graph.nodes[a]["members"])
 
             # lengths
-            #merged_set = collapsed_merged_graph.nodes[a]["lengths"] + collapsed_merged_graph.nodes[b]["lengths"]
-            #collapsed_merged_graph.nodes[a]["lengths"] = merged_set
+            merged_set = collapsed_merged_graph.nodes[a]["lengths"] + collapsed_merged_graph.nodes[b]["lengths"]
+            collapsed_merged_graph.nodes[a]["lengths"] = merged_set
 
             # note to remove node from pangenome reference
             #to_drop.add(b)
@@ -857,6 +868,9 @@ def main():
 
         # debug statement...
         logging.debug(f"After collapse: {len(collapsed_merged_graph.nodes())} nodes")
+
+        # info statement
+        logging.info("Copy graph file...")
 
         # write graph back to merged_graph
         merged_graph = collapsed_merged_graph.copy()
@@ -929,6 +943,8 @@ def main():
 
         # info statement...
         logging.info("Merge complete. Preparing attribute metadata for export...")
+
+        # CHECK IF ADDING GRAPH COUNT TO NODE NAME HERE IS RIGHT
 
         ### clean node names in merged graph
         if graph_count == 0:
