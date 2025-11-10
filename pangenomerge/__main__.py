@@ -553,12 +553,12 @@ def main():
                 # to prevent centroids from drifting away over time, and instead maintain consistency)
 
                 # relabel node from graph_2 group_xxx to group_xxx_graphcount
-                mapping_groups_new = {node: f"{node}_{graph_count+2}"}
+                mapping_groups_new = {node: f"{node}_g{graph_count+2}"}
                 merged_graph = relabel_nodes_preserve_attrs(merged_graph, mapping_groups_new)
                 merged_graph = sync_names(merged_graph)  # could sync names at end of all merges if slow
 
                 # get updated node name
-                new_node_name = f"{node}_{graph_count+2}"
+                new_node_name = f"{node}_g{graph_count+2}"
 
                 # get node centroid sequence
                 #node_centroid_seq = relabeled_graph_2.nodes[node]["dna"][0] \
@@ -613,26 +613,26 @@ def main():
                 # these find group_XXX_query <-> group_YYY_g2
                 if edge[0] in merged_graph.nodes() and edge[1] not in merged_graph.nodes():
 
-                    if f"{edge[1]}_{graph_count+2}" in merged_graph.nodes():
-                        merged_graph.add_edge(edge[0], f"{edge[1]}_{graph_count+2}") # add edge
-                        merged_graph.edges[edge[0], f"{edge[1]}_{graph_count+2}"].update(relabeled_graph_2.edges[edge]) # update with all metadata
+                    if f"{edge[1]}_g{graph_count+2}" in merged_graph.nodes():
+                        merged_graph.add_edge(edge[0], f"{edge[1]}_g{graph_count+2}") # add edge
+                        merged_graph.edges[edge[0], f"{edge[1]}_g{graph_count+2}"].update(relabeled_graph_2.edges[edge]) # update with all metadata
                     else:
                         logging.error(f"Nodes in edge not present in merged graph (ghost nodes): {edge}")
 
                 if edge[0] not in merged_graph.nodes() and edge[1] in merged_graph.nodes():
 
-                    if f"{edge[0]}_{graph_count+2}" in merged_graph.nodes():
-                        merged_graph.add_edge(f"{edge[0]}_{graph_count+2}", edge[1]) # add edge
-                        merged_graph.edges[f"{edge[0]}_{graph_count+2}", edge[1]].update(relabeled_graph_2.edges[edge]) # update with all metadata
+                    if f"{edge[0]}_g{graph_count+2}" in merged_graph.nodes():
+                        merged_graph.add_edge(f"{edge[0]}_g{graph_count+2}", edge[1]) # add edge
+                        merged_graph.edges[f"{edge[0]}_g{graph_count+2}", edge[1]].update(relabeled_graph_2.edges[edge]) # update with all metadata
                     else:
                         logging.error(f"Nodes in edge not present in merged graph (ghost nodes): {edge}")
 
                 # this finds group_XXX_g2 <-> group_YYY_g2
                 if edge[0] not in merged_graph.nodes() and edge[1] not in merged_graph.nodes():
                     
-                    if f"{edge[0]}_{graph_count+2}" in merged_graph.nodes() and f"{edge[1]}_{graph_count+2}" in merged_graph.nodes():
-                        merged_graph.add_edge(f"{edge[0]}_{graph_count+2}", f"{edge[1]}_{graph_count+2}") # add edge
-                        merged_graph.edges[f"{edge[0]}_{graph_count+2}", f"{edge[1]}_{graph_count+2}"].update(relabeled_graph_2.edges[edge]) # update with all metadata
+                    if f"{edge[0]}_g{graph_count+2}" in merged_graph.nodes() and f"{edge[1]}_g{graph_count+2}" in merged_graph.nodes():
+                        merged_graph.add_edge(f"{edge[0]}_g{graph_count+2}", f"{edge[1]}_g{graph_count+2}") # add edge
+                        merged_graph.edges[f"{edge[0]}_g{graph_count+2}", f"{edge[1]}_g{graph_count+2}"].update(relabeled_graph_2.edges[edge]) # update with all metadata
                     else: 
                         logging.error(f"Nodes in edge not present in merged graph (ghost nodes): {edge}")
 
@@ -955,7 +955,7 @@ def main():
             for node_id, node_data in merged_graph.nodes(data=True):
                 name = node_data.get('name', '')
                 if '_query' in name:
-                    new_name = re.sub(r'_query.*$', f'_{graph_count+1}', name)
+                    new_name = re.sub(r'_query.*$', f'_g{graph_count+1}', name)
                     #new_name = name.replace('_query', f'_{graph_count+1}')
                     mapping[node_id] = new_name
                     logging.debug(f"Changed: {name} to {new_name}")
