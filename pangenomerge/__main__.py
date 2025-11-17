@@ -33,7 +33,7 @@ from .context_similarity import compute_scores_parallel
 
 from .__init__ import __version__
 
-# MUST USE FORK TO ENSURE PARALLEL COMPUTATION OF COLLAPSE SCORES DOESNT COPY GRAPH OBJECT -- LINUX DEFAULT; WINDOWS/MAC BEWARE
+# MUST USE FORK TO ENSURE PARALLEL COMPUTATION OF COLLAPSE SCORES DOESNT COPY GRAPH OBJECT -- LINUX DEFAULT; WINDOWS/MAC BEWARE!
 
 def get_options():
     description = 'Merges two or more Panaroo pan-genome gene graphs, or iteratively updates an existing graph.'
