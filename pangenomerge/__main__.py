@@ -705,10 +705,12 @@ def main():
             ~((~mmseqs["target"].str.contains("_query")) & (~mmseqs["query"].str.contains("_query")))
         ]
 
-        print(f"mmseqs filtered: {len(mmseqs)} hits remaining")
+        # debugging statements...
+        logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
+        logging.debug(f"filtered mmseqs hits: {mmseqs.head()}")
 
-        # optional debugging
-        logging.debug(mmseqs.head())
+        # info statement...
+        logging.debug(f"Beginning context search...")
 
         ### compute contextual similarity
 
