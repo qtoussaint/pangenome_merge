@@ -717,12 +717,10 @@ def main():
         # will need to check that member sets for the nodes are disjoint (don't contain any of the same genomes)
 
         ident_lookup = build_ident_lookup(mmseqs)
-
         init_parallel(merged_graph, ident_lookup)
         scores = compute_scores_parallel(mmseqs, options.threads)
 
-        scores = compute_scores_parallel(mmseqs, merged_graph, ident_lookup, options.threads)
-
+        # debug statement...
         logging.debug(f"scores: {scores}")
 
         # sort dataframe by scores
