@@ -104,6 +104,8 @@ def main():
 
     if options.component_graphs is None and options.iterative is None:
         logging.critical("Specifying either --component-graphs or --iterative is required!")
+    if options.mode is 'test' and options.graph_all is None:
+        logging.critical("Specifying --graph-all is required for test mode!")
 
     # set logging to 'debug' or 'info' (default)
     if options.debug:
