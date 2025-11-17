@@ -665,11 +665,8 @@ def main():
                     node_centroid_seq = max(seqs, key=len)
                     f.write(f">{node}\n{node_centroid_seq}\n")
 
-        query_fa = Path(options.outdir) / "centroids_query.fa"
-        target_fa = Path(options.outdir) / "centroids_target.fa"
-
-        write_centroids_to_fasta(merged_graph, query_fa)
-        write_centroids_to_fasta(merged_graph, target_fa)
+        centroids_fa = Path(options.outdir) / "centroids.fa"
+        write_centroids_to_fasta(merged_graph, centroids_fa)
 
         # info statement
         logging.info("Computing pairwise identities...")
@@ -678,7 +675,7 @@ def main():
         logging.info("Running MMSeqs2...")
 
         # run mmseqs on the two pangenome references
-        run_mmseqs_easysearch(query=query_fa, target=target_fa, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
+        run_mmseqs_easysearch(query=centroids_fa, target=centroids_fa, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
         
         # info statement...
         logging.info("MMSeqs2 complete. Reading and filtering results...")
@@ -961,7 +958,7 @@ def main():
         # reduce memory by removing intermediate files
         for name in [
             "mapping", "mapping_query", "mapping_groups_new",
-            "query_fa", "target_fa",
+            "centroids_fa",
             "reordered_pairs",
         ]:
             if name in locals():
