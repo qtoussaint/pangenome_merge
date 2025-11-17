@@ -38,29 +38,32 @@ def context_similarity_seq(G: nx.Graph, nA, nB, ident_lookup: dict, depth: int =
     return best
 
 # define scores per pair function previously implemented in main to allow for parallelization
-def score_pair_context(row, ident_lookup, graph):
+def score_pair_context(row: dict):
 
     nA = row["query"]
     nB = row["target"]
     ident = row["fident"]
 
+    G = GLOBAL_GRAPH
+    ident_lookup = GLOBAL_IDENT_LOOKUP
+
     s1 = context_similarity_seq(merged_graph, nA, nB, ident_lookup, depth=1)
     s2 = s1 if s1 >= 0.9 else context_similarity_seq(merged_graph, nA, nB, ident_lookup, depth=2)
     s3 = s2 if s2 >= 0.9 else context_similarity_seq(merged_graph, nA, nB, ident_lookup, depth=3)
     sims = [s1, s2, s3]
-
-    scores.append((nA, nB, ident, sims))
     
-    return (nA, nB, ident, [s1, s2, s3])
+    return (nA, nB, ident, sims)
 
 # initialize global graph object, ident lookup for // computation without pickling
+GLOBAL_GRAPH = None
+GLOBAL_IDENT_LOOKUP = None
 def init_parallel(merged_graph, ident_lookup):
     global GLOBAL_GRAPH, GLOBAL_IDENT_LOOKUP
     GLOBAL_GRAPH = merged_graph
     GLOBAL_IDENT_LOOKUP = ident_lookup
 
 # parallel computation of scores
-def compute_scores_parallel(mmseqs, n_jobs):
+def compute_scores_parallel(mmseqs: pd.DataFrame, n_jobs: int):
     rows = mmseqs.to_dict(orient="records")
     ctx = mp.get_context("fork")
     with ctx.Pool(processes=n_jobs) as pool:
