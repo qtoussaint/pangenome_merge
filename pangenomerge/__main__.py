@@ -141,13 +141,15 @@ def main():
 
         if options.mode == 'test':
 
+            logging.info(f"Relabeling seqIDs to enable ARI/AMI calculation...")
+
             ### match clustering_ids from overall run to clustering_ids from individual runs using annotation_ids (test only)
 
             gene_data_all = pd.read_csv(str(Path(options.graph_all) / "gene_data.csv"))
             gene_data_g2 = pd.read_csv(str(Path(graph_files.iloc[int(graph_count+1)][0]) / "gene_data.csv"))
 
             if graph_count == 0:
-                logging.info("Applying gene data...")
+                logging.debug("Applying gene data...")
                 gene_data_g1 = pd.read_csv(str(Path(graph_files.iloc[int(graph_count)][0]) / "gene_data.csv"))
             else:
                 gene_data_g1 = None
@@ -156,14 +158,14 @@ def main():
             # rename column
             gene_data_all = gene_data_all.rename(columns={'clustering_id': 'clustering_id_all'})
             if graph_count == 0:
-                logging.info("Applying rename...")
+                logging.debug("Applying rename...")
                 gene_data_g1 = gene_data_g1.rename(columns={'clustering_id': 'clustering_id_indiv'})
             
             gene_data_g2 = gene_data_g2.rename(columns={'clustering_id': 'clustering_id_indiv'})
 
             # first match by annotation ids:
             if graph_count == 0:
-                logging.info("Applying match...")
+                logging.debug("Applying match...")
                 matches_g1 = gene_data_all[['annotation_id', 'clustering_id_all']].merge(
                     gene_data_g1[['annotation_id', 'clustering_id_indiv']],
                     on='annotation_id',
@@ -178,19 +180,19 @@ def main():
 
             # now drop rows where the individual seqID wasn't observed (or there's no corresponding seqID from all)
             if graph_count == 0:
-                logging.info("Applying dropna...")
+                logging.debug("Applying dropna...")
                 matches_g1 = matches_g1.dropna()
             matches_g2 = matches_g2.dropna()
 
             # convert to dict for faster lookup than with loc
             if graph_count == 0:
-                logging.info("Applying gidmap...")
+                logging.debug("Applying gidmap...")
                 gid_map_g1 = dict(zip(matches_g1['clustering_id_indiv'], matches_g1['clustering_id_all']))
             gid_map_g2 = dict(zip(matches_g2['clustering_id_indiv'], matches_g2['clustering_id_all']))
 
             # apply to graphs:
             if graph_count == 0:
-                logging.info("Applying ind...")
+                logging.debug("Applying ind...")
                 graph_1 = indSID_to_allSID(graph_1, gid_map_g1)
             graph_2 = indSID_to_allSID(graph_2, gid_map_g2)
 
