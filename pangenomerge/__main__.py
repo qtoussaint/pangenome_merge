@@ -18,6 +18,7 @@ from itertools import combinations
 from edlib import align
 from collections import defaultdict
 import gc
+import multiprocessing as mp
 
 # import custom functions
 from .manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array

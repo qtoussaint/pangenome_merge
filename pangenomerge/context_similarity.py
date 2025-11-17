@@ -3,6 +3,7 @@ import logging
 import pandas as pd
 from itertools import product
 from concurrent.futures import ProcessPoolExecutor
+import multiprocessing as mp
 
 # pre-index mmseqs for faster lookups of max identity per unordered pair
 def build_ident_lookup(mmseqs: pd.DataFrame) -> dict:
