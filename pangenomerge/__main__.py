@@ -471,33 +471,30 @@ def main():
         logging.debug(f"Merging graphs. merged_graph currently has {len(merged_graph.nodes())} nodes.")
         logging.debug(f"Incoming relabeled_graph_2 has {len(relabeled_graph_2.nodes())} nodes.")
 
-        # read in pangenome reference for base graph
-        #group = []
-        #for record in SeqIO.parse(pangenome_reference_g1, "fasta"):
-        #    group.append({"id": record.id, "sequence": str(record.seq)})
-        #pan_genome_reference_merged = pd.DataFrame(group)
-
-        # debug statement...
-        #logging.debug(f"pan_genome_reference_merged: {pan_genome_reference_merged}")
-
-        # update the pangenome reference group labels from the base graph the first time it's used
-        #if graph_count == 0:
-        #    pan_genome_reference_merged["id"] = pan_genome_reference_merged["id"].astype(str) + f"_{graph_count+1}"
-
-        # debug statement...
-        #logging.debug(f"pan_genome_reference_merged_updated: {pan_genome_reference_merged}")
-
         # info statement...
         logging.info("Merging nodes...")
 
         # iterate, adding new node if node doesn't contain "_query"
         # and merging the nodes that both end in "_query"
 
+        # create dictionary of nodes that will be added (not merged into existing nodes)
+        for node in relabeled_graph_2.nodes:
+            if merged_graph.has_node(node) == False:
+                mapping_groups_new = {node: f"{node}_g{graph_count+2}"}
+
+        # relabel nodes that will be added and sync their names...
+        # (faster to do this just on smaller g2 instead of afterwards on merged_graph)
+        relabeled_graph_2 = relabel_nodes_preserve_attrs(relabeled_graph_2, mapping_groups_new)
+        relabeled_graph_2 = sync_names(relabeled_graph_2)
+
         # merge the two sets of unique nodes into one set of unique nodes
         for node in relabeled_graph_2.nodes:
             if merged_graph.has_node(node) == True:
 
                 # add metadata from graph 2
+
+                # (for centroids of nodes already in main graph, we leave them instead of updating with new centroids
+                # to prevent centroids from drifting away over time, and instead maintain consistency)
 
                 # seqIDs
                 merged_set = list(set(relabeled_graph_2.nodes[node]["seqIDs"]) | set(merged_graph.nodes[node]["seqIDs"]))
@@ -545,28 +542,6 @@ def main():
                                     genomeIDs=relabeled_graph_2.nodes[node]["genomeIDs"],
                                     geneIDs=relabeled_graph_2.nodes[node]["geneIDs"],
                                     degrees=relabeled_graph_2.nodes[node]["degrees"])
-
-
-                ### add centroid from g2 pan_genome_reference.fa to merged pan_genome_reference.fa
-
-                # (for centroids of nodes already in main graph, we leave them instead of updating with new centroids
-                # to prevent centroids from drifting away over time, and instead maintain consistency)
-
-                # relabel node from graph_2 group_xxx to group_xxx_graphcount
-                mapping_groups_new = {node: f"{node}_g{graph_count+2}"}
-                merged_graph = relabel_nodes_preserve_attrs(merged_graph, mapping_groups_new)
-                merged_graph = sync_names(merged_graph)  # could sync names at end of all merges if slow
-
-                # get updated node name
-                new_node_name = f"{node}_g{graph_count+2}"
-
-                # get node centroid sequence
-                #node_centroid_seq = relabeled_graph_2.nodes[node]["dna"][0] \
-                #    if isinstance(relabeled_graph_2.nodes[node]["dna"], list) \
-                #    else relabeled_graph_2.nodes[node]["dna"]
-
-                # update merged pangenome reference
-                #pan_genome_reference_merged.loc[len(pan_genome_reference_merged)] = [new_node_name, node_centroid_seq]
 
         # info statement...
         logging.info("Merging edges...")
@@ -789,9 +764,6 @@ def main():
         # info statement...
         logging.info("Merging nodes and edges...")
 
-        # create set of nodes to drop from the pangenome reference (since they're being merged)
-        #to_drop = set()
-
         # merge the two sets of unique nodes into one set of unique nodes
         for a,b in reordered_pairs:
 
@@ -819,9 +791,6 @@ def main():
             merged_set = collapsed_merged_graph.nodes[a]["lengths"] + collapsed_merged_graph.nodes[b]["lengths"]
             collapsed_merged_graph.nodes[a]["lengths"] = merged_set
 
-            # note to remove node from pangenome reference
-            #to_drop.add(b)
-
             # move edges from b to a before removing b
             for neighbor in list(collapsed_merged_graph.neighbors(b)):
                 if neighbor == a:
@@ -843,12 +812,6 @@ def main():
             collapsed_merged_graph.remove_node(b)
 
             # (don't add centroid/longCentroidID/annotation/dna/protein/hasEnd/mergedDNA/paralog/maxLenId -- keep as original for now)
-
-        # also need to remove pangenome reference centroids from new nodes that got merged during collapse
-        #pan_genome_reference_merged.drop(
-        #    pan_genome_reference_merged.index[pan_genome_reference_merged["id"].isin(to_drop)],
-        #    inplace=True
-        #)
 
         # update degrees across graph
         for node in collapsed_merged_graph:
