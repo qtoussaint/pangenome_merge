@@ -40,15 +40,15 @@ def context_similarity_seq(G: nx.Graph, nA, nB, ident_lookup: dict, depth: int =
 def score_pair(row, ident_lookup, graph):
 
     nA = row.query
-        nB = row.target
-        ident = row.fident
+    nB = row.target
+    ident = row.fident
 
-        s1 = context_similarity_seq(merged_graph, nA, nB, ident_lookup, depth=1)
-        s2 = s1 if s1 >= 0.9 else context_similarity_seq(merged_graph, nA, nB, ident_lookup, depth=2)
-        s3 = s2 if s2 >= 0.9 else context_similarity_seq(merged_graph, nA, nB, ident_lookup, depth=3)
-        sims = [s1, s2, s3]
+    s1 = context_similarity_seq(merged_graph, nA, nB, ident_lookup, depth=1)
+    s2 = s1 if s1 >= 0.9 else context_similarity_seq(merged_graph, nA, nB, ident_lookup, depth=2)
+    s3 = s2 if s2 >= 0.9 else context_similarity_seq(merged_graph, nA, nB, ident_lookup, depth=3)
+    sims = [s1, s2, s3]
 
-        scores.append((nA, nB, ident, sims))
+    scores.append((nA, nB, ident, sims))
     
     return (nA, nB, ident, [s1, s2, s3])
 
