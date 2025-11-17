@@ -898,8 +898,6 @@ def main():
         # info statement...
         logging.info("Merge complete. Preparing attribute metadata for export...")
 
-        # CHECK IF ADDING GRAPH COUNT TO NODE NAME HERE IS RIGHT
-
         ### clean node names in merged graph
         if graph_count == 0:
             # remove _query suffix, add graph count 
