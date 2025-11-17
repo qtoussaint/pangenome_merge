@@ -658,15 +658,43 @@ def main():
         context_threshold = float(options.context_threshold)  # contextual similarity threshold 
 
         # write query and target centroid fastas (stream to reduce memory)
-        def write_centroids_to_fasta(G, filename):
-            with open(filename, "w") as f:
+
+        def write_centroids_to_fasta(G, query_fa, target_fa):
+            with open(query_fa, "w") as fq, open(target_fa, "w") as ft:
                 for node, data in G.nodes(data=True):
                     seqs = data["protein"]
                     node_centroid_seq = max(seqs, key=len)
-                    f.write(f">{node}\n{node_centroid_seq}\n")
+                    name = node
 
-        centroids_fa = Path(options.outdir) / "centroids.fa"
-        write_centroids_to_fasta(merged_graph, centroids_fa)
+                    if name.endswith("_query") or "_query" in name:
+                        # pre-existing nodes
+                        fq.write(f">{name}\n{node_centroid_seq}\n")
+                    else:
+                        # new nodes
+                        ft.write(f">{name}\n{node_centroid_seq}\n")
+
+        query_fa = Path(options.outdir) / "centroids_query.fa"
+        target_fa = Path(options.outdir) / "centroids_target.fa"
+
+        write_centroids_to_fasta(merged_graph, query_fa, target_fa)
+
+        run_mmseqs_easysearch(
+            query=query_fa,
+            target=target_fa,
+            outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"),
+            tmpdir=str(Path(options.outdir) / "mmseqs_tmp"),
+            threads=options.threads
+        )
+
+        #def write_centroids_to_fasta(G, filename):
+        #    with open(filename, "w") as f:
+        #        for node, data in G.nodes(data=True):
+        #            seqs = data["protein"]
+        #            node_centroid_seq = max(seqs, key=len)
+        #            f.write(f">{node}\n{node_centroid_seq}\n")
+
+        #centroids_fa = Path(options.outdir) / "centroids.fa"
+        #write_centroids_to_fasta(merged_graph, centroids_fa)
 
         # info statement
         logging.info("Computing pairwise identities...")
@@ -675,7 +703,7 @@ def main():
         logging.info("Running MMSeqs2...")
 
         # run mmseqs on the two pangenome references
-        run_mmseqs_easysearch(query=centroids_fa, target=centroids_fa, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
+        #run_mmseqs_easysearch(query=centroids_fa, target=centroids_fa, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
         
         # info statement...
         logging.info("MMSeqs2 complete. Reading and filtering results...")
