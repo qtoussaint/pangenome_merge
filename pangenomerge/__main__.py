@@ -989,6 +989,15 @@ def main():
                 node_centroid_seq = max(seqs, key=len)
                 fasta_out.write(f">{node}\n{node_centroid_seq}\n")
 
+        # write version without metadata for later visualization
+        if graph_count == (n_graphs-2):
+            output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}_nometadata.gml"
+            for n in merged_graph.nodes():
+                merged_graph.nodes[n].clear()
+            for u, v in merged_graph.edges():
+                merged_graph[u][v].clear()
+            nx.write_gml(merged_graph, str(output_path))
+
         # reduce memory by removing intermediate files
         for name in [
             "mapping", "mapping_query", "mapping_groups_new",
