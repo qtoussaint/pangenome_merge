@@ -133,10 +133,15 @@ def main():
         logging.info(f"graph_file_1: {graph_file_1}")
         logging.info(f"graph_file_2: {graph_file_2}")
 
-        graph_1, isolate_names, id_mapping = load_graphs([graph_file_1])
-        graph_2, isolate_names, id_mapping = load_graphs([graph_file_2])
+        # keep merged graph in memory instead of repeatedly reading in
+        if graph_count == 0:
+            graph_1, isolate_names, id_mapping = load_graphs([graph_file_1])
+            graph_1 = graph_1[0]
+        else:
+            graph_1 = merged_graph
 
-        graph_1 = graph_1[0]
+        # always read in new graph
+        graph_2, isolate_names, id_mapping = load_graphs([graph_file_2])
         graph_2 = graph_2[0]
 
         if options.mode == 'test':
