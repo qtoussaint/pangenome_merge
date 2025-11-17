@@ -756,12 +756,6 @@ def main():
                 a, b = b, a
             reordered_pairs.append((a, b))
 
-        # info statement
-        logging.info("Copy graph file...")
-
-        # copy to create new graph object
-        collapsed_merged_graph = merged_graph.copy()
-
         # info statement...
         logging.info("Merging nodes and edges...")
 
@@ -771,61 +765,58 @@ def main():
             # add metadata from second node
 
             # seqIDs
-            merged_set = list(set(collapsed_merged_graph.nodes[a]["seqIDs"]) | set(collapsed_merged_graph.nodes[b]["seqIDs"]))
-            collapsed_merged_graph.nodes[a]["seqIDs"] = merged_set
+            merged_set = list(set(merged_graph.nodes[a]["seqIDs"]) | set(merged_graph.nodes[b]["seqIDs"]))
+            merged_graph.nodes[a]["seqIDs"] = merged_set
 
             # geneIDs
-            merged_set = ";".join([collapsed_merged_graph.nodes[a]["geneIDs"], collapsed_merged_graph.nodes[b]["geneIDs"]])
-            collapsed_merged_graph.nodes[a]["geneIDs"] = merged_set
+            merged_set = ";".join([merged_graph.nodes[a]["geneIDs"], merged_graph.nodes[b]["geneIDs"]])
+            merged_graph.nodes[a]["geneIDs"] = merged_set
 
             # members
-            merged_set = list(set(collapsed_merged_graph.nodes[a]["members"]) | set(collapsed_merged_graph.nodes[b]["members"]))
-            collapsed_merged_graph.nodes[a]["members"] = merged_set
+            merged_set = list(set(merged_graph.nodes[a]["members"]) | set(merged_graph.nodes[b]["members"]))
+            merged_graph.nodes[a]["members"] = merged_set
 
             # genome IDs
-            collapsed_merged_graph.nodes[a]["genomeIDs"] = ";".join([collapsed_merged_graph.nodes[a]["genomeIDs"], collapsed_merged_graph.nodes[b]["genomeIDs"]])
+            merged_graph.nodes[a]["genomeIDs"] = ";".join([merged_graph.nodes[a]["genomeIDs"], merged_graph.nodes[b]["genomeIDs"]])
 
             # size
-            size = len(collapsed_merged_graph.nodes[a]["members"])
+            size = len(merged_graph.nodes[a]["members"])
 
             # lengths
-            merged_set = collapsed_merged_graph.nodes[a]["lengths"] + collapsed_merged_graph.nodes[b]["lengths"]
-            collapsed_merged_graph.nodes[a]["lengths"] = merged_set
+            merged_set = merged_graph.nodes[a]["lengths"] + merged_graph.nodes[b]["lengths"]
+            merged_graph.nodes[a]["lengths"] = merged_set
 
             # move edges from b to a before removing b
-            for neighbor in list(collapsed_merged_graph.neighbors(b)):
+            for neighbor in list(merged_graph.neighbors(b)):
                 if neighbor == a:
                     continue
-                if collapsed_merged_graph.has_edge(b, neighbor):
-                    edge_attrs = dict(collapsed_merged_graph.get_edge_data(b, neighbor))
+                if merged_graph.has_edge(b, neighbor):
+                    edge_attrs = dict(merged_graph.get_edge_data(b, neighbor))
                 else:
                     edge_attrs = {}
 
-                if not collapsed_merged_graph.has_edge(a, neighbor):
-                    collapsed_merged_graph.add_edge(a, neighbor, **edge_attrs)
+                if not merged_graph.has_edge(a, neighbor):
+                    merged_graph.add_edge(a, neighbor, **edge_attrs)
                 else:
-                    merged_edge = collapsed_merged_graph.edges[a, neighbor]
+                    merged_edge = merged_graph.edges[a, neighbor]
                     merged_members = set(merged_edge.get("members", [])) | set(edge_attrs.get("members", []))
                     merged_edge["members"] = list(merged_members)
                     merged_edge["size"] = len(merged_members)
             
             # remove second node
-            collapsed_merged_graph.remove_node(b)
+            merged_graph.remove_node(b)
 
             # (don't add centroid/longCentroidID/annotation/dna/protein/hasEnd/mergedDNA/paralog/maxLenId -- keep as original for now)
 
         # update degrees across graph
-        for node in collapsed_merged_graph:
-            collapsed_merged_graph.nodes[node]["degrees"] = int(collapsed_merged_graph.degree[node])
+        for node in merged_graph:
+            merged_graph.nodes[node]["degrees"] = int(merged_graph.degree[node])
 
         # debug statement...
-        logging.debug(f"After collapse: {len(collapsed_merged_graph.nodes())} nodes")
+        logging.debug(f"After collapse: {len(merged_graph.nodes())} nodes")
 
         # info statement
         logging.info("Copy graph file...")
-
-        # write graph back to merged_graph
-        merged_graph = collapsed_merged_graph.copy()
         
         # calculate clustering performance (if test mode)
         if options.mode == 'test' and graph_count == (n_graphs-2):
