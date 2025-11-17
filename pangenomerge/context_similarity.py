@@ -38,7 +38,7 @@ def context_similarity_seq(G: nx.Graph, nA, nB, ident_lookup: dict, depth: int =
     return best
 
 # define scores per pair function previously implemented in main to allow for parallelization
-def score_pair(row, ident_lookup, graph):
+def score_pair_context(row, ident_lookup, graph):
 
     nA = row.query
     nB = row.target
@@ -64,4 +64,4 @@ def compute_scores_parallel(mmseqs, n_jobs):
     rows = list(mmseqs.itertuples(index=False))
     ctx = mp.get_context("fork")
     with ctx.Pool(processes=n_jobs) as pool:
-        return pool.map(_score_pair, rows)
+        return pool.map(score_pair_context, rows)
