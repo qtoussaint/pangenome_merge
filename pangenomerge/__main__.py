@@ -960,18 +960,6 @@ def main():
                 node_centroid_seq = max(seqs, key=len)
                 fasta_out.write(f">{node}\n{node_centroid_seq}\n")
 
-        # debug statement...
-        graph_node_ids = set(merged_graph.nodes())
-        ref_ids = set(pan_genome_reference_merged["id"])
-        missing_in_ref = graph_node_ids - ref_ids
-        extra_in_ref = ref_ids - graph_node_ids
-        if missing_in_ref:
-            logging.warning(f"{len(missing_in_ref)} nodes in graph but missing from reference")
-            logging.warning(f"Examples: {list(missing_in_ref)[:10]}")
-        if extra_in_ref:
-            logging.warning(f"{len(extra_in_ref)} IDs in reference but missing in graph")
-            logging.warning(f"Examples: {list(extra_in_ref)[:10]}")
-
         # reduce memory by removing intermediate files
         for name in [
             "mapping", "mapping_query", "mapping_groups_new",
