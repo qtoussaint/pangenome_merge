@@ -2,46 +2,7 @@ import networkx as nx
 import logging
 import pandas as pd
 from itertools import product
-
-# define context similarity function
-def context_similarity_seq_tmprm(G, nA, nB, mmseqs, depth=1):
-
-    # depth = 1 → immediate neighbors only
-    if depth == 1:
-        neighA = set(G.neighbors(nA))
-        neighB = set(G.neighbors(nB))
-
-        # remove self nodes (they’re included by default)
-        neighA.discard(nA)
-        neighB.discard(nB)
-    else:
-        # use BFS expansion for larger depth
-        neighA = set(nx.single_source_shortest_path_length(G, nA, cutoff=depth).keys())
-        neighB = set(nx.single_source_shortest_path_length(G, nB, cutoff=depth).keys())
-
-        # remove self nodes (they’re included by default)
-        neighA.discard(nA)
-        neighB.discard(nB)
-
-    logging.debug(f"neighA: {neighA}, neighB: {neighB}")
-
-    best_ident = 0.0
-
-    # Iterate through all centroid pairs between the two neighborhoods
-    for ca in neighA:
-        for cb in neighB:
-            # Check both query/target orientations
-            match = mmseqs[
-                ((mmseqs["query"] == ca) & (mmseqs["target"] == cb))
-                | ((mmseqs["query"] == cb) & (mmseqs["target"] == ca))
-            ]
-            if not match.empty:
-                ident = match["fident"].max()
-                if ident > best_ident:
-                    best_ident = ident
-
-    logging.debug(f"best ident: {best_ident}")
-    return best_ident
+from concurrent.futures import ProcessPoolExecutor
 
 # pre-index mmseqs for faster lookups of max identity per unordered pair
 def build_ident_lookup(mmseqs: pd.DataFrame) -> dict:
@@ -74,3 +35,30 @@ def context_similarity_seq(G: nx.Graph, nA, nB, ident_lookup: dict, depth: int =
         if best == 1.0:
             break  # early exit if perfect
     return best
+
+# define scores per pair function previously implemented in main to allow for parallelization
+def score_pair(row, ident_lookup, graph):
+
+    nA = row.query
+            nB = row.target
+            ident = row.fident
+
+            s1 = context_similarity_seq(merged_graph, nA, nB, ident_lookup, depth=1)
+            s2 = s1 if s1 >= 0.9 else context_similarity_seq(merged_graph, nA, nB, ident_lookup, depth=2)
+            s3 = s2 if s2 >= 0.9 else context_similarity_seq(merged_graph, nA, nB, ident_lookup, depth=3)
+            sims = [s1, s2, s3]
+
+            scores.append((nA, nB, ident, sims))
+    
+    return (nA, nB, ident, [s1, s2, s3])
+
+# parallel computation of scores
+def compute_scores_parallel(mmseqs, merged_graph, ident_lookup, n_jobs):
+    rows = list(mmseqs.itertuples(index=False))
+    with ProcessPoolExecutor(max_workers=n_jobs) as ex:
+        return list(ex.map(
+            _score_pair,
+            rows,
+            [ident_lookup] * len(rows),
+            [merged_graph] * len(rows),
+        ))

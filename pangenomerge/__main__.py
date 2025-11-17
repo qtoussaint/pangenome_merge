@@ -17,6 +17,7 @@ import logging
 from itertools import combinations
 from edlib import align
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
 
 # import custom functions
 from .manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array
@@ -28,8 +29,11 @@ from panaroo_functions.merge_nodes import merge_node_cluster, gen_edge_iterables
 from .relabel_nodes import relabel_nodes_preserve_attrs,sync_names
 from .context_similarity import context_similarity_seq
 from .context_similarity import build_ident_lookup
+from .context_similarity import compute_scores_parallel
 
 from .__init__ import __version__
+
+# MUST USE FORK TO ENSURE PARALLEL COMPUTATION OF COLLAPSE SCORES DOESNT COPY GRAPH OBJECT -- LINUX DEFAULT; WINDOWS/MAC BEWARE
 
 def get_options():
     description = 'Merges two or more Panaroo pan-genome gene graphs, or iteratively updates an existing graph.'
@@ -479,14 +483,17 @@ def main():
         # and merging the nodes that both end in "_query"
 
         # create dictionary of nodes that will be added (not merged into existing nodes)
+        mapping_groups_new = {}
         for node in relabeled_graph_2.nodes:
-            if merged_graph.has_node(node) == False:
-                mapping_groups_new = {node: f"{node}_g{graph_count+2}"}
+            if not merged_graph.has_node(node):
+                mapping_groups_new[node] = f"{node}_g{graph_count+2}"
 
         # relabel nodes that will be added and sync their names...
         # (faster to do this just on smaller g2 instead of afterwards on merged_graph)
-        relabeled_graph_2 = relabel_nodes_preserve_attrs(relabeled_graph_2, mapping_groups_new)
-        relabeled_graph_2 = sync_names(relabeled_graph_2)
+
+        if mapping_groups_new:  # only relabel if there is something to change
+            relabeled_graph_2 = relabel_nodes_preserve_attrs(relabeled_graph_2, mapping_groups_new)
+            relabeled_graph_2 = sync_names(relabeled_graph_2)
 
         # merge the two sets of unique nodes into one set of unique nodes
         for node in relabeled_graph_2.nodes:
@@ -704,18 +711,7 @@ def main():
 
         ident_lookup = build_ident_lookup(mmseqs)
 
-        scores = []
-        for row in mmseqs.itertuples(index=False):
-            nA = row.query
-            nB = row.target
-            ident = row.fident
-
-            s1 = context_similarity_seq(merged_graph, nA, nB, ident_lookup, depth=1)
-            s2 = s1 if s1 >= 0.9 else context_similarity_seq(merged_graph, nA, nB, ident_lookup, depth=2)
-            s3 = s2 if s2 >= 0.9 else context_similarity_seq(merged_graph, nA, nB, ident_lookup, depth=3)
-            sims = [s1, s2, s3]
-
-            scores.append((nA, nB, ident, sims))
+        scores = compute_scores_parallel(mmseqs, merged_graph, ident_lookup, options.threads)
 
         logging.debug(f"scores: {scores}")
 
@@ -814,9 +810,6 @@ def main():
 
         # debug statement...
         logging.debug(f"After collapse: {len(merged_graph.nodes())} nodes")
-
-        # info statement
-        logging.info("Copy graph file...")
         
         # calculate clustering performance (if test mode)
         if options.mode == 'test' and graph_count == (n_graphs-2):
