@@ -17,7 +17,6 @@ import logging
 from itertools import combinations
 from edlib import align
 from collections import defaultdict
-from concurrent.futures import ProcessPoolExecutor
 
 # import custom functions
 from .manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array
@@ -28,8 +27,7 @@ from panaroo_functions.context_search import collapse_families, single_linkage
 from panaroo_functions.merge_nodes import merge_node_cluster, gen_edge_iterables, gen_node_iterables, iter_del_dups, del_dups
 from .relabel_nodes import relabel_nodes_preserve_attrs,sync_names
 from .context_similarity import context_similarity_seq
-from .context_similarity import build_ident_lookup
-from .context_similarity import compute_scores_parallel
+from .context_similarity import build_ident_lookup, init_parallel, compute_scores_parallel
 
 from .__init__ import __version__
 
@@ -710,6 +708,9 @@ def main():
         # will need to check that member sets for the nodes are disjoint (don't contain any of the same genomes)
 
         ident_lookup = build_ident_lookup(mmseqs)
+
+        init_parallel(merged_graph, ident_lookup)
+        scores = compute_scores_parallel(mmseqs, options.threads)
 
         scores = compute_scores_parallel(mmseqs, merged_graph, ident_lookup, options.threads)
 

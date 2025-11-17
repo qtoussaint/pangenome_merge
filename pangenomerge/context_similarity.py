@@ -52,13 +52,15 @@ def score_pair(row, ident_lookup, graph):
     
     return (nA, nB, ident, [s1, s2, s3])
 
+# initialize global graph object, ident lookup for // computation without pickling
+def init_parallel(merged_graph, ident_lookup):
+    global GLOBAL_GRAPH, GLOBAL_IDENT_LOOKUP
+    GLOBAL_GRAPH = merged_graph
+    GLOBAL_IDENT_LOOKUP = ident_lookup
+
 # parallel computation of scores
-def compute_scores_parallel(mmseqs, merged_graph, ident_lookup, n_jobs):
+def compute_scores_parallel(mmseqs, n_jobs):
     rows = list(mmseqs.itertuples(index=False))
-    with ProcessPoolExecutor(max_workers=n_jobs) as ex:
-        return list(ex.map(
-            _score_pair,
-            rows,
-            [ident_lookup] * len(rows),
-            [merged_graph] * len(rows),
-        ))
+    ctx = mp.get_context("fork")
+    with ctx.Pool(processes=n_jobs) as pool:
+        return pool.map(_score_pair, rows)
