@@ -464,8 +464,9 @@ def main():
         # info statement...
         logging.info("Beginning graph merge...")
 
-        # make copy of base graph to avoid accidentally changing base graph
-        merged_graph = relabeled_graph_1.copy()
+        # rename base graph
+        merged_graph = relabeled_graph_1
+        del relabeled_graph_1 # delete variable name to ensure it can't be accidentally used in future
 
         # debug statement...
         logging.debug(f"Merging graphs. merged_graph currently has {len(merged_graph.nodes())} nodes.")
@@ -515,7 +516,7 @@ def main():
                 size = len(merged_graph.nodes[node]["members"])
 
                 # lengths
-                merged_set = relabeled_graph_1.nodes[node]["lengths"] + relabeled_graph_2.nodes[node]["lengths"]
+                merged_set = merged_graph.nodes[node]["lengths"] + relabeled_graph_2.nodes[node]["lengths"]
                 merged_graph.nodes[node]["lengths"] = merged_set
 
                 # (don't add centroid/longCentroidID/annotation/dna/protein/hasEnd/mergedDNA/paralog/maxLenId -- keep as original for now)
