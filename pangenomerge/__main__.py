@@ -17,6 +17,7 @@ import logging
 from itertools import combinations
 from edlib import align
 from collections import defaultdict
+import gc
 
 # import custom functions
 from .manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array
@@ -366,6 +367,17 @@ def main():
         relabeled_graph_1 = relabel_nodes_preserve_attrs(groupmapped_graph_1, mapping_query)
         relabeled_graph_1 = sync_names(relabeled_graph_1)
 
+        # reduce memory by removing intermediate files
+        for name in [
+            "mmseqs", "mmseqs_sorted", "mmseqs_filtered",
+            "mapping_groups_1", "mapping_groups_2",
+            "groupmapped_graph_1", "groupmapped_graph_2",
+            "graph_1", "graph_2",
+        ]:
+            if name in locals():
+                del locals()[name]
+        gc.collect()
+
         # debug statement...
         logging.debug("MMseqs mapping (target to query_query):")
         for k,v in list(mapping.items())[:10]:
@@ -625,6 +637,11 @@ def main():
         logging.debug(f"After merge and edge merge: merged_graph node sample: {list(merged_graph.nodes())[:20]}")
         logging.debug(f"After merge and edge merge: {len(merged_graph.nodes())} nodes")
 
+        # reduce memory by removing intermediate files
+        if "relabeled_graph_2" in locals():
+            del relabeled_graph_2
+        gc.collect()
+
         # info statement...
         logging.info("Collapsing spurious paralogs...")
 
@@ -752,6 +769,12 @@ def main():
             if "_query" in b and "_query" not in a:
                 a, b = b, a
             reordered_pairs.append((a, b))
+
+        # reduce memory by removing intermediate files
+        for name in ["mmseqs", "scores", "scores_sorted", "accepted_pairs", "unique_pairs"]:
+            if name in locals():
+                del locals()[name]
+        gc.collect()
 
         # info statement...
         logging.info("Merging nodes and edges...")
@@ -970,6 +993,16 @@ def main():
         if extra_in_ref:
             logging.warning(f"{len(extra_in_ref)} IDs in reference but missing in graph")
             logging.warning(f"Examples: {list(extra_in_ref)[:10]}")
+
+        # reduce memory by removing intermediate files
+        for name in [
+            "mapping", "mapping_query", "mapping_groups_new",
+            "query_fa", "target_fa",
+            "reordered_pairs",
+        ]:
+            if name in locals():
+                del locals()[name]
+        gc.collect()
 
         # add 1 to graph count
         graph_count += 1
