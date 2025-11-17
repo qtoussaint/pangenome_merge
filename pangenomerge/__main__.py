@@ -140,7 +140,6 @@ def main():
         else:
             graph_1 = merged_graph
 
-        # always read in new graph
         graph_2, isolate_names, id_mapping = load_graphs([graph_file_2])
         graph_2 = graph_2[0]
 
