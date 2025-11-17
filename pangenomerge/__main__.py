@@ -652,30 +652,19 @@ def main():
         family_threshold = float(options.family_threshold)  # sequence identity threshold
         context_threshold = float(options.context_threshold)  # contextual similarity threshold 
 
-        # one centroid to one sequence
-        centroid_to_seq = {}
-        for node, data in merged_graph.nodes(data=True):
-            c = node
-
-            seqs = merged_graph.nodes[node]["protein"]
-            node_centroid_seq = max(seqs, key=len)
-
-            centroid_to_seq[c] = node_centroid_seq
-
-        # debug statement...
-        logging.debug(f"centroid_to_seq: {list(centroid_to_seq.items())[:10]}")
-
-        def write_fasta(seqs_dict, filename):
+        # write query and target centroid fastas (stream to reduce memory)
+        def write_centroids_to_fasta(G, filename):
             with open(filename, "w") as f:
-                for name, seq in seqs_dict.items():
-                    f.write(f">{name}\n{seq}\n")
+                for node, data in G.nodes(data=True):
+                    seqs = data["protein"]
+                    node_centroid_seq = max(seqs, key=len)
+                    f.write(f">{node}\n{node_centroid_seq}\n")
 
-        # create temporary FASTA files
         query_fa = Path(options.outdir) / "centroids_query.fa"
         target_fa = Path(options.outdir) / "centroids_target.fa"
 
-        write_fasta(centroid_to_seq, query_fa)
-        write_fasta(centroid_to_seq, target_fa)
+        write_centroids_to_fasta(merged_graph, query_fa)
+        write_centroids_to_fasta(merged_graph, target_fa)
 
         # info statement
         logging.info("Computing pairwise identities...")
@@ -960,27 +949,13 @@ def main():
         output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}.gml"
         nx.write_gml(merged_graph, str(output_path))
 
-        # write new pan-genome references to fasta
-        reference_out = str(Path(options.outdir) / f"pan_genome_reference_{graph_count+1}.fa")
-
-        ######## change so that pangenome reference is only based on final graph nodes!
-
-        pan_genome_reference_merged = pd.DataFrame(columns=["id", "sequence"])
-
-        for node in merged_graph.nodes():
-
-            # get node centroid sequence
-            seqs = merged_graph.nodes[node]["dna"].split(";")
-            node_centroid_seq = max(seqs, key=len)
-
-            # update merged pangenome reference
-            pan_genome_reference_merged.loc[len(pan_genome_reference_merged)] = [node, node_centroid_seq]
-
-        ########
-
+        # write new pan-genome references to fasta (stream to reduce memory)
+        reference_out = Path(options.outdir) / f"pan_genome_reference_{graph_count+1}.fa"
         with open(reference_out, "w") as fasta_out:
-            for _, row in pan_genome_reference_merged.iterrows():
-                fasta_out.write(f">{row['id']}\n{row['sequence']}\n")
+            for node in merged_graph.nodes():
+                seqs = merged_graph.nodes[node]["dna"].split(";")
+                node_centroid_seq = max(seqs, key=len)
+                fasta_out.write(f">{node}\n{node_centroid_seq}\n")
 
         # debug statement...
         graph_node_ids = set(merged_graph.nodes())
