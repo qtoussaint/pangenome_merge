@@ -46,10 +46,11 @@ def score_pair_context(row: dict):
 
     G = GLOBAL_GRAPH
     ident_lookup = GLOBAL_IDENT_LOOKUP
+    threshold = GLOBAL_CONTEXT_THRESHOLD
 
     s1 = context_similarity_seq(G, nA, nB, ident_lookup, depth=1)
-    s2 = s1 if s1 >= 0.9 else context_similarity_seq(G, nA, nB, ident_lookup, depth=2)
-    s3 = s2 if s2 >= 0.9 else context_similarity_seq(G, nA, nB, ident_lookup, depth=3)
+    s2 = s1 if s1 >= threshold else context_similarity_seq(G, nA, nB, ident_lookup, depth=2)
+    s3 = s2 if s2 >= threshold else context_similarity_seq(G, nA, nB, ident_lookup, depth=3)
     sims = [s1, s2, s3]
     
     return (nA, nB, ident, sims)
@@ -57,10 +58,12 @@ def score_pair_context(row: dict):
 # initialize global graph object, ident lookup for // computation without pickling
 GLOBAL_GRAPH = None
 GLOBAL_IDENT_LOOKUP = None
-def init_parallel(merged_graph, ident_lookup):
-    global GLOBAL_GRAPH, GLOBAL_IDENT_LOOKUP
+GLOBAL_CONTEXT_THRESHOLD = None
+def init_parallel(merged_graph, ident_lookup, context_threshold):
+    global GLOBAL_GRAPH, GLOBAL_IDENT_LOOKUP, GLOBAL_CONTEXT_THRESHOLD
     GLOBAL_GRAPH = merged_graph
     GLOBAL_IDENT_LOOKUP = ident_lookup
+    GLOBAL_CONTEXT_THRESHOLD = context_threshold
 
 # parallel computation of scores
 def compute_scores_parallel(mmseqs: pd.DataFrame, n_jobs: int):

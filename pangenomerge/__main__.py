@@ -719,7 +719,7 @@ def main():
         # will need to check that member sets for the nodes are disjoint (don't contain any of the same genomes)
 
         ident_lookup = build_ident_lookup(mmseqs)
-        init_parallel(merged_graph, ident_lookup)
+        init_parallel(merged_graph, ident_lookup, context_threshold)
         scores = compute_scores_parallel(mmseqs, options.threads)
 
         # debug statement...
