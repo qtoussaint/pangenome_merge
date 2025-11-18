@@ -244,7 +244,6 @@ def main():
         mmseqs["evalue"] = pd.to_numeric(mmseqs["evalue"], errors='coerce')
         mmseqs["tlen"] = pd.to_numeric(mmseqs["tlen"], errors='coerce')
         mmseqs["qlen"] = pd.to_numeric(mmseqs["qlen"], errors='coerce')
-        mmseqs["nident"] = pd.to_numeric(mmseqs["nident"], errors='coerce')
 
         # define length difference
         max_len = np.maximum(mmseqs['tlen'], mmseqs['qlen'])
@@ -714,7 +713,7 @@ def main():
         mmseqs = pd.read_csv(Path(options.outdir) / "mmseqs_clusters.m8", sep="\t")
 
         # ensure numeric columns
-        for col in ["fident", "evalue", "tlen", "qlen", "nident"]:
+        for col in ["fident", "evalue", "tlen", "qlen"]:
             mmseqs[col] = pd.to_numeric(mmseqs[col], errors="coerce")
 
         # define length difference

@@ -18,7 +18,7 @@ def run_mmseqs_easysearch(
 
     cmd += str(tmpdir)
     
-    cmd += ' --search-type 2 --format-mode 4 -a --format-output "query,target,fident,nident,alnlen,qlen,tlen,evalue" -v 1 --threads '
+    cmd += ' --search-type 2 --format-mode 4 -a --format-output "query,target,fident,alnlen,qlen,tlen,evalue" -v 1 --threads '
     
     cmd += str(threads)
 
