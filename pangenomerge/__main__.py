@@ -707,11 +707,14 @@ def main():
         logging.info("Computing pairwise identities...")
 
         # info statement...
-        logging.info("Running MMSeqs2...")
+        logging.info("Creating MMSeqs2 database...")
 
         # create mmseqs database for target (search can't read fastas)
         target_db = Path(options.outdir) / "target_db"
         mmseqs_createdb(fasta=target_fa, outdb=target_db, threads=options.threads)
+
+        # info statement...
+        logging.info("Running MMSeqs2...")
 
         # run mmseqs to get hits, keeping only those above the minimum useful threshold (family_threshold, which is LOWER than context threshold)
         run_mmseqs_search(
