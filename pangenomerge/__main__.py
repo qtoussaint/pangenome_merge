@@ -232,11 +232,11 @@ def main():
         temp_db = str(Path(options.outdir) / f"temp_db")
         
         # always create new database for new graph
-        mmseqs_createdb(fasta=pangenome_reference_g2, outDB=temp_db, threads=options.threads)
+        mmseqs_createdb(fasta=pangenome_reference_g2, outdb=temp_db, threads=options.threads)
 
         # create database for base graph on first iter only
         if graph_count == 0:
-            mmseqs_createdb(fasta=pangenome_reference_g1, outDB=base_db, threads=options.threads)
+            mmseqs_createdb(fasta=pangenome_reference_g1, outdb=base_db, threads=options.threads)
 
         # info statement...
         logging.info("Running MMSeqs2...")
