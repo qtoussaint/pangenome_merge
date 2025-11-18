@@ -666,10 +666,8 @@ def main():
         def write_centroids_to_fasta(G, query_fa, target_fa):
             with open(query_fa, "w") as fq, open(target_fa, "w") as ft:
                 for node, data in G.nodes(data=True):
-                    seqs = data["protein"]
-                    node_centroid_seq = max(seqs, key=len)
+                    node_centroid_seq = data["protein"]
                     name = node
-
                     if name.endswith("_query") or "_query" in name:
                         # pre-existing nodes
                         fq.write(f">{name}\n{node_centroid_seq}\n")
