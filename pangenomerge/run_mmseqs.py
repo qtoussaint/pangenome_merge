@@ -4,7 +4,7 @@ import subprocess
 def mmseqs_createdb(fasta, outdb, threads):
 
     # create compressed amino acid database from fasta
-    cmd = f'mmseqs createdb {str(fasta)} {str(outdb)} --dbtype 2 --compressed -v 1 --threads {str(threads)}'
+    cmd = f'mmseqs createdb {str(fasta)} {str(outdb)} --dbtype 2 --compressed 1 -v 1 --threads {str(threads)}'
 
     subprocess.run(cmd, shell=True, check=True)
     return
@@ -12,7 +12,7 @@ def mmseqs_createdb(fasta, outdb, threads):
 # concatenate two mmseqs databases and index (used to create new pangenome database after graph is updated with new nodes)
 def mmseqs_concatdbs(db1, db2, outdb, tmpdir, threads):
 
-    cmd = f'mmseqs concatdbs {str(db1)} {str(db2)} {str(outdb)} --preserve-keys --compressed -v 1 --threads {str(threads)}'
+    cmd = f'mmseqs concatdbs {str(db1)} {str(db2)} {str(outdb)} --preserve-keys 1 --compressed 1 -v 1 --threads {str(threads)}'
     
     subprocess.run(cmd, shell=True, check=True)
 
