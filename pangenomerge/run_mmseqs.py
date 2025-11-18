@@ -34,7 +34,7 @@ def run_mmseqs_search(
         threads):
 
     # remove any existing results db
-    subprocess.run(f'rm {str(resultdb)}', shell=True, check=True)
+    subprocess.run(f'rm {str(resultdb)}*', shell=True, check=True)
 
     # basic inputs/outputs
     cmd = f'mmseqs search {str(querydb)} {str(targetdb)} {str(resultdb)} {str(tmpdir)} '
