@@ -715,7 +715,7 @@ def main():
         run_mmseqs_search(
             querydb=base_db,
             targetdb=target_fa,
-            resultdb=,
+            resultdb = str(Path(options.outdir) / "resultdb"),
             resultm8=str(Path(options.outdir) / "mmseqs_clusters.m8"),
             tmpdir=str(Path(options.outdir) / "mmseqs_tmp"),
             threads=options.threads,
