@@ -4,7 +4,7 @@ import subprocess
 def mmseqs_createdb(fasta, outdb, threads):
 
     # create compressed amino acid database from fasta
-    cmd = f'mmseqs createdb {str(fasta)} {str(outdb)} --db-type 2 --compressed -v 1 --threads {str(threads)}'
+    cmd = f'mmseqs createdb {str(fasta)} {str(outdb)} --dbtype 2 --compressed -v 1 --threads {str(threads)}'
 
     subprocess.run(cmd, shell=True, check=True)
     return
