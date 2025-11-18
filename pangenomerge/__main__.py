@@ -709,18 +709,20 @@ def main():
         # info statement...
         logging.info("Running MMSeqs2...")
 
-        # since small number of nodes, don't create mmseqs database for target
+        # create mmseqs database for target (search can't read fastas)
+        target_db = Path(options.outdir) / "target_db"
+        mmseqs_createdb(fasta=target_fa, outdb=target_db, threads=options.threads)
 
         # run mmseqs to get hits, keeping only those above the minimum useful threshold (family_threshold, which is LOWER than context threshold)
         run_mmseqs_search(
             querydb=base_db,
-            targetdb=target_fa,
+            targetdb=target_db,
             resultdb = str(Path(options.outdir) / "resultdb"),
             resultm8=str(Path(options.outdir) / "mmseqs_clusters.m8"),
             tmpdir=str(Path(options.outdir) / "mmseqs_tmp"),
             threads=options.threads,
             fident=options.family_threshold,
-            coverage=float(options.family_threshold * 0.95)
+            coverage=float(options.family_threshold * 0.95).round(3)
         )
 
         # info statement...
