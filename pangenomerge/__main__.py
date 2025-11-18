@@ -242,7 +242,8 @@ def main():
         logging.info("Running MMSeqs2...")
 
         ### run mmseqs on the two pangenome references
-        run_mmseqs_search(query=base_db, target=temp_db, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
+        run_mmseqs_search(query=base_db, target=temp_db, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads, 
+            fident=0.98, coverage=0.95)
         
         # info statement...
         logging.info("MMSeqs2 complete. Reading and filtering results...")
@@ -684,34 +685,16 @@ def main():
                     node_centroid_seq = data["protein"][0]
                     name = node
                     if name.endswith("_query") or "_query" in name:
-                        # pre-existing nodes
-                        fq.write(f">{name}\n{node_centroid_seq}\n")
+                        # pre-existing nodes -- already in query db
+                        #fq.write(f">{name}\n{node_centroid_seq}\n")
                     else:
                         # new nodes
                         ft.write(f">{name}\n{node_centroid_seq}\n")
 
-        query_fa = Path(options.outdir) / "centroids_query.fa"
+        #query_fa = Path(options.outdir) / "centroids_query.fa"
         target_fa = Path(options.outdir) / "centroids_target.fa"
 
         write_centroids_to_fasta(merged_graph, query_fa, target_fa)
-
-        run_mmseqs_easysearch(
-            query=query_fa,
-            target=target_fa,
-            outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"),
-            tmpdir=str(Path(options.outdir) / "mmseqs_tmp"),
-            threads=options.threads
-        )
-
-        #def write_centroids_to_fasta(G, filename):
-        #    with open(filename, "w") as f:
-        #        for node, data in G.nodes(data=True):
-        #            seqs = data["protein"]
-        #            node_centroid_seq = max(seqs, key=len)
-        #            f.write(f">{node}\n{node_centroid_seq}\n")
-
-        #centroids_fa = Path(options.outdir) / "centroids.fa"
-        #write_centroids_to_fasta(merged_graph, centroids_fa)
 
         # info statement
         logging.info("Computing pairwise identities...")
@@ -719,9 +702,19 @@ def main():
         # info statement...
         logging.info("Running MMSeqs2...")
 
-        # run mmseqs on the two pangenome references
-        #run_mmseqs_easysearch(query=centroids_fa, target=centroids_fa, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
-        
+        # since small number of nodes, don't create mmseqs database for target
+
+        # run mmseqs to get hits, keeping only those above the minimum useful threshold (family_threshold, which is LOWER than context threshold)
+        run_mmseqs_search(
+            query=base_db,
+            target=target_fa,
+            outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"),
+            tmpdir=str(Path(options.outdir) / "mmseqs_tmp"),
+            threads=options.threads,
+            fident=options.family_threshold,
+            coverage=float(options.family_threshold * 0.95)
+        )
+
         # info statement...
         logging.info("MMSeqs2 complete. Reading and filtering results...")
 
@@ -737,7 +730,7 @@ def main():
         mmseqs["len_dif"] = 1 - (np.abs(mmseqs["tlen"] - mmseqs["qlen"]) / max_len)
 
         # filter for identity ≥ 70% and length difference ≥ 50%
-        mmseqs = mmseqs[(mmseqs["fident"] >= family_threshold) & (mmseqs["len_dif"] >= 0.50)].copy()
+        mmseqs = mmseqs[(mmseqs["fident"] >= family_threshold) & (mmseqs["len_dif"] >= family_threshold*0.95)].copy()
 
         # remove self-matches (query == target)
         mmseqs = mmseqs[mmseqs["query"] != mmseqs["target"]]

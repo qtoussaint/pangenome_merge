@@ -1,22 +1,22 @@
 import subprocess
 
 # create mmseqs database
-def mmseqs_createdb(fasta, outDB, threads):
+def mmseqs_createdb(fasta, outdb, threads):
 
     # create compressed amino acid database from fasta
-    cmd = f'mmseqs createdb {str(fasta)} {str(outDB)} --db-type 2 --compressed -v 1 --threads {str(threads)}'
+    cmd = f'mmseqs createdb {str(fasta)} {str(outdb)} --db-type 2 --compressed -v 1 --threads {str(threads)}'
 
     subprocess.run(cmd, shell=True, check=True)
     return
 
 # concatenate two mmseqs databases and index (used to create new pangenome database after graph is updated with new nodes)
-def mmseqs_concatdbs(db1, db2, outDB, tmpdir, threads):
+def mmseqs_concatdbs(db1, db2, outdb, tmpdir, threads):
 
-    cmd = f'mmseqs concatdbs {str(db1)} {str(db2)} {str(outDB)} --preserve-keys --compressed -v 1 --threads {str(threads)}'
+    cmd = f'mmseqs concatdbs {str(db1)} {str(db2)} {str(outdb)} --preserve-keys --compressed -v 1 --threads {str(threads)}'
     
     subprocess.run(cmd, shell=True, check=True)
 
-    cmd = f'mmseqs createindex {str(outDB)} {str(tmpdir)} --threads {str(threads)}'
+    cmd = f'mmseqs createindex {str(outdb)} {str(tmpdir)} --threads {str(threads)}'
 
     subprocess.run(cmd, shell=True, check=True)
 
