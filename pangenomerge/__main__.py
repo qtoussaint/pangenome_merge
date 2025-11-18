@@ -223,10 +223,26 @@ def main():
         logging.debug(f"pangenome reference g2: {pangenome_reference_g2}")
 
         # info statement...
+        logging.info("Creating MMSeqs2 database(s)...")
+
+        ### create mmseqs databases for faster search
+
+        # define paths for new databases
+        base_db = str(Path(options.outdir) / f"pan_genome_db")
+        temp_db = str(Path(options.outdir) / f"temp_db")
+        
+        # always create new database for new graph
+        mmseqs_createdb(fasta=pangenome_reference_g2, outDB=temp_db, threads=options.threads)
+
+        # create database for base graph on first iter only
+        if graph_count == 0:
+            mmseqs_createdb(fasta=pangenome_reference_g1, outDB=base_db, threads=options.threads)
+
+        # info statement...
         logging.info("Running MMSeqs2...")
 
-        # run mmseqs on the two pangenome references
-        run_mmseqs_easysearch(query=pangenome_reference_g1, target=pangenome_reference_g2, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
+        ### run mmseqs on the two pangenome references
+        run_mmseqs_search(query=base_db, target=temp_db, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
         
         # info statement...
         logging.info("MMSeqs2 complete. Reading and filtering results...")
