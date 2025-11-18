@@ -439,20 +439,20 @@ def main():
 
                 node_data['genomeIDs'] = ";".join(node_data['members']) # str
 
-            if options.mode != 'test':
+                if options.mode != 'test':
 
-                seqid_set = {f"{seqid}{f'_g{graph_count+1}'}" for seqid in node_data['seqIDs']}
-                node_data['seqIDs'] = seqid_set # set
+                    seqid_set = {f"{seqid}{f'_g{graph_count+1}'}" for seqid in node_data['seqIDs']}
+                    node_data['seqIDs'] = seqid_set # set
 
-                node_data['longCentroidID'].append(f'from_g{graph_count+1}') #list
+                    node_data['longCentroidID'].append(f'from_g{graph_count+1}') #list
 
-                node_data['centroid'] = [f"{centroid}_g{graph_count+1}" for centroid in node_data['centroid']] # list
+                    node_data['centroid'] = [f"{centroid}_g{graph_count+1}" for centroid in node_data['centroid']] # list
 
-                node_data['maxLenId'] = str(node_data['maxLenId']) + f'_g{graph_count+1}' # int
+                    node_data['maxLenId'] = str(node_data['maxLenId']) + f'_g{graph_count+1}' # int
 
-                geneids = node_data['geneIDs'].split(";")
-                geneids = [f"{gid}_g{graph_count+1}" for gid in geneids]
-                node_data['geneIDs'] = ";".join(geneids) # str
+                    geneids = node_data['geneIDs'].split(";")
+                    geneids = [f"{gid}_g{graph_count+1}" for gid in geneids]
+                    node_data['geneIDs'] = ";".join(geneids) # str
 
         # EDGES
 
