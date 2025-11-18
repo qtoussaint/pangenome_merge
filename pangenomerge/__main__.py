@@ -680,13 +680,13 @@ def main():
         # write query and target centroid fastas (stream to reduce memory)
 
         def write_centroids_to_fasta(G, query_fa, target_fa):
-            with open(query_fa, "w") as fq, open(target_fa, "w") as ft:
+            with open(target_fa, "w") as ft:
                 for node, data in G.nodes(data=True):
                     node_centroid_seq = data["protein"][0]
                     name = node
                     if name.endswith("_query") or "_query" in name:
                         # pre-existing nodes -- already in query db
-                        #fq.write(f">{name}\n{node_centroid_seq}\n")
+                        continue
                     else:
                         # new nodes
                         ft.write(f">{name}\n{node_centroid_seq}\n")
