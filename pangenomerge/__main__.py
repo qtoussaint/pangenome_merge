@@ -995,6 +995,23 @@ def main():
                 node_centroid_seq = max(seqs, key=len)
                 fasta_out.write(f">{node}\n{node_centroid_seq}\n")
 
+        # write new nodes to fasta to update mmseqs db
+        new_nodes_fasta = Path(options.outdir) / f"new_nodes_{graph_count+1}.fa"
+        with open(new_nodes_fasta, "w") as fasta_out:
+            for node in merged_graph.nodes():
+                name = node
+                if name.endswith(f'_{graph_count+2}'):
+                    seqs = merged_graph.nodes[node]["dna"].split(";")
+                    node_centroid_seq = max(seqs, key=len)
+                    fasta_out.write(f">{node}\n{node_centroid_seq}\n")
+
+        # update mmseqs database
+        new_nodes_db = str(Path(options.outdir) / f"tmp_db")
+        outdb = str(Path(options.outdir) / f"pan_genome_db")
+
+        mmseqs_createdb(fasta=new_nodes_fasta, outdb=new_nodes_db, threads=options.threads)
+        mmseqs_concatdbs(db1=base_db, db2=new_nodes_db, outdb=outdb, tmpdir=str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
+
         # write version without metadata for later visualization
         if graph_count == (n_graphs-2):
             output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}_nometadata.gml"
