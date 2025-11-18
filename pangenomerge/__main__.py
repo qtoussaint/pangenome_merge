@@ -19,6 +19,7 @@ from edlib import align
 from collections import defaultdict
 import gc
 import multiprocessing as mp
+import subprocess
 
 # import custom functions
 from .manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array
@@ -687,7 +688,7 @@ def main():
 
         # write query and target centroid fastas (stream to reduce memory)
 
-        def write_centroids_to_fasta(G, query_fa, target_fa):
+        def write_centroids_to_fasta(G, target_fa):
             with open(target_fa, "w") as ft:
                 for node, data in G.nodes(data=True):
                     node_centroid_seq = data["protein"][0]
@@ -712,9 +713,10 @@ def main():
 
         # run mmseqs to get hits, keeping only those above the minimum useful threshold (family_threshold, which is LOWER than context threshold)
         run_mmseqs_search(
-            query=base_db,
-            target=target_fa,
-            outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"),
+            querydb=base_db,
+            targetdb=target_fa,
+            resultdb=,
+            resultm8=str(Path(options.outdir) / "mmseqs_clusters.m8"),
             tmpdir=str(Path(options.outdir) / "mmseqs_tmp"),
             threads=options.threads,
             fident=options.family_threshold,
