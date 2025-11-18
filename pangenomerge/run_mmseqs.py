@@ -9,12 +9,17 @@ def mmseqs_createdb(fasta, outDB, threads):
     subprocess.run(cmd, shell=True, check=True)
     return
 
-# concatenate two mmseqs databases
+# concatenate two mmseqs databases and index (used to create new pangenome database after graph is updated with new nodes)
 def mmseqs_concatdbs(db1, db2, outDB, threads):
 
     cmd = f'mmseqs concatdbs {str(db1)} {str(db2)} {str(outDB)} --preserve-keys --compressed -v 1 --threads {str(threads)}'
     
     subprocess.run(cmd, shell=True, check=True)
+
+    cmd = f'mmseqs index {str(outDB)} --threads {str(threads)}'
+
+    subprocess.run(cmd, shell=True, check=True)
+
     return
 
 # run mmseqs search
@@ -30,11 +35,16 @@ def run_mmseqs_search(
     # basic inputs/outputs
     cmd = f'mmseqs search {str(querydb)} {str(targetdb)} {str(outdir)} {str(tmpdir)} '
     
-    # translated AA search, align
+    # translated AA search with minimum aligned coverage specified
+    # calculate coverage fraction globally (--cov-mode 0)
+    # alignment mode 1 might not be possible but will try (otherwise need align mode 3 or -a)
     cmd += f' --search-type 2 --alignment-mode 1 --cov-mod 0 -c {str(coverage)} '
     
+    # minimum identity and sequential sensitivity steps for speedup
+    # default mmseqs sensitivity is 5.7 so can lower last step to speed up if needed
     cmd += f'--min-seq-id {str(fident)} --start-sens 1 --sens-steps 3 -s 7 '
     
+    # output format, verbosity, and threads
     cmd += f' --format-mode 4 --format-output "query,target,fident,alnlen,qlen,tlen,evalue" -v 1 --threads {str(threads)}'
 
     subprocess.run(cmd, shell=True, check=True)
