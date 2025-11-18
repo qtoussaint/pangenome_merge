@@ -22,7 +22,7 @@ import multiprocessing as mp
 
 # import custom functions
 from .manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array
-from .run_mmseqs import run_mmseqs_easysearch
+from .run_mmseqs import run_mmseqs_search, mmseqs_createdb, mmseqs_concatdbs
 from panaroo_functions.load_graphs import load_graphs
 from panaroo_functions.write_gml_metadata import format_metadata_for_gml
 from panaroo_functions.context_search import collapse_families, single_linkage
