@@ -1010,7 +1010,7 @@ def main():
         with open(new_nodes_fasta, "w") as fasta_out:
             for node in merged_graph.nodes():
                 name = node
-                if name.endswith(f'_{graph_count+2}'):
+                if name.endswith(f'_g{graph_count+2}'):
                     seqs = merged_graph.nodes[node]["dna"].split(";")
                     node_centroid_seq = max(seqs, key=len)
                     fasta_out.write(f">{node}\n{node_centroid_seq}\n")
