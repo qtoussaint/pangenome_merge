@@ -242,8 +242,16 @@ def main():
         logging.info("Running MMSeqs2...")
 
         ### run mmseqs on the two pangenome references
-        run_mmseqs_search(querydb=base_db, targetdb=temp_db, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"),tmpdir = str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads, 
-            fident=0.98, coverage=0.95)
+        run_mmseqs_search(
+            querydb=base_db,
+            targetdb=temp_db,
+            resultdb = str(Path(options.outdir) / "resultdb"),
+            resultm8 = str(Path(options.outdir) / "mmseqs_clusters.m8"),
+            tmpdir = str(Path(options.outdir) / "mmseqs_tmp"),
+            threads=options.threads,
+            fident=0.98,
+            coverage=0.95
+        )
         
         # info statement...
         logging.info("MMSeqs2 complete. Reading and filtering results...")
@@ -691,10 +699,8 @@ def main():
                         # new nodes
                         ft.write(f">{name}\n{node_centroid_seq}\n")
 
-        #query_fa = Path(options.outdir) / "centroids_query.fa"
         target_fa = Path(options.outdir) / "centroids_target.fa"
-
-        write_centroids_to_fasta(merged_graph, query_fa, target_fa)
+        write_centroids_to_fasta(merged_graph, target_fa)
 
         # info statement
         logging.info("Computing pairwise identities...")

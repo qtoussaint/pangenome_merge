@@ -26,26 +26,29 @@ def mmseqs_concatdbs(db1, db2, outdb, tmpdir, threads):
 def run_mmseqs_search(
         querydb,
         targetdb,
-        outdir,
+        resultdb,
+        resultm8,
         tmpdir,
         fident,
         coverage,
         threads):
 
     # basic inputs/outputs
-    cmd = f'mmseqs search {str(querydb)} {str(targetdb)} {str(outdir)} {str(tmpdir)} '
+    cmd = f'mmseqs search {str(querydb)} {str(targetdb)} {str(resultdb)} {str(tmpdir)} '
     
     # translated AA search with minimum aligned coverage specified
     # calculate coverage fraction globally (--cov-mode 0)
     # alignment mode 1 might not be possible but will try (otherwise need align mode 3 or -a)
-    cmd += f' --search-type 2 --alignment-mode 1 --cov-mod 0 -c {str(coverage)} '
+    cmd += f' --search-type 2 --alignment-mode 1 --cov-mode 0 -c {str(coverage)} '
     
     # minimum identity and sequential sensitivity steps for speedup
     # default mmseqs sensitivity is 5.7 so can lower last step to speed up if needed
-    cmd += f'--min-seq-id {str(fident)} --start-sens 1 --sens-steps 3 -s 7 '
+    cmd += f'--min-seq-id {str(fident)} --start-sens 1 --sens-steps 3 -s 7 -v 1 --threads {str(threads)}'
     
+    subprocess.run(cmd, shell=True, check=True)
+
     # output format, verbosity, and threads
-    cmd += f' --format-mode 4 --format-output "query,target,fident,alnlen,qlen,tlen,evalue" -v 1 --threads {str(threads)}'
+    cmd = f' mmseqs convertalis {str(querydb)} {str(targetdb)} {str(resultdb)} {str(resultm8)} --format-mode 4 --format-output "query,target,fident,alnlen,qlen,tlen,evalue" -v 1 --threads {str(threads)}'
 
     subprocess.run(cmd, shell=True, check=True)
 
