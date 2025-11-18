@@ -201,7 +201,7 @@ def main():
             graph_2 = indSID_to_allSID(graph_2, gid_map_g2)
 
         # debug statement...
-        logging.debug(f"--- GRAPH {graph_count} LOAD ---")
+        logging.debug(f"--- MERGE {graph_count} ---")
         logging.debug(f"graph_1 nodes: {list(graph_1.nodes())[:20]} ... total {len(graph_1.nodes())}")
         logging.debug(f"graph_2 nodes: {list(graph_2.nodes())[:20]} ... total {len(graph_2.nodes())}")
 
@@ -242,7 +242,7 @@ def main():
         logging.info("Running MMSeqs2...")
 
         ### run mmseqs on the two pangenome references
-        run_mmseqs_search(querydb=base_db, targetdb=temp_db, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"), tmpdir = str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads, 
+        run_mmseqs_search(querydb=base_db, targetdb=temp_db, outdir=str(Path(options.outdir) / "mmseqs_clusters.m8"),tmpdir = str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads, 
             fident=0.98, coverage=0.95)
         
         # info statement...
