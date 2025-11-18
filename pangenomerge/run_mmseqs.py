@@ -10,13 +10,13 @@ def mmseqs_createdb(fasta, outDB, threads):
     return
 
 # concatenate two mmseqs databases and index (used to create new pangenome database after graph is updated with new nodes)
-def mmseqs_concatdbs(db1, db2, outDB, threads):
+def mmseqs_concatdbs(db1, db2, outDB, tmpdir, threads):
 
     cmd = f'mmseqs concatdbs {str(db1)} {str(db2)} {str(outDB)} --preserve-keys --compressed -v 1 --threads {str(threads)}'
     
     subprocess.run(cmd, shell=True, check=True)
 
-    cmd = f'mmseqs index {str(outDB)} --threads {str(threads)}'
+    cmd = f'mmseqs createindex {str(outDB)} {str(tmpdir)} --threads {str(threads)}'
 
     subprocess.run(cmd, shell=True, check=True)
 
