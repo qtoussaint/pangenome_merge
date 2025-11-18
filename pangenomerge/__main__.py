@@ -722,7 +722,7 @@ def main():
             tmpdir=str(Path(options.outdir) / "mmseqs_tmp"),
             threads=options.threads,
             fident=options.family_threshold,
-            coverage=float(options.family_threshold * 0.95).round(3)
+            coverage=float(round((options.family_threshold * 0.95), 3))
         )
 
         # info statement...
