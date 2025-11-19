@@ -202,7 +202,7 @@ def main():
             graph_2 = indSID_to_allSID(graph_2, gid_map_g2)
 
         # debug statement...
-        logging.debug(f"--- MERGE {graph_count} ---")
+        logging.debug(f"--- MERGE {graph_count+1} ---")
         logging.debug(f"graph_1 nodes: {list(graph_1.nodes())[:20]} ... total {len(graph_1.nodes())}")
         logging.debug(f"graph_2 nodes: {list(graph_2.nodes())[:20]} ... total {len(graph_2.nodes())}")
 

@@ -4,7 +4,7 @@ import subprocess
 def mmseqs_createdb(fasta, outdb, threads):
 
     # create compressed amino acid database from fasta
-    cmd = f'mmseqs createdb {str(fasta)} {str(outdb)} --dbtype 1 --compressed 1 -v 1 --threads {str(threads)}'
+    cmd = f'mmseqs createdb {str(fasta)} {str(outdb)} --dbtype 1 --compressed 1 -v 2 --threads {str(threads)}'
 
     subprocess.run(cmd, shell=True, check=True)
     return
@@ -12,11 +12,11 @@ def mmseqs_createdb(fasta, outdb, threads):
 # concatenate two mmseqs databases and index (used to create new pangenome database after graph is updated with new nodes)
 def mmseqs_concatdbs(db1, db2, outdb, tmpdir, threads):
 
-    cmd = f'mmseqs concatdbs {str(db1)} {str(db2)} {str(outdb)} --preserve-keys 1 --compressed 1 -v 1 --threads {str(threads)}'
+    cmd = f'mmseqs concatdbs {str(db1)} {str(db2)} {str(outdb)} --preserve-keys 1 --compressed 1 -v 2 --threads {str(threads)}'
     
     subprocess.run(cmd, shell=True, check=True)
 
-    cmd = f'mmseqs createindex {str(outdb)} {str(tmpdir)} -v 1 --threads {str(threads)}'
+    cmd = f'mmseqs createindex {str(outdb)} {str(tmpdir)} -v 2 --threads {str(threads)}'
 
     subprocess.run(cmd, shell=True, check=True)
 
@@ -34,7 +34,7 @@ def run_mmseqs_search(
         threads):
 
     # remove any existing results db
-    subprocess.run(f'rm -f -- {str(resultdb)}*', shell=True, check=True)
+    #subprocess.run(f'rm -f -- {str(resultdb)}*', shell=True, check=True)
 
     # basic inputs/outputs
     cmd = f'mmseqs search {str(querydb)} {str(targetdb)} {str(resultdb)} {str(tmpdir)} '
@@ -46,12 +46,12 @@ def run_mmseqs_search(
     
     # minimum identity and sequential sensitivity steps for speedup
     # default mmseqs sensitivity is 5.7 so can lower last step to speed up if needed
-    cmd += f'--min-seq-id {str(fident)} --start-sens 1 --sens-steps 3 -s 7 -v 1 --threads {str(threads)}'
+    cmd += f'--min-seq-id {str(fident)} --start-sens 1 --sens-steps 3 -s 7 -v 2 --threads {str(threads)}'
     
     subprocess.run(cmd, shell=True, check=True)
 
     # output format, verbosity, and threads
-    cmd = f' mmseqs convertalis {str(querydb)} {str(targetdb)} {str(resultdb)} {str(resultm8)} --format-mode 4 --format-output "query,target,fident,alnlen,qlen,tlen,evalue" -v 1 --threads {str(threads)}'
+    cmd = f' mmseqs convertalis {str(querydb)} {str(targetdb)} {str(resultdb)} {str(resultm8)} --format-mode 4 --format-output "query,target,fident,alnlen,qlen,tlen,evalue" -v 2 --threads {str(threads)}'
 
     subprocess.run(cmd, shell=True, check=True)
 
