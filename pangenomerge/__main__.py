@@ -690,7 +690,7 @@ def main():
         family_threshold = float(options.family_threshold)  # sequence identity threshold
         context_threshold = float(options.context_threshold)  # contextual similarity threshold 
 
-        # write query and target centroid fastas (stream to reduce memory)
+        # write target centroid fasta (stream to reduce memory)
 
         def write_centroids_to_fasta(G, target_fa):
             with open(target_fa, "w") as ft:
@@ -737,6 +737,9 @@ def main():
 
         # read mmseqs results
         mmseqs = pd.read_csv(Path(options.outdir) / "mmseqs_tmp" / "mmseqs_clusters.m8", sep="\t")
+
+        # debugging statements...
+        logging.debug(f"unfiltered mmseqs hits: {mmseqs.head()}")
 
         # ensure numeric columns
         for col in ["fident", "evalue", "tlen", "qlen"]:
