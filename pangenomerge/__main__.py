@@ -723,7 +723,7 @@ def main():
             with open(updated_node_names, "w") as fasta_out:
                 for node in merged_graph.nodes():
                     name = node
-                    if f'_g{graph_count+2}' !in name:
+                    if f'_g{graph_count+2}' not in name:
                         seqs = merged_graph.nodes[node]["protein"][0]
                         fasta_out.write(f">{node}\n{node_centroid_seq}\n")
 
