@@ -746,18 +746,28 @@ def main():
         for col in ["fident", "evalue", "tlen", "qlen"]:
             mmseqs[col] = pd.to_numeric(mmseqs[col], errors="coerce")
 
+        logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
+
         # define length difference
         max_len = np.maximum(mmseqs["tlen"], mmseqs["qlen"])
         mmseqs["len_dif"] = 1 - (np.abs(mmseqs["tlen"] - mmseqs["qlen"]) / max_len)
 
+        logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
+
         # filter for identity ≥ 70% and length difference ≥ 70%
         mmseqs = mmseqs[(mmseqs["fident"] >= family_threshold) & (mmseqs["len_dif"] >= family_threshold*0.95)].copy()
+
+        logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
 
         # remove self-matches (query == target)
         mmseqs = mmseqs[mmseqs["query"] != mmseqs["target"]]
 
+        logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
+
         # remove rows where both have "_query"
         mmseqs = mmseqs[~((mmseqs["target"].str.contains("_query")) & (mmseqs["query"].str.contains("_query")))]
+
+        logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
 
         # remove rows where NEITHER has "_query"
         mmseqs = mmseqs[
