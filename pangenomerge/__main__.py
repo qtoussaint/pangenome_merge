@@ -717,6 +717,18 @@ def main():
         target_db = Path(options.outdir) / "mmseqs_tmp" / "target_db"
         mmseqs_createdb(fasta=target_fa, outdb=target_db, threads=options.threads, nt2aa=False)
 
+        if graph_count == 1:
+            # write updated g1 nodes to fasta to update mmseqs db
+            updated_node_names = Path(options.outdir) / "mmseqs_tmp" / f"tmp.fa"
+            with open(updated_node_names, "w") as fasta_out:
+                for node in merged_graph.nodes():
+                    name = node
+                    if f'_g{graph_count+2}' !in name:
+                        seqs = merged_graph.nodes[node]["protein"][0]
+                        fasta_out.write(f">{node}\n{node_centroid_seq}\n")
+
+            mmseqs_createdb(fasta=updated_node_names, outdb=base_db, threads=options.threads, nt2aa=True)
+
         # info statement...
         logging.info("Running MMSeqs2...")
 
@@ -762,17 +774,17 @@ def main():
         # remove self-matches (query == target)
         mmseqs = mmseqs[mmseqs["query"] != mmseqs["target"]]
 
-        logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
+        #logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
 
         # remove rows where both have "_query"
-        mmseqs = mmseqs[~((mmseqs["target"].str.contains("_query")) & (mmseqs["query"].str.contains("_query")))]
+        #mmseqs = mmseqs[~((mmseqs["target"].str.contains("_query")) & (mmseqs["query"].str.contains("_query")))]
 
-        logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
+        #logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
 
         # remove rows where NEITHER has "_query"
-        mmseqs = mmseqs[
-            ~((~mmseqs["target"].str.contains("_query")) & (~mmseqs["query"].str.contains("_query")))
-        ]
+        #mmseqs = mmseqs[
+        #    ~((~mmseqs["target"].str.contains("_query")) & (~mmseqs["query"].str.contains("_query")))
+        #]
 
         # debugging statements...
         logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
@@ -784,7 +796,7 @@ def main():
         ### compute contextual similarity
 
         # can still accidentally map together things from same genome by mapping a query node that's been merged into with a g2 node
-        # will need to check that member sets for the nodes are disjoint (don't contain any of the same genomes)
+        # thus we check that member sets for the nodes are disjoint (don't contain any of the same genomes)
 
         ident_lookup = build_ident_lookup(mmseqs)
         init_parallel(merged_graph, ident_lookup, context_threshold)

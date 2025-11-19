@@ -40,7 +40,7 @@ def context_similarity_seq(G: nx.Graph, nA, nB, ident_lookup: dict, depth: int =
 # define scores per pair function previously implemented in main to allow for parallelization
 def score_pair_context(row: dict):
 
-    nA = row["query"]
+    nA = f'{str(row["query"])}_query'
     nB = row["target"]
     ident = row["fident"]
 
