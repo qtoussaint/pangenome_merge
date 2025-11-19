@@ -117,8 +117,7 @@ def main():
 
     ### create outdir
 
-    subprocess.run(f'mkdir -p {str(options.outdir)}', shell=True, check=True)
-    subprocess.run(f'mkdir -p {str(options.outdir)}/mmseqs_tmp', shell=True, check=True)
+    Path(f'{str(options.outdir)}/mmseqs_tmp').mkdir(parents=True, exist_ok=True)
 
     ### read in two graphs
 
