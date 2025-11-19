@@ -12,7 +12,7 @@ def mmseqs_createdb(fasta, outdb, threads, nt2aa: bool):
         subprocess.run(cmd, shell=True, check=True)
 
         # convert from nt to amino acid db:
-        cmd = f'mmseqs translatenucs {str(tempfile)} {str(outdb)} --compressed 1 -v 2 --threads '
+        cmd = f'mmseqs translatenucs {str(tempfile)} {str(outdb)} --compressed 1 -v 2 --threads {str(threads)}'
         subprocess.run(cmd, shell=True, check=True)
 
     if nt2aa is False:
@@ -47,7 +47,7 @@ def run_mmseqs_search(
         threads):
 
     # remove any existing results db
-    #subprocess.run(f'rm -f -- {str(resultdb)}*', shell=True, check=True)
+    subprocess.run(f'rm -f -- {str(resultdb)}*', shell=True, check=True)
 
     # basic inputs/outputs
     cmd = f'mmseqs search {str(querydb)} {str(targetdb)} {str(resultdb)} {str(tmpdir)} '

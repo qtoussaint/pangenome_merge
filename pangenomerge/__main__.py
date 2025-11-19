@@ -115,6 +115,10 @@ def main():
     else:
         logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
+    ### create outdir
+
+    subprocess.run(f'mkdir -p {str(options.outdir)}', shell=True, check=True)
+
     ### read in two graphs
 
     graph_files = pd.read_csv(options.component_graphs, sep='\t', header=None)
