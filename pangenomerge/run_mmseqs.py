@@ -7,7 +7,7 @@ def mmseqs_createdb(fasta, outdb, threads, nt2aa: bool):
     if nt2aa is True:
 
         # create nt database:
-        tempfile = '{str(outdb)}_nt'
+        tempfile = f'{str(outdb)}_nt'
         cmd = f'mmseqs createdb {str(fasta)} {str(tempfile)} --compressed 1 -v 2 --threads {str(threads)}'
         subprocess.run(cmd, shell=True, check=True)
 
