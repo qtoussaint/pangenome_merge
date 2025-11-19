@@ -232,12 +232,12 @@ def main():
         base_db = str(Path(options.outdir) / f"pan_genome_db")
         temp_db = str(Path(options.outdir) / f"temp_db")
         
-        # always create new database for new graph
-        mmseqs_createdb(fasta=pangenome_reference_g2, outdb=temp_db, threads=options.threads)
+        # always create new AA database for new graph
+        mmseqs_createdb(fasta=pangenome_reference_g2, outdb=temp_db, threads=options.threads, nt2aa: True)
 
-        # create database for base graph on first iter only
+        # create AA database for base graph on first iter only
         if graph_count == 0:
-            mmseqs_createdb(fasta=pangenome_reference_g1, outdb=base_db, threads=options.threads)
+            mmseqs_createdb(fasta=pangenome_reference_g1, outdb=base_db, threads=options.threads, nt2aa: True)
 
         # info statement...
         logging.info("Running MMSeqs2...")
@@ -709,9 +709,9 @@ def main():
         # info statement...
         logging.info("Creating MMSeqs2 database...")
 
-        # create mmseqs database for target (search can't read fastas)
+        # create AA mmseqs database for target
         target_db = Path(options.outdir) / "target_db"
-        mmseqs_createdb(fasta=target_fa, outdb=target_db, threads=options.threads)
+        mmseqs_createdb(fasta=target_fa, outdb=target_db, threads=options.threads, nt2aa=False)
 
         # info statement...
         logging.info("Running MMSeqs2...")
@@ -1014,15 +1014,14 @@ def main():
             for node in merged_graph.nodes():
                 name = node
                 if name.endswith(f'_g{graph_count+2}'):
-                    seqs = merged_graph.nodes[node]["dna"].split(";")
-                    node_centroid_seq = max(seqs, key=len)
+                    seqs = merged_graph.nodes[node]["protein"][0]
                     fasta_out.write(f">{node}\n{node_centroid_seq}\n")
 
         # update mmseqs database
         new_nodes_db = str(Path(options.outdir) / f"tmp_db")
         outdb = str(Path(options.outdir) / f"pan_genome_db")
 
-        mmseqs_createdb(fasta=new_nodes_fasta, outdb=new_nodes_db, threads=options.threads)
+        mmseqs_createdb(fasta=new_nodes_fasta, outdb=new_nodes_db, threads=options.threads, nt2aa=False)
         mmseqs_concatdbs(db1=base_db, db2=new_nodes_db, outdb=outdb, tmpdir=str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
 
         # write version without metadata for later visualization

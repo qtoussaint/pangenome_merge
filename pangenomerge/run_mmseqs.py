@@ -1,12 +1,25 @@
 import subprocess
 
 # create mmseqs database
-def mmseqs_createdb(fasta, outdb, threads):
+def mmseqs_createdb(fasta, outdb, threads, nt2aa: Bool):
 
     # create compressed amino acid database from fasta
-    cmd = f'mmseqs createdb {str(fasta)} {str(outdb)} --dbtype 1 --compressed 1 -v 2 --threads {str(threads)}'
+    if nt2aa is True:
 
-    subprocess.run(cmd, shell=True, check=True)
+        # create nt database:
+        tempfile = '{str(outdb)}_nt'
+        cmd = f'mmseqs createdb {str(fasta)} {str(tempfile)} --compressed 1 -v 2 --threads {str(threads)}'
+        subprocess.run(cmd, shell=True, check=True)
+
+        # convert from nt to amino acid db:
+        cmd = f'mmseqs translatenucs {str(tempfile)} {str(outdb)} --compressed 1 -v 2 --threads '
+        subprocess.run(cmd, shell=True, check=True)
+
+    if nt2aa is False:
+        # create amino acid db:
+        cmd = f'mmseqs createdb {str(fasta)} {str(outdb)} --compressed 1 -v 2 --threads {str(threads)}'
+        subprocess.run(cmd, shell=True, check=True)
+    
     return
 
 # concatenate two mmseqs databases and index (used to create new pangenome database after graph is updated with new nodes)
@@ -46,7 +59,7 @@ def run_mmseqs_search(
     
     # minimum identity and sequential sensitivity steps for speedup
     # default mmseqs sensitivity is 5.7 so can lower last step to speed up if needed
-    cmd += f'--min-seq-id {str(fident)} --start-sens 1 --sens-steps 3 -s 7 -v 2 --threads {str(threads)}'
+    cmd += f' --min-seq-id {str(fident)} --start-sens 1 --sens-steps 3 -s 7 -v 2 --threads {str(threads)}'
     
     subprocess.run(cmd, shell=True, check=True)
 
