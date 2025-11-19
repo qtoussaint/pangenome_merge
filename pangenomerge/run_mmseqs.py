@@ -1,7 +1,7 @@
 import subprocess
 
 # create mmseqs database
-def mmseqs_createdb(fasta, outdb, threads, nt2aa: Bool):
+def mmseqs_createdb(fasta, outdb, threads, nt2aa: bool):
 
     # create compressed amino acid database from fasta
     if nt2aa is True:
