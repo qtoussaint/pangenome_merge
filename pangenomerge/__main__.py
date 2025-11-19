@@ -233,11 +233,11 @@ def main():
         temp_db = str(Path(options.outdir) / f"temp_db")
         
         # always create new AA database for new graph
-        mmseqs_createdb(fasta=pangenome_reference_g2, outdb=temp_db, threads=options.threads, nt2aa: True)
+        mmseqs_createdb(fasta=pangenome_reference_g2, outdb=temp_db, threads=options.threads, nt2aa=True)
 
         # create AA database for base graph on first iter only
         if graph_count == 0:
-            mmseqs_createdb(fasta=pangenome_reference_g1, outdb=base_db, threads=options.threads, nt2aa: True)
+            mmseqs_createdb(fasta=pangenome_reference_g1, outdb=base_db, threads=options.threads, nt2aa=True)
 
         # info statement...
         logging.info("Running MMSeqs2...")
