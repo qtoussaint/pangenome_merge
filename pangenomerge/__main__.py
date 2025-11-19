@@ -739,7 +739,8 @@ def main():
         mmseqs = pd.read_csv(Path(options.outdir) / "mmseqs_tmp" / "mmseqs_clusters.m8", sep="\t")
 
         # debugging statements...
-        logging.debug(f"unfiltered mmseqs hits: {mmseqs.head()}")
+        logging.debug(f"Unfiltered: {len(mmseqs)} one-to-one hits.")
+        logging.debug(f"{mmseqs}")
 
         # ensure numeric columns
         for col in ["fident", "evalue", "tlen", "qlen"]:
@@ -749,7 +750,7 @@ def main():
         max_len = np.maximum(mmseqs["tlen"], mmseqs["qlen"])
         mmseqs["len_dif"] = 1 - (np.abs(mmseqs["tlen"] - mmseqs["qlen"]) / max_len)
 
-        # filter for identity ≥ 70% and length difference ≥ 50%
+        # filter for identity ≥ 70% and length difference ≥ 70%
         mmseqs = mmseqs[(mmseqs["fident"] >= family_threshold) & (mmseqs["len_dif"] >= family_threshold*0.95)].copy()
 
         # remove self-matches (query == target)
