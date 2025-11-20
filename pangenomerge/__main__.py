@@ -1029,7 +1029,7 @@ def main():
                     #if f'_g{graph_count+2}' not in name:
                     seqs = merged_graph.nodes[node]["protein"][0]
                     fasta_out.write(f">{node}\n{seqs}\n")
-            mmseqs_createdb(fasta=updated_node_names, outdb=base_db, threads=options.threads, nt2aa=True)
+            mmseqs_createdb(fasta=updated_node_names, outdb=base_db, threads=options.threads, nt2aa=False)
         else:
             # write new nodes to fasta to update mmseqs db
             new_nodes_fasta = Path(options.outdir) / "mmseqs_tmp" / f"new_nodes_{graph_count+2}.fa"
