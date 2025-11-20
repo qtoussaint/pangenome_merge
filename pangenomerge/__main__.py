@@ -726,7 +726,6 @@ def main():
                     if f'_g{graph_count+2}' not in name:
                         seqs = merged_graph.nodes[node]["protein"][0]
                         fasta_out.write(f">{node}\n{node_centroid_seq}\n")
-
             mmseqs_createdb(fasta=updated_node_names, outdb=base_db, threads=options.threads, nt2aa=True)
 
         # info statement...
@@ -774,17 +773,9 @@ def main():
         # remove self-matches (query == target)
         mmseqs = mmseqs[mmseqs["query"] != mmseqs["target"]]
 
-        #logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
-
-        # remove rows where both have "_query"
-        #mmseqs = mmseqs[~((mmseqs["target"].str.contains("_query")) & (mmseqs["query"].str.contains("_query")))]
-
-        #logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
-
-        # remove rows where NEITHER has "_query"
-        #mmseqs = mmseqs[
-        #    ~((~mmseqs["target"].str.contains("_query")) & (~mmseqs["query"].str.contains("_query")))
-        #]
+        # add _query to query node names
+        # possibly pretty memory/time intensive for big dataframes, see if can make this more efficient later
+        mmseqs["query"] == f'{mmseqs["query"]}_query'
 
         # debugging statements...
         logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
@@ -981,7 +972,7 @@ def main():
         ### clean node names in merged graph
         if graph_count == 0:
             # remove _query suffix, add graph count 
-            # (relabel node from graph_1 group_xxx_query to group_xxx_x)
+            # (relabel node from graph_1 group_xxx_query to group_xxx_gx)
             mapping = {}
             for node_id, node_data in merged_graph.nodes(data=True):
                 name = node_data.get('name', '')
