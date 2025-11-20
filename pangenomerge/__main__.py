@@ -798,6 +798,9 @@ def main():
             ):
                 accepted_pairs.append((nA, nB, ident, sims))
 
+        # debug statement...
+        logging.debug(f"accepted pairs (by context): {accepted_pairs[:10]}")
+
         # filter out any duplicates (in order, so best match kept)
         unique_pairs = []
         seen_nodes = set()
@@ -807,12 +810,18 @@ def main():
                 seen_nodes.add(nA)
                 seen_nodes.add(nB)
 
+        # debug statement...
+        logging.debug(f"accepted pairs (duplicates removed): {accepted_pairs[:10]}")
+
         # reorder to ensure 'a' is always the node with '_query'
         reordered_pairs = []
         for a, b, ident, sims in unique_pairs:
             if "_query" in b and "_query" not in a:
                 a, b = b, a
             reordered_pairs.append((a, b))
+        
+        # debug statement...
+        logging.debug(f"accepted pairs (reordered): {accepted_pairs[:10]}")
 
         # reduce memory by removing intermediate files
         for name in ["mmseqs", "scores", "scores_sorted", "accepted_pairs", "unique_pairs"]:
