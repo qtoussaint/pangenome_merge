@@ -859,22 +859,29 @@ def main():
             merged_set = merged_graph.nodes[a]["lengths"] + merged_graph.nodes[b]["lengths"]
             merged_graph.nodes[a]["lengths"] = merged_set
 
-            # move edges from b to a before removing b
+            # move edges from b onto a before removing b
             for neighbor in list(merged_graph.neighbors(b)):
-                if neighbor == a:
-                    continue
-                if merged_graph.has_edge(b, neighbor):
-                    edge_attrs = dict(merged_graph.get_edge_data(b, neighbor))
-                else:
-                    edge_attrs = {}
+                #if neighbor == a:
+                #    continue
+                #if merged_graph.has_edge(b, neighbor):
+                
+                # get edge attributes of b
+                edge_attrs = dict(merged_graph.get_edge_data(b, neighbor))
+                
+                # warn if don't have edge connecting neighbor
+                if not merged_graph.has_edge(b, neighbor):
+                    #edge_attrs = {}
+                    logging.critical("neighbor not connected by edge -- this shouldn't happen!")
 
-                if not merged_graph.has_edge(a, neighbor):
-                    merged_graph.add_edge(a, neighbor, **edge_attrs)
-                else:
+                if merged_graph.has_edge(a, neighbor):
+                    # if the edge exists, merge metadata
                     merged_edge = merged_graph.edges[a, neighbor]
                     merged_members = set(merged_edge.get("members", [])) | set(edge_attrs.get("members", []))
                     merged_edge["members"] = list(merged_members)
                     merged_edge["size"] = len(merged_members)
+                else:
+                    # otherwise add the edge
+                    merged_graph.add_edge(a, neighbor, **edge_attrs)
             
             # remove second node
             merged_graph.remove_node(b)
