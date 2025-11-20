@@ -1019,7 +1019,7 @@ def main():
                 fasta_out.write(f">{node}\n{node_centroid_seq}\n")
 
         # after first iter, update base mmseqs database so first graph has _g1 appended node names
-        if graph_count == 1:
+        if graph_count == 0:
             updated_node_names = Path(options.outdir) / "mmseqs_tmp" / f"tmp.fa"
             with open(updated_node_names, "w") as fasta_out:
                 for node in merged_graph.nodes():
