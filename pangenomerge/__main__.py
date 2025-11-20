@@ -717,17 +717,6 @@ def main():
         target_db = Path(options.outdir) / "mmseqs_tmp" / "target_db"
         mmseqs_createdb(fasta=target_fa, outdb=target_db, threads=options.threads, nt2aa=False)
 
-        if graph_count == 1:
-            # write updated g1 nodes to fasta to update mmseqs db
-            updated_node_names = Path(options.outdir) / "mmseqs_tmp" / f"tmp.fa"
-            with open(updated_node_names, "w") as fasta_out:
-                for node in merged_graph.nodes():
-                    name = node
-                    if f'_g{graph_count+2}' not in name:
-                        seqs = merged_graph.nodes[node]["protein"][0]
-                        fasta_out.write(f">{node}\n{node_centroid_seq}\n")
-            mmseqs_createdb(fasta=updated_node_names, outdb=base_db, threads=options.threads, nt2aa=True)
-
         # info statement...
         logging.info("Running MMSeqs2...")
 
@@ -1021,13 +1010,24 @@ def main():
         output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}.gml"
         nx.write_gml(merged_graph, str(output_path))
 
-        # write new pan-genome references to fasta (stream to reduce memory)
+        # write new pan-genome reference to fasta (stream to reduce memory)
         reference_out = Path(options.outdir) / f"pan_genome_reference_{graph_count+1}.fa"
         with open(reference_out, "w") as fasta_out:
             for node in merged_graph.nodes():
                 seqs = merged_graph.nodes[node]["dna"].split(";")
                 node_centroid_seq = max(seqs, key=len)
                 fasta_out.write(f">{node}\n{node_centroid_seq}\n")
+
+        # after first iter, update base mmseqs database so first graph has _g1 appended node names
+        if graph_count == 1:
+            updated_node_names = Path(options.outdir) / "mmseqs_tmp" / f"tmp.fa"
+            with open(updated_node_names, "w") as fasta_out:
+                for node in merged_graph.nodes():
+                    name = node
+                    if f'_g{graph_count+2}' not in name:
+                        seqs = merged_graph.nodes[node]["protein"][0]
+                        fasta_out.write(f">{node}\n{node_centroid_seq}\n")
+            mmseqs_createdb(fasta=updated_node_names, outdb=base_db, threads=options.threads, nt2aa=True)
 
         # write new nodes to fasta to update mmseqs db
         new_nodes_fasta = Path(options.outdir) / "mmseqs_tmp" / f"new_nodes_{graph_count+1}.fa"
