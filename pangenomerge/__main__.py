@@ -80,10 +80,10 @@ def get_options():
                     help='Sequence identity threshold for putative spurious paralogs. Default: 0.7')
     parameters.add_argument('--context-threshold',
                     dest='context_threshold',
-                    default=0.9,
+                    default=0.95,
                     type=float,
                     required=False,
-                    help='Sequence identity threshold for neighbors of putative spurious paralogs. Default: 0.9')
+                    help='Sequence identity threshold for neighbors of putative spurious paralogs. Default: 0.95')
     
     other = parser.add_argument_group('Other options')
     other.add_argument('--threads',
