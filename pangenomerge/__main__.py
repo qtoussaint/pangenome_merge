@@ -783,7 +783,7 @@ def main():
         scores = compute_scores_parallel(mmseqs, options.threads)
 
         # debug statement...
-        logging.debug(f"scores: {scores}")
+        logging.debug(f"scores: {scores[:5]}")
 
         # sort dataframe by scores
         scores_sorted = sorted(
@@ -793,7 +793,7 @@ def main():
         )
 
         # debug statement...
-        logging.debug(f"scores_sorted: {scores_sorted}")
+        logging.debug(f"scores_sorted: {scores_sorted[:5]}")
 
         # filter accepted pairs by identity + context thresholds
         accepted_pairs = []
@@ -1028,7 +1028,7 @@ def main():
                     name = node
                     #if f'_g{graph_count+2}' not in name:
                     seqs = merged_graph.nodes[node]["protein"][0]
-                    fasta_out.write(f">{node}\n{node_centroid_seq}\n")
+                    fasta_out.write(f">{node}\n{seqs}\n")
             mmseqs_createdb(fasta=updated_node_names, outdb=base_db, threads=options.threads, nt2aa=True)
         else:
             # write new nodes to fasta to update mmseqs db
@@ -1038,7 +1038,7 @@ def main():
                     name = node
                     if name.endswith(f'_g{graph_count+2}'):
                         seqs = merged_graph.nodes[node]["protein"][0]
-                        fasta_out.write(f">{node}\n{node_centroid_seq}\n")
+                        fasta_out.write(f">{node}\n{seqs}\n")
 
             # update mmseqs database
             new_nodes_db = str(Path(options.outdir) / "mmseqs_tmp" / f"tmp_db")
