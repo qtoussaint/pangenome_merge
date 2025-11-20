@@ -1024,26 +1024,26 @@ def main():
             with open(updated_node_names, "w") as fasta_out:
                 for node in merged_graph.nodes():
                     name = node
-                    if f'_g{graph_count+2}' not in name:
-                        seqs = merged_graph.nodes[node]["protein"][0]
-                        fasta_out.write(f">{node}\n{node_centroid_seq}\n")
-            mmseqs_createdb(fasta=updated_node_names, outdb=base_db, threads=options.threads, nt2aa=True)
-
-        # write new nodes to fasta to update mmseqs db
-        new_nodes_fasta = Path(options.outdir) / "mmseqs_tmp" / f"new_nodes_{graph_count+1}.fa"
-        with open(new_nodes_fasta, "w") as fasta_out:
-            for node in merged_graph.nodes():
-                name = node
-                if name.endswith(f'_g{graph_count+2}'):
+                    #if f'_g{graph_count+2}' not in name:
                     seqs = merged_graph.nodes[node]["protein"][0]
                     fasta_out.write(f">{node}\n{node_centroid_seq}\n")
+            mmseqs_createdb(fasta=updated_node_names, outdb=base_db, threads=options.threads, nt2aa=True)
+        else:
+            # write new nodes to fasta to update mmseqs db
+            new_nodes_fasta = Path(options.outdir) / "mmseqs_tmp" / f"new_nodes_{graph_count+2}.fa"
+            with open(new_nodes_fasta, "w") as fasta_out:
+                for node in merged_graph.nodes():
+                    name = node
+                    if name.endswith(f'_g{graph_count+2}'):
+                        seqs = merged_graph.nodes[node]["protein"][0]
+                        fasta_out.write(f">{node}\n{node_centroid_seq}\n")
 
-        # update mmseqs database
-        new_nodes_db = str(Path(options.outdir) / "mmseqs_tmp" / f"tmp_db")
-        outdb = str(Path(options.outdir) / "mmseqs_tmp" / f"pan_genome_db")
+            # update mmseqs database
+            new_nodes_db = str(Path(options.outdir) / "mmseqs_tmp" / f"tmp_db")
+            outdb = str(Path(options.outdir) / "mmseqs_tmp" / f"pan_genome_db")
 
-        mmseqs_createdb(fasta=new_nodes_fasta, outdb=new_nodes_db, threads=options.threads, nt2aa=False)
-        mmseqs_concatdbs(db1=base_db, db2=new_nodes_db, outdb=outdb, tmpdir=str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
+            mmseqs_createdb(fasta=new_nodes_fasta, outdb=new_nodes_db, threads=options.threads, nt2aa=False)
+            mmseqs_concatdbs(db1=base_db, db2=new_nodes_db, outdb=outdb, tmpdir=str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
 
         # write version without metadata for later visualization
         if graph_count == (n_graphs-2):
