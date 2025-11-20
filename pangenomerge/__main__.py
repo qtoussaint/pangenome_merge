@@ -691,18 +691,17 @@ def main():
         context_threshold = float(options.context_threshold)  # contextual similarity threshold 
 
         # write target centroid fasta (stream to reduce memory)
-
         def write_centroids_to_fasta(G, target_fa):
             with open(target_fa, "w") as ft:
                 for node, data in G.nodes(data=True):
-                    node_centroid_seq = data["protein"][0]
+                    seqs = data["protein"]
                     name = node
                     if name.endswith("_query") or "_query" in name:
                         # pre-existing nodes -- already in query db
                         continue
                     else:
                         # new nodes
-                        ft.write(f">{name}\n{node_centroid_seq}\n")
+                        ft.write(f">{name}\n{seqs}\n")
 
         target_fa = Path(options.outdir) / "mmseqs_tmp" / "centroids_target.fa"
         write_centroids_to_fasta(merged_graph, target_fa)
@@ -746,18 +745,12 @@ def main():
         for col in ["fident", "evalue", "tlen", "qlen"]:
             mmseqs[col] = pd.to_numeric(mmseqs[col], errors="coerce")
 
-        logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
-
         # define length difference
         max_len = np.maximum(mmseqs["tlen"], mmseqs["qlen"])
         mmseqs["len_dif"] = 1 - (np.abs(mmseqs["tlen"] - mmseqs["qlen"]) / max_len)
 
-        logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
-
         # filter for identity ≥ 70% and length difference ≥ 70%
         mmseqs = mmseqs[(mmseqs["fident"] >= family_threshold) & (mmseqs["len_dif"] >= family_threshold*0.95)].copy()
-
-        logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
 
         # remove self-matches (query == target)
         mmseqs = mmseqs[mmseqs["query"] != mmseqs["target"]]
@@ -1025,7 +1018,7 @@ def main():
                 for node in merged_graph.nodes():
                     name = node
                     #if f'_g{graph_count+2}' not in name:
-                    seqs = merged_graph.nodes[node]["protein"][0]
+                    seqs = merged_graph.nodes[node]["protein"]
                     fasta_out.write(f">{node}\n{seqs}\n")
             mmseqs_createdb(fasta=updated_node_names, outdb=base_db, threads=options.threads, nt2aa=False)
         else:
@@ -1035,7 +1028,7 @@ def main():
                 for node in merged_graph.nodes():
                     name = node
                     if name.endswith(f'_g{graph_count+2}'):
-                        seqs = merged_graph.nodes[node]["protein"][0]
+                        seqs = merged_graph.nodes[node]["protein"]
                         fasta_out.write(f">{node}\n{seqs}\n")
 
             # update mmseqs database
