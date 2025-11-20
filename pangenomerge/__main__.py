@@ -994,7 +994,7 @@ def main():
 
         # debug statement...
         logging.debug("After updating node names:")
-        for node in list(merged_graph.nodes())[:20]:
+        for node in list(merged_graph.nodes())[:5]:
             logging.debug(f"  node: {node}")
 
         # ensure metadata written in correct format
@@ -1002,7 +1002,7 @@ def main():
 
         # debug statement...
         logging.debug("After formatting metadata:")
-        for node in list(merged_graph.nodes())[:20]:
+        for node in list(merged_graph.nodes())[:5]:
             logging.debug(f"  node: {node}")
         
         # info statement...
