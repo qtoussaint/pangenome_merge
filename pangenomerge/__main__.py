@@ -969,9 +969,10 @@ def main():
                     new_name = re.sub(r'_query.*$', f'_g{graph_count+1}', name)
                     #new_name = name.replace('_query', f'_{graph_count+1}')
                     mapping[node_id] = new_name
-                    logging.debug(f"Changed: {name} to {new_name}")
+                    #logging.debug(f"Changed: {name} to {new_name}")
                 if '_query' not in name:
-                    logging.debug(f"Retained: {name}")
+                    #logging.debug(f"Retained: {name}")
+                    continue
             merged_graph = relabel_nodes_preserve_attrs(merged_graph, mapping)
             merged_graph = sync_names(merged_graph)
         else:
@@ -984,9 +985,10 @@ def main():
                     new_name = re.sub(r'_query.*$', "", name)
                     #new_name = name.replace('_query', "")
                     mapping[node_id] = new_name
-                    logging.debug(f"Changed: {name} to {new_name}")
+                    #logging.debug(f"Changed: {name} to {new_name}")
                 if '_query' not in name:
-                    logging.debug(f"Retained: {name}")
+                    #logging.debug(f"Retained: {name}")
+                    continue
             merged_graph = relabel_nodes_preserve_attrs(merged_graph, mapping)
             merged_graph = sync_names(merged_graph)
 
