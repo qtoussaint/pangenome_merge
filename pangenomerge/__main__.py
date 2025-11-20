@@ -775,7 +775,7 @@ def main():
 
         # add _query to query node names
         # possibly pretty memory/time intensive for big dataframes, see if can make this more efficient later
-        mmseqs["query"] == f'{mmseqs["query"]}_query'
+        mmseqs["query"] += "_query"
 
         # debugging statements...
         logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
