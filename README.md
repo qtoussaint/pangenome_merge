@@ -2,4 +2,37 @@
 
 🚧🚧🚧 Under construction -- use with caution 🚧🚧🚧
 
-Run `pangenomerge -h` to see arguments and descriptions. 'Run' mode merges two or more Panaroo pan-genome gene graphs (or iteratively updates an existing graph). 'Test' mode creates a merged graph and provides clustering accuracy metrics based on a ground truth graph; this mode is considerably slower than run mode and is not intended for use with large datasets (>3k samples). 
+'Run' mode merges two or more Panaroo pan-genome gene graphs (or iteratively updates an existing graph). 'Test' mode creates a merged graph and provides clustering accuracy metrics based on a ground truth graph; this mode is considerably slower than run mode and is not intended for use with large datasets (>3k samples). 
+
+```
+usage: pangenomerge [-h] [--mode {run,test}] --outdir OUTDIR [--component-graphs COMPONENT_GRAPHS] [--iterative ITERATIVE] [--graph-all GRAPH_ALL] [--family-threshold FAMILY_THRESHOLD] [--context-threshold CONTEXT_THRESHOLD]
+                    [--threads THREADS] [--debug] [--version]
+
+Merges two or more Panaroo pan-genome gene graphs, or iteratively updates an existing graph.
+
+options:
+  -h, --help            show this help message and exit
+
+Input and output options:
+  --mode {run,test}     Run pan-genome gene graph merge ("run") or calculate clustering accuracy metrics for merge ("test"). [Default = Run]
+  --outdir OUTDIR       Output directory.
+  --component-graphs COMPONENT_GRAPHS
+                        Tab-separated list of paths to Panaroo output directories of component subgraphs. Each directory must contain final_graph.gml and pan_genome_reference.fa. If running in test mode, must also contain
+                        gene_data.csv. Graphs will be merged in the order presented in the file.
+  --iterative ITERATIVE
+                        Tab-separated list of GFFs and their sample IDs for iterative updating of the graph. Use only for single samples or sets of samples too diverse to create an initial pan-genome. Samples will be merged in the
+                        order presented in the file.
+  --graph-all GRAPH_ALL
+                        Path to Panaroo output directory of pan-genome gene graph created from all samples in component-graphs. Only required for the test case, where it is used as the ground truth.
+
+Parameters:
+  --family-threshold FAMILY_THRESHOLD
+                        Sequence identity threshold for putative spurious paralogs. Default: 0.7
+  --context-threshold CONTEXT_THRESHOLD
+                        Sequence identity threshold for neighbors of putative spurious paralogs. Default: 0.9
+
+Other options:
+  --threads THREADS     Number of threads
+  --debug               Set logging to 'debug' instead of 'info' (default)
+  --version             show program's version number and exit
+```
