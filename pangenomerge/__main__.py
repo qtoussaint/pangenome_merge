@@ -118,7 +118,7 @@ def main():
     ### create outdir
 
     # first remove any existing files in mmseqs outdir (can cause problems)
-    subprocess.run(f'rm -rf {str(options.outdir)}/mmseqs_tmp/*', shell=True, check=True)
+    subprocess.run(f'rm -rf {str(options.outdir)}/mmseqs_tmp/*', shell=True, check=True, capture_output=True)
 
     mmseqs_dir = Path(options.outdir) / "mmseqs_tmp"
     mmseqs_dir.mkdir(parents=True, exist_ok=True)
