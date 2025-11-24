@@ -80,7 +80,7 @@ def get_options():
                     help='Sequence identity threshold for putative spurious paralogs. Default: 0.7')
     parameters.add_argument('--context-threshold',
                     dest='context_threshold',
-                    default=0.9,
+                    default=0.7,
                     type=float,
                     required=False,
                     help='Sequence identity threshold for neighbors of putative spurious paralogs. Default: 0.9')
@@ -301,7 +301,7 @@ def main():
         logging.debug(f"{mmseqs_filtered}")
         dups_query = mmseqs_filtered["query"].duplicated().sum()
         dups_target = mmseqs_filtered["target"].duplicated().sum()
-        logging.debug(f"Number of remaining duplicates (should be 0) — query: {dups_query}, target: {dups_target}")
+        logging.debug(f"Remaining duplicates — query: {dups_query}, target: {dups_target}")
 
         # info statement...
         logging.info("Hits filtered. Mapping between graphs...")
@@ -793,7 +793,8 @@ def main():
         for nA, nB, ident, sims in scores_sorted:
             if (
                 ident >= family_threshold
-                and (sims[0] >= context_threshold or sims[1] >= context_threshold or sims[2] >= context_threshold)
+                and sims[0] >= context_threshold
+                and (sims[1] >= context_threshold or sims[2] >= context_threshold)
                 and set(merged_graph.nodes[nA]['members']).isdisjoint(set(merged_graph.nodes[nB]['members'])) # check they do not share any members (genes within same genome will not be merged)
             ):
                 accepted_pairs.append((nA, nB, ident, sims))

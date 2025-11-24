@@ -55,7 +55,7 @@ def run_mmseqs_search(
     # AA search with minimum aligned coverage specified
     # calculate coverage fraction globally (--cov-mode 0)
     # alignment mode 1 might not be possible but will try (otherwise need align mode 3 or -a)
-    cmd += f' --alignment-mode 3 --cov-mode 0 -c {str(coverage)} '
+    cmd += f' -a --cov-mode 0 -c {str(coverage)} '
     
     # minimum identity and sequential sensitivity steps for speedup
     # default mmseqs sensitivity is 5.7 so can lower last step to speed up if needed
