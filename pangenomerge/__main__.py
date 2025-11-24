@@ -701,7 +701,7 @@ def main():
         def write_centroids_to_fasta(G, query_fa):
             with open(query_fa, "w") as ft:
                 for node, data in G.nodes(data=True):
-                    seqs = data["protein"]
+                    seqs = data["protein"].split(";")
                     if isinstance(seqs, (list, tuple)):
                         seqs = seqs[0]
                     seqs = seqs.rstrip('*') # remove trailing stop
@@ -1043,7 +1043,7 @@ def main():
                 for node in merged_graph.nodes():
                     name = node
                     #if f'_g{graph_count+2}' not in name:
-                    seqs = merged_graph.nodes[node]["protein"]
+                    seqs = merged_graph.nodes[node]["protein"].split(";")
                     if isinstance(seqs, (list, tuple)):
                         seqs = seqs[0]
                     seqs = seqs.rstrip('*') # remove trailing stop
@@ -1060,7 +1060,7 @@ def main():
                 for node in merged_graph.nodes():
                     name = node
                     if name.endswith(f'_g{graph_count+2}'):
-                        seqs = merged_graph.nodes[node]["protein"]
+                        seqs = merged_graph.nodes[node]["protein"].split(";")
                         if isinstance(seqs, (list, tuple)):
                             seqs = seqs[0]
                         seqs = seqs.rstrip('*') # remove trailing stop
