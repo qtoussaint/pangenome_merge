@@ -704,6 +704,7 @@ def main():
                     seqs = data["protein"]
                     if isinstance(seqs, (list, tuple)):
                         seqs = seqs[0]
+                    seqs = seqs.rstrip('*') # remove trailing stop
                     name = node
                     if name.endswith("_target") or "_target" in name:
                         # pre-existing nodes -- already in target db
@@ -1045,6 +1046,7 @@ def main():
                     seqs = merged_graph.nodes[node]["protein"]
                     if isinstance(seqs, (list, tuple)):
                         seqs = seqs[0]
+                    seqs = seqs.rstrip('*') # remove trailing stop
                     fasta_out.write(f">{node}\n{seqs}\n")
             mmseqs_createdb(fasta=updated_node_names, outdb=base_db, threads=options.threads, nt2aa=False)
             
@@ -1058,6 +1060,7 @@ def main():
                         seqs = merged_graph.nodes[node]["protein"]
                         if isinstance(seqs, (list, tuple)):
                             seqs = seqs[0]
+                        seqs = seqs.rstrip('*') # remove trailing stop
                         fasta_out.write(f">{node}\n{seqs}\n")
 
             # update mmseqs database
