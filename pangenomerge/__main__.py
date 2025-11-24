@@ -117,13 +117,10 @@ def main():
 
     ### create outdir
 
-    os.rmdir(f'{str(options.outdir)}/mmseqs_tmp') 
+    # first remove any existing files in mmseqs outdir (can cause problems)
+    subprocess.run(f'rm -rf {str(options.outdir)}/mmseqs_tmp/*', shell=True, check=True)
 
     Path(f'{str(options.outdir)}/mmseqs_tmp').mkdir(parents=True, exist_ok=True)
-
-    # remove any existing files in mmseqs outdir (can cause problems)
-    #if os.path.isfile(f'{str(options.outdir)}/mmseqs_tmp/*'):
-    #    os.remove(f'{str(options.outdir)}/mmseqs_tmp/*') 
 
     ### read in two graphs
 
