@@ -863,7 +863,6 @@ def main():
             for neighbor in list(merged_graph.neighbors(b)):
                 #if neighbor == a:
                 #    continue
-                #if merged_graph.has_edge(b, neighbor):
                 
                 # get edge attributes of b
                 edge_attrs = dict(merged_graph.get_edge_data(b, neighbor))

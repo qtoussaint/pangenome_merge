@@ -59,7 +59,7 @@ def run_mmseqs_search(
     
     # minimum identity and sequential sensitivity steps for speedup
     # default mmseqs sensitivity is 5.7 so can lower last step to speed up if needed
-    cmd += f' --min-seq-id {str(fident)} --start-sens 1 --sens-steps 3 -s 7 -v 2 --threads {str(threads)}'
+    cmd += f' --min-seq-id {str(fident)} --start-sens 1 --sens-steps 3 -s 5.7 -v 2 --threads {str(threads)}'
     
     subprocess.run(cmd, shell=True, check=True)
 
