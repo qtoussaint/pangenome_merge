@@ -1048,7 +1048,10 @@ def main():
                         seqs = seqs[0]
                     seqs = seqs.rstrip('*') # remove trailing stop
                     fasta_out.write(f">{node}\n{seqs}\n")
-            mmseqs_createdb(fasta=updated_node_names, outdb=base_db, threads=options.threads, nt2aa=False)
+
+            outdb = str(Path(options.outdir) / "mmseqs_tmp" / f"pan_genome_db_{graph_count+2}")
+            mmseqs_createdb(fasta=updated_node_names, outdb=outdb, threads=options.threads, nt2aa=False)
+            base_db = outdb
             
         else:
             # write new nodes to fasta to update mmseqs db
@@ -1069,6 +1072,7 @@ def main():
 
             mmseqs_createdb(fasta=new_nodes_fasta, outdb=new_nodes_db, threads=options.threads, nt2aa=False)
             mmseqs_concatdbs(db1=base_db, db2=new_nodes_db, outdb=outdb, tmpdir=str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
+            base_db = outdb
 
         # write version without metadata for later visualization
         if graph_count == (n_graphs-2):
