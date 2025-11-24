@@ -236,7 +236,7 @@ def main():
         ### create mmseqs databases for faster search
 
         # define paths for new databases
-        base_db = str(Path(options.outdir) / "mmseqs_tmp" / f"pan_genome_db")
+        base_db = str(Path(options.outdir) / "mmseqs_tmp" / f"pan_genome_db_{graph_count}")
         temp_db = str(Path(options.outdir) / "mmseqs_tmp" / f"temp_db")
         
         # always create new AA database for new graph
@@ -1052,7 +1052,7 @@ def main():
 
             # update mmseqs database
             new_nodes_db = str(Path(options.outdir) / "mmseqs_tmp" / f"tmp_db")
-            outdb = str(Path(options.outdir) / "mmseqs_tmp" / f"pan_genome_db")
+            outdb = str(Path(options.outdir) / "mmseqs_tmp" / f"pan_genome_db_{graph_count+1}")
 
             mmseqs_createdb(fasta=new_nodes_fasta, outdb=new_nodes_db, threads=options.threads, nt2aa=False)
             mmseqs_concatdbs(db1=base_db, db2=new_nodes_db, outdb=outdb, tmpdir=str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
