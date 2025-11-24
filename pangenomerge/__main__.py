@@ -701,9 +701,12 @@ def main():
         def write_centroids_to_fasta(G, query_fa):
             with open(query_fa, "w") as ft:
                 for node, data in G.nodes(data=True):
-                    seqs = data["protein"].split(";")
+                    seqs = data["protein"]
                     if isinstance(seqs, (list, tuple)):
-                        seqs = seqs[0]
+                        seqs = max(seqs, key=len) # if list, pick longest sequence
+                    if isinstance(seqs, str):
+                        parts = seqs.split(";") # if string split on semicolon and pick longest
+                        seqs = max(parts, key=len)
                     seqs = seqs.rstrip('*') # remove trailing stop
                     name = node
                     if name.endswith("_target") or "_target" in name:
@@ -1042,10 +1045,12 @@ def main():
             with open(updated_node_names, "w") as fasta_out:
                 for node in merged_graph.nodes():
                     name = node
-                    #if f'_g{graph_count+2}' not in name:
-                    seqs = merged_graph.nodes[node]["protein"].split(";")
+                    seqs = merged_graph.nodes[node]["protein"]
                     if isinstance(seqs, (list, tuple)):
-                        seqs = seqs[0]
+                        seqs = max(seqs, key=len) # if list, pick longest sequence
+                    if isinstance(seqs, str):
+                        parts = seqs.split(";") # if string split on semicolon and pick longest
+                        seqs = max(parts, key=len)
                     seqs = seqs.rstrip('*') # remove trailing stop
                     fasta_out.write(f">{node}\n{seqs}\n")
 
@@ -1060,9 +1065,12 @@ def main():
                 for node in merged_graph.nodes():
                     name = node
                     if name.endswith(f'_g{graph_count+2}'):
-                        seqs = merged_graph.nodes[node]["protein"].split(";")
+                        seqs = merged_graph.nodes[node]["protein"]
                         if isinstance(seqs, (list, tuple)):
-                            seqs = seqs[0]
+                            seqs = max(seqs, key=len) # if list, pick longest sequence
+                        if isinstance(seqs, str):
+                            parts = seqs.split(";") # if string split on semicolon and pick longest
+                            seqs = max(parts, key=len)
                         seqs = seqs.rstrip('*') # remove trailing stop
                         fasta_out.write(f">{node}\n{seqs}\n")
 
