@@ -120,7 +120,11 @@ def main():
     # first remove any existing files in mmseqs outdir (can cause problems)
     subprocess.run(f'rm -rf {str(options.outdir)}/mmseqs_tmp/*', shell=True, check=True)
 
-    Path(f'{str(options.outdir)}/mmseqs_tmp').mkdir(parents=True, exist_ok=True)
+    mmseqs_dir = Path(options.outdir) / "mmseqs_tmp"
+    mmseqs_dir.mkdir(parents=True, exist_ok=True)
+
+    # this will always point to the current combined pangenome db
+    base_db = None
 
     ### read in two graphs
 
@@ -229,44 +233,60 @@ def main():
         # debug statement...
         logging.debug(f"pangenome reference g1: {pangenome_reference_g1}")
         logging.debug(f"pangenome reference g2: {pangenome_reference_g2}")
-
         # info statement...
-        logging.info("Creating MMSeqs2 database(s)...")
+        logging.info("Creating MMSeqs2 database(s) for mapping...")
 
         ### create mmseqs databases for faster search
 
-        # define paths for new databases
-        base_db = str(Path(options.outdir) / "mmseqs_tmp" / f"pan_genome_db_{graph_count}")
-        temp_db = str(Path(options.outdir) / "mmseqs_tmp" / f"temp_db")
-        
-        # always create new AA database for new graph
-        mmseqs_createdb(fasta=pangenome_reference_g2, outdb=temp_db, threads=options.threads, nt2aa=True)
+        iter_idx = graph_count + 1  # 1-based index for nice filenames
 
-        # create AA database for base graph on first iter only
-        if graph_count == 0:
-            mmseqs_createdb(fasta=pangenome_reference_g1, outdb=base_db, threads=options.threads, nt2aa=True)
+        # query DB: always the "new" graph (graph_2) pangenome reference
+        mapping_query_db = mmseqs_dir / f"mapping_query_db_iter{iter_idx}"
+        logging.debug(f"mapping query db: {mapping_query_db}")
+
+        mmseqs_createdb(
+            fasta=pangenome_reference_g2,
+            outdb=str(mapping_query_db),
+            threads=options.threads,
+            nt2aa=True
+        )
+
+        # target DB (base graph) – create only once, then keep updating after merges
+        if base_db is None:
+            # first iteration: create base_db from graph_1 pangenome reference
+            base_db = mmseqs_dir / f"pan_genome_db_iter{iter_idx}_initial"
+            logging.debug(f"creating initial base db: {base_db}")
+
+            mmseqs_createdb(
+                fasta=pangenome_reference_g1,
+                outdb=str(base_db),
+                threads=options.threads,
+                nt2aa=True
+            )
 
         # info statement...
-        logging.info("Running MMSeqs2...")
+        logging.info("Running MMSeqs2 mapping search...")
 
-        ### run mmseqs on the two pangenome references
+        mapping_result_db = mmseqs_dir / f"mapping_result_db_iter{iter_idx}"
+        mapping_result_m8 = mmseqs_dir / f"mapping_clusters_iter{iter_idx}.m8"
+
         run_mmseqs_search(
-            targetdb=base_db,
-            querydb=temp_db,
-            resultdb = str(Path(options.outdir) / "mmseqs_tmp" / "resultdb"),
-            resultm8 = str(Path(options.outdir) / "mmseqs_tmp" / "mmseqs_clusters.m8"),
-            tmpdir = str(Path(options.outdir) / "mmseqs_tmp"),
+            targetdb=str(base_db),
+            querydb=str(mapping_query_db),
+            resultdb=str(mapping_result_db),
+            resultm8=str(mapping_result_m8),
+            tmpdir=str(mmseqs_dir),
             threads=options.threads,
             fident=0.98,
             coverage=0.95
         )
-        
+
         # info statement...
-        logging.info("MMSeqs2 complete. Reading and filtering results...")
+        logging.info("MMSeqs2 mapping complete. Reading and filtering results...")
 
         # read mmseqs results
         # each "group_" refers to the centroid of that group in the pan_genomes_reference.fa
-        mmseqs = pd.read_csv(str(Path(options.outdir) / "mmseqs_tmp" / "mmseqs_clusters.m8"), sep='\t')
+        mmseqs = pd.read_csv(mapping_result_m8, sep='\t')
 
         ### match hits from mmseqs
 
@@ -705,40 +725,38 @@ def main():
                     else:
                         # new nodes
                         ft.write(f">{name}\n{seqs}\n")
-
-        query_fa = Path(options.outdir) / "mmseqs_tmp" / "centroids_query.fa"
+        query_fa = mmseqs_dir / f"centroids_query_iter{iter_idx}.fa"
         write_centroids_to_fasta(merged_graph, query_fa)
 
         # info statement
-        logging.info("Computing pairwise identities...")
-
-        # info statement...
-        logging.info("Creating MMSeqs2 database...")
+        logging.info("Computing pairwise identities for context collapse...")
 
         # create AA mmseqs database for query
-        query_db = Path(options.outdir) / "mmseqs_tmp" / "query_db"
-        mmseqs_createdb(fasta=query_fa, outdb=query_db, threads=options.threads, nt2aa=False)
+        context_query_db = mmseqs_dir / f"context_query_db_iter{iter_idx}"
+        mmseqs_createdb(fasta=query_fa, outdb=str(context_query_db), threads=options.threads, nt2aa=False)
 
         # info statement...
-        logging.info("Running MMSeqs2...")
+        logging.info("Running MMSeqs2 context search...")
 
-        # run mmseqs to get hits, keeping only those above the minimum useful threshold (family_threshold, which is LOWER than context threshold)
+        context_result_db = mmseqs_dir / f"context_result_db_iter{iter_idx}"
+        context_result_m8 = mmseqs_dir / f"context_clusters_iter{iter_idx}.m8"
+
         run_mmseqs_search(
-            targetdb=base_db,
-            querydb=query_db,
-            resultdb = str(Path(options.outdir) / "mmseqs_tmp" / "resultdb"),
-            resultm8=str(Path(options.outdir) / "mmseqs_tmp" / "mmseqs_clusters.m8"),
-            tmpdir=str(Path(options.outdir) / "mmseqs_tmp"),
+            targetdb=str(base_db),
+            querydb=str(context_query_db),
+            resultdb=str(context_result_db),
+            resultm8=str(context_result_m8),
+            tmpdir=str(mmseqs_dir),
             threads=options.threads,
             fident=options.family_threshold,
             coverage=float(round((options.family_threshold * 0.95), 3))
         )
 
         # info statement...
-        logging.info("MMSeqs2 complete. Reading and filtering results...")
+        logging.info("MMSeqs2 context search complete. Reading and filtering results...")
 
         # read mmseqs results
-        mmseqs = pd.read_csv(Path(options.outdir) / "mmseqs_tmp" / "mmseqs_clusters.m8", sep="\t")
+        mmseqs = pd.read_csv(context_result_m8, sep="\t")
 
         # debugging statements...
         logging.debug(f"Unfiltered: {len(mmseqs)} one-to-one hits.")
@@ -1028,34 +1046,60 @@ def main():
                 seqs = merged_graph.nodes[node]["dna"].split(";")
                 node_centroid_seq = max(seqs, key=len)
                 fasta_out.write(f">{node}\n{node_centroid_seq}\n")
-
-        # after first iter, update base mmseqs database so first graph has _g1 appended node names
+        
+        # after each iter, update base mmseqs database to reflect the merged graph
         if graph_count == 0:
-            updated_node_names = Path(options.outdir) / "mmseqs_tmp" / f"tmp.fa"
+            # first iteration: rebuild base_db from *all* merged nodes (protein sequences)
+            updated_node_names = mmseqs_dir / f"all_nodes_iter{iter_idx}.fa"
             with open(updated_node_names, "w") as fasta_out:
                 for node in merged_graph.nodes():
-                    name = node
-                    #if f'_g{graph_count+2}' not in name:
                     seqs = merged_graph.nodes[node]["protein"][0]
                     fasta_out.write(f">{node}\n{seqs}\n")
-            mmseqs_createdb(fasta=updated_node_names, outdb=base_db, threads=options.threads, nt2aa=False)
-            
+
+            # wipe old base_db and recreate
+            if base_db is not None:
+                subprocess.run(f'rm -rf {str(base_db)}*', shell=True, check=True)
+
+            base_db = mmseqs_dir / f"pan_genome_db_iter{iter_idx}"
+            logging.debug(f"rebuilding base db: {base_db}")
+            mmseqs_createdb(
+                fasta=updated_node_names,
+                outdb=str(base_db),
+                threads=options.threads,
+                nt2aa=False
+            )
+
         else:
-            # write new nodes to fasta to update mmseqs db
-            new_nodes_fasta = Path(options.outdir) / "mmseqs_tmp" / f"new_nodes_{graph_count+2}.fa"
+            # later iterations: only append the *new* nodes from this iteration
+            new_nodes_fasta = mmseqs_dir / f"new_nodes_iter{iter_idx}.fa"
             with open(new_nodes_fasta, "w") as fasta_out:
                 for node in merged_graph.nodes():
                     name = node
-                    if name.endswith(f'_g{graph_count+2}'):
+                    if name.endswith(f"_g{graph_count+2}"):
                         seqs = merged_graph.nodes[node]["protein"][0]
                         fasta_out.write(f">{node}\n{seqs}\n")
 
-            # update mmseqs database
-            new_nodes_db = str(Path(options.outdir) / "mmseqs_tmp" / f"tmp_db")
-            outdb = str(Path(options.outdir) / "mmseqs_tmp" / f"pan_genome_db_{graph_count+1}")
+            # create db for new nodes
+            new_nodes_db = mmseqs_dir / f"new_nodes_db_iter{iter_idx}"
+            mmseqs_createdb(
+                fasta=new_nodes_fasta,
+                outdb=str(new_nodes_db),
+                threads=options.threads,
+                nt2aa=False
+            )
 
-            mmseqs_createdb(fasta=new_nodes_fasta, outdb=new_nodes_db, threads=options.threads, nt2aa=False)
-            mmseqs_concatdbs(db1=base_db, db2=new_nodes_db, outdb=outdb, tmpdir=str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
+            # concat into a new base_db for this iteration
+            new_base_db = mmseqs_dir / f"pan_genome_db_iter{iter_idx}"
+            mmseqs_concatdbs(
+                db1=str(base_db),
+                db2=str(new_nodes_db),
+                outdb=str(new_base_db),
+                tmpdir=str(mmseqs_dir),
+                threads=options.threads
+            )
+
+            base_db = new_base_db
+            logging.debug(f"updated base db: {base_db}")
 
         # write version without metadata for later visualization
         if graph_count == (n_graphs-2):
@@ -1069,7 +1113,7 @@ def main():
         # reduce memory by removing intermediate files
         for name in [
             "mapping", "mapping_target", "mapping_groups_new",
-            "centroids_fa",
+            "query_fa",
             "reordered_pairs",
         ]:
             if name in locals():
