@@ -117,7 +117,13 @@ def main():
 
     ### create outdir
 
+    os.rmdir(f'{str(options.outdir)}/mmseqs_tmp') 
+
     Path(f'{str(options.outdir)}/mmseqs_tmp').mkdir(parents=True, exist_ok=True)
+
+    # remove any existing files in mmseqs outdir (can cause problems)
+    #if os.path.isfile(f'{str(options.outdir)}/mmseqs_tmp/*'):
+    #    os.remove(f'{str(options.outdir)}/mmseqs_tmp/*') 
 
     ### read in two graphs
 
@@ -1036,6 +1042,7 @@ def main():
                     seqs = merged_graph.nodes[node]["protein"][0]
                     fasta_out.write(f">{node}\n{seqs}\n")
             mmseqs_createdb(fasta=updated_node_names, outdb=base_db, threads=options.threads, nt2aa=False)
+            
         else:
             # write new nodes to fasta to update mmseqs db
             new_nodes_fasta = Path(options.outdir) / "mmseqs_tmp" / f"new_nodes_{graph_count+2}.fa"
