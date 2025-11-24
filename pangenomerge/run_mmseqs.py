@@ -29,9 +29,9 @@ def mmseqs_concatdbs(db1, db2, outdb, tmpdir, threads):
     
     subprocess.run(cmd, shell=True, check=True)
 
-    cmd = f'mmseqs createindex {str(outdb)} {str(tmpdir)} -v 2 --threads {str(threads)}'
+    #cmd = f'mmseqs createindex {str(outdb)} {str(tmpdir)} -v 2 --threads {str(threads)}'
 
-    subprocess.run(cmd, shell=True, check=True)
+    #subprocess.run(cmd, shell=True, check=True)
 
     return
 
