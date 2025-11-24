@@ -701,19 +701,19 @@ def main():
         def write_centroids_to_fasta(G, query_fa):
             with open(query_fa, "w") as ft:
                 for node, data in G.nodes(data=True):
-                    seqs = data["protein"]
-                    if isinstance(seqs, (list, tuple)):
-                        seqs = max(seqs, key=len) # if list, pick longest sequence
-                    if isinstance(seqs, str):
-                        parts = seqs.split(";") # if string split on semicolon and pick longest
-                        seqs = max(parts, key=len)
-                    seqs = seqs.rstrip('*') # remove trailing stop
-                    name = node
                     if name.endswith("_target") or "_target" in name:
                         # pre-existing nodes -- already in target db
                         continue
                     else:
                         # new nodes
+                        seqs = data["protein"]
+                        if isinstance(seqs, (list, tuple)):
+                            seqs = max(seqs, key=len) # if list, pick longest sequence
+                        if isinstance(seqs, str):
+                            parts = seqs.split(";") # if string split on semicolon and pick longest
+                            seqs = max(parts, key=len)
+                        seqs = seqs.rstrip('*') # remove trailing stop
+                        name = node
                         ft.write(f">{name}\n{seqs}\n")
 
         query_fa = Path(options.outdir) / "mmseqs_tmp" / "centroids_query.fa"
@@ -1088,7 +1088,7 @@ def main():
         for u, v in merged_graph.edges():
             merged_graph[u][v].clear()
         nx.write_gml(merged_graph, str(output_path))
-        
+
         # write version without metadata for later visualization
         if graph_count == (n_graphs-2):
             output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}_nometadata.gml"
