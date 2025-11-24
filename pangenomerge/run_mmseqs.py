@@ -36,7 +36,7 @@ def mmseqs_concatdbs(db1, db2, outdb, tmpdir, threads):
 
     # now create the header database for outdb (doesn't happen automatically)
     
-    cmd = f"mmseqs concatdbs {str(db1)} {str(db2)} {str(outdb)} --threads 1"
+    cmd = f"mmseqs concatdbs {str(db1)}_h {str(db2)}_h {str(outdb)}_h --threads 1"
 
     result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
     check_result(result)
