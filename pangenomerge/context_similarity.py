@@ -49,8 +49,8 @@ def score_pair_context(row: dict):
     threshold = GLOBAL_CONTEXT_THRESHOLD
 
     s1 = context_similarity_seq(G, nA, nB, ident_lookup, depth=1)
-    s2 = s1 if s1 >= threshold else context_similarity_seq(G, nA, nB, ident_lookup, depth=2)
-    s3 = s2 if s2 >= threshold else context_similarity_seq(G, nA, nB, ident_lookup, depth=3)
+    s2 = s1 if s1 >= 0.9 else context_similarity_seq(G, nA, nB, ident_lookup, depth=2)
+    s3 = s2 if s2 >= 0.9 else context_similarity_seq(G, nA, nB, ident_lookup, depth=3)
     sims = [s1, s2, s3]
     
     return (nA, nB, ident, sims)
