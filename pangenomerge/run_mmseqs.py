@@ -28,10 +28,10 @@ def mmseqs_concatdbs(db1, db2, outdb, tmpdir, threads):
     cmd = f'mmseqs concatdbs {str(db1)} {str(db2)} {str(outdb)} --preserve-keys 1 --compressed 1 -v 3 --threads {str(threads)}'
     
     subprocess.run(cmd, shell=True, check=True)
-
-    #cmd = f'mmseqs createindex {str(outdb)} {str(tmpdir)} -v 2 --threads {str(threads)}'
-
-    #subprocess.run(cmd, shell=True, check=True)
+   
+    # now create the header database for outdb (doesn't happen automatically)
+    cmd_idx = f"mmseqs createindex {outdb} {tmpdir} --remove-tmp-files 1"
+    subprocess.run(cmd_idx, shell=True, check=True)
 
     return
 
