@@ -248,8 +248,8 @@ def main():
 
         ### run mmseqs on the two pangenome references
         run_mmseqs_search(
-            querydb=base_db,
-            targetdb=temp_db,
+            targetdb=base_db,
+            querydb=temp_db,
             resultdb = str(Path(options.outdir) / "mmseqs_tmp" / "resultdb"),
             resultm8 = str(Path(options.outdir) / "mmseqs_tmp" / "mmseqs_clusters.m8"),
             tmpdir = str(Path(options.outdir) / "mmseqs_tmp"),
@@ -282,7 +282,7 @@ def main():
         # filter for fraction nt identity >= 98% (global) and length difference <= 5%
         mmseqs = mmseqs[(mmseqs["fident"] >= 0.98) & (mmseqs["len_dif"] >= 0.95)].copy()
 
-        ### iterate over target with each unique value of target, and pick the match with the highest fident, then highest len_dif (see calculation)
+        ### iterate over query with each unique value of query, and pick the match with the highest fident, then highest len_dif (see calculation)
         # if still multiple matches, pick the first one
 
         # sort by fident (highest first), len_dif (highest first -- see calculation), and evalue (lowest first)
@@ -292,22 +292,22 @@ def main():
         logging.debug(f" {len(mmseqs_sorted)} one-to-one hits.")
         logging.debug(f"{mmseqs_sorted}")
 
-        # only keep the first occurrence per unique target (highest fident, lowest length difference, then smallest evalue if tie)
-        mmseqs_filtered = mmseqs_sorted.drop_duplicates(subset=["target"], keep="first")
-        mmseqs_filtered = mmseqs_filtered.drop_duplicates(subset=["query"], keep="first") # test if dropping query vs. target duplicates first changes results
+        # only keep the first occurrence per unique query (highest fident, lowest length difference, then smallest evalue if tie)
+        mmseqs_filtered = mmseqs_sorted.drop_duplicates(subset=["query"], keep="first")
+        mmseqs_filtered = mmseqs_filtered.drop_duplicates(subset=["target"], keep="first") # test if dropping target vs. query duplicates first changes results
 
         # debug statement...
         logging.debug(f"Filtered to {len(mmseqs_filtered)} one-to-one hits.")
         logging.debug(f"{mmseqs_filtered}")
-        dups_target = mmseqs_filtered["target"].duplicated().sum()
         dups_query = mmseqs_filtered["query"].duplicated().sum()
-        logging.debug(f"Remaining duplicates — target: {dups_target}, query: {dups_query}")
+        dups_target = mmseqs_filtered["target"].duplicated().sum()
+        logging.debug(f"Number of remaining duplicates (should be 0) — query: {dups_query}, target: {dups_target}")
 
         # info statement...
         logging.info("Hits filtered. Mapping between graphs...")
 
-        # in mmseqs, the first graph entered (in this case graph_1) is the query and the second entered (in this case graph_2) is the target
-        # so graph_1 is our query in mmseqs and the basegraph in the tokenized merge
+        # in mmseqs, the first graph entered (in this case graph_1) is the target and the second entered (in this case graph_2) is the query
+        # so graph_1 is our target in mmseqs and the basegraph in the tokenized merge
 
         # when iterating over graph_2 to append to graph_1, we want to match nodes according to their graph_1 identity
         # so we need to replace all graph_2 nodes with graph_1 node ids
@@ -381,28 +381,28 @@ def main():
 
         ### map filtered mmseqs2 hits to mapping of nodes between graphs
 
-        # mapping format: dictionary with old labels (graph_2/target groups) as keys and new labels (graph_1/query) as values
+        # mapping format: dictionary with old labels (graph_2/query groups) as keys and new labels (graph_1/target) as values
 
-        # convert df to dictionary with "target" as keys and "query" as values
+        # convert df to dictionary with "query" as keys and "target" as values
         # this maps groups from graph_1 to groups from graph_2
-        mapping = dict(zip(mmseqs_filtered["target"], mmseqs_filtered["query"]))
+        mapping = dict(zip(mmseqs_filtered["query"], mmseqs_filtered["target"]))
 
-        ### to avoid matching nodes from target that have the same group_id but are not the same:
-        # append all nodes in query graph with _query
-        # append all query nodes in target graph with _query (for later matching)
+        ### to avoid matching nodes from query that have the same group_id but are not the same:
+        # append all nodes in target graph with _target
+        # append all target nodes in query graph with _target (for later matching)
 
-        # this appends _query to values (graph_1/query groups)
-        mapping = {key: f"{value}_query" for key, value in mapping.items()}
+        # this appends _target to values (graph_1/target groups)
+        mapping = {key: f"{value}_target" for key, value in mapping.items()}
 
-        # relabel target graph from old labels (keys) to new labels (values, the _query-appended graph_1 groups)
-        # some of these will just be OG group_XXX (not query-appended) from graph 2; the rest will be group_XXX_query from graph 1
+        # relabel query graph from old labels (keys) to new labels (values, the _target-appended graph_1 groups)
+        # some of these will just be OG group_XXX (not target-appended) from graph 2; the rest will be group_XXX_target from graph 1
         relabeled_graph_2 = relabel_nodes_preserve_attrs(groupmapped_graph_2, mapping)
         relabeled_graph_2 = sync_names(relabeled_graph_2)
 
-        # append _query to ALL nodes in query graph 
-        mapping_query = dict(zip(groupmapped_graph_1.nodes, groupmapped_graph_1.nodes))
-        mapping_query = {key: f"{value}_query" for key, value in mapping_query.items()}
-        relabeled_graph_1 = relabel_nodes_preserve_attrs(groupmapped_graph_1, mapping_query)
+        # append _target to ALL nodes in target graph 
+        mapping_target = dict(zip(groupmapped_graph_1.nodes, groupmapped_graph_1.nodes))
+        mapping_target = {key: f"{value}_target" for key, value in mapping_target.items()}
+        relabeled_graph_1 = relabel_nodes_preserve_attrs(groupmapped_graph_1, mapping_target)
         relabeled_graph_1 = sync_names(relabeled_graph_1)
 
         # reduce memory by removing intermediate files
@@ -417,13 +417,13 @@ def main():
         gc.collect()
 
         # debug statement...
-        logging.debug("MMseqs mapping (target to query_query):")
+        logging.debug("MMseqs mapping (query to target_target):")
         for k,v in list(mapping.items())[:10]:
             logging.debug(f"  {k} to {v}")
 
         # debug statement...
         logging.debug(f"Relabeled graph_2 nodes sample: {list(relabeled_graph_2.nodes())[:10]}")
-        logging.debug(f"Relabeled graph_1 (_query appended) nodes sample: {list(relabeled_graph_1.nodes())[:10]}")
+        logging.debug(f"Relabeled graph_1 (_target appended) nodes sample: {list(relabeled_graph_1.nodes())[:10]}")
 
         # read in graph of all isolates (for ARI/AMI calculation)
         if options.mode == 'test':
@@ -527,8 +527,8 @@ def main():
         # info statement...
         logging.info("Merging nodes...")
 
-        # iterate, adding new node if node doesn't contain "_query"
-        # and merging the nodes that both end in "_query"
+        # iterate, adding new node if node doesn't contain "_target"
+        # and merging the nodes that both end in "_target"
 
         # create dictionary of nodes that will be added (not merged into existing nodes)
         mapping_groups_new = {}
@@ -631,17 +631,17 @@ def main():
                 # note that this statement is for NODES not EDGES
 
                 # edge[0] and edge[1] are node names from nodes in g2
-                # e.g. group_XXX_g2 or group_YYY_query
+                # e.g. group_XXX_g2 or group_YYY_target
 
-                # we first found any edges that exist in the merged graph, e.g. group_XXX_query <-> group_YYY_query
-                # we are now looking for group_XXX_query <-> group_YYY_g2 and group_XXX_g2 <-> group_YYY_g2 and any group_XXX_query <-> group_YYY_query only present in the new graph
+                # we first found any edges that exist in the merged graph, e.g. group_XXX_target <-> group_YYY_target
+                # we are now looking for group_XXX_target <-> group_YYY_g2 and group_XXX_g2 <-> group_YYY_g2 and any group_XXX_target <-> group_YYY_target only present in the new graph
 
-                # this finds new group_XXX_query <-> group_YYY_query mappings only present in the g2 (since part of "else" statement)
+                # this finds new group_XXX_target <-> group_YYY_target mappings only present in the g2 (since part of "else" statement)
                 if edge[0] in merged_graph.nodes() and edge[1] in merged_graph.nodes():
                     merged_graph.add_edge(edge[0], edge[1]) # add edge
                     merged_graph.edges[edge].update(relabeled_graph_2.edges[edge]) # update with all metadata
 
-                # these find group_XXX_query <-> group_YYY_g2
+                # these find group_XXX_target <-> group_YYY_g2
                 if edge[0] in merged_graph.nodes() and edge[1] not in merged_graph.nodes():
 
                     if f"{edge[1]}_g{graph_count+2}" in merged_graph.nodes():
@@ -690,21 +690,21 @@ def main():
         family_threshold = float(options.family_threshold)  # sequence identity threshold
         context_threshold = float(options.context_threshold)  # contextual similarity threshold 
 
-        # write target centroid fasta (stream to reduce memory)
-        def write_centroids_to_fasta(G, target_fa):
-            with open(target_fa, "w") as ft:
+        # write query centroid fasta (stream to reduce memory)
+        def write_centroids_to_fasta(G, query_fa):
+            with open(query_fa, "w") as ft:
                 for node, data in G.nodes(data=True):
-                    seqs = data["protein"]
+                    seqs = data["protein"][0]
                     name = node
-                    if name.endswith("_query") or "_query" in name:
-                        # pre-existing nodes -- already in query db
+                    if name.endswith("_target") or "_target" in name:
+                        # pre-existing nodes -- already in target db
                         continue
                     else:
                         # new nodes
                         ft.write(f">{name}\n{seqs}\n")
 
-        target_fa = Path(options.outdir) / "mmseqs_tmp" / "centroids_target.fa"
-        write_centroids_to_fasta(merged_graph, target_fa)
+        query_fa = Path(options.outdir) / "mmseqs_tmp" / "centroids_query.fa"
+        write_centroids_to_fasta(merged_graph, query_fa)
 
         # info statement
         logging.info("Computing pairwise identities...")
@@ -712,17 +712,17 @@ def main():
         # info statement...
         logging.info("Creating MMSeqs2 database...")
 
-        # create AA mmseqs database for target
-        target_db = Path(options.outdir) / "mmseqs_tmp" / "target_db"
-        mmseqs_createdb(fasta=target_fa, outdb=target_db, threads=options.threads, nt2aa=False)
+        # create AA mmseqs database for query
+        query_db = Path(options.outdir) / "mmseqs_tmp" / "query_db"
+        mmseqs_createdb(fasta=query_fa, outdb=query_db, threads=options.threads, nt2aa=False)
 
         # info statement...
         logging.info("Running MMSeqs2...")
 
         # run mmseqs to get hits, keeping only those above the minimum useful threshold (family_threshold, which is LOWER than context threshold)
         run_mmseqs_search(
-            querydb=base_db,
-            targetdb=target_db,
+            targetdb=base_db,
+            querydb=query_db,
             resultdb = str(Path(options.outdir) / "mmseqs_tmp" / "resultdb"),
             resultm8=str(Path(options.outdir) / "mmseqs_tmp" / "mmseqs_clusters.m8"),
             tmpdir=str(Path(options.outdir) / "mmseqs_tmp"),
@@ -752,12 +752,12 @@ def main():
         # filter for identity ≥ 70% and length difference ≥ 70%
         mmseqs = mmseqs[(mmseqs["fident"] >= family_threshold) & (mmseqs["len_dif"] >= family_threshold*0.95)].copy()
 
-        # remove self-matches (query == target)
-        mmseqs = mmseqs[mmseqs["query"] != mmseqs["target"]]
+        # remove self-matches (target == query)
+        mmseqs = mmseqs[mmseqs["target"] != mmseqs["query"]]
 
-        # add _query to query node names
+        # add _target to target node names
         # possibly pretty memory/time intensive for big dataframes, see if can make this more efficient later
-        mmseqs["query"] += "_query"
+        mmseqs["target"] += "_target"
 
         # debugging statements...
         logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
@@ -768,7 +768,7 @@ def main():
 
         ### compute contextual similarity
 
-        # can still accidentally map together things from same genome by mapping a query node that's been merged into with a g2 node
+        # can still accidentally map together things from same genome by mapping a target node that's been merged into with a g2 node
         # thus we check that member sets for the nodes are disjoint (don't contain any of the same genomes)
 
         ident_lookup = build_ident_lookup(mmseqs)
@@ -813,10 +813,10 @@ def main():
         # debug statement...
         logging.debug(f"accepted pairs (duplicates removed): {accepted_pairs[:10]}")
 
-        # reorder to ensure 'a' is always the node with '_query'
+        # reorder to ensure 'a' is always the node with '_target'
         reordered_pairs = []
         for a, b, ident, sims in unique_pairs:
-            if "_query" in b and "_query" not in a:
+            if "_target" in b and "_target" not in a:
                 a, b = b, a
             reordered_pairs.append((a, b))
         
@@ -967,31 +967,31 @@ def main():
 
         ### clean node names in merged graph
         if graph_count == 0:
-            # remove _query suffix, add graph count 
-            # (relabel node from graph_1 group_xxx_query to group_xxx_gx)
+            # remove _target suffix, add graph count 
+            # (relabel node from graph_1 group_xxx_target to group_xxx_gx)
             mapping = {}
             for node_id, node_data in merged_graph.nodes(data=True):
                 name = node_data.get('name', '')
-                if '_query' in name:
-                    new_name = re.sub(r'_query.*$', f'_g{graph_count+1}', name)
+                if '_target' in name:
+                    new_name = re.sub(r'_target.*$', f'_g{graph_count+1}', name)
                     mapping[node_id] = new_name
                     #logging.debug(f"Changed: {name} to {new_name}")
-                if '_query' not in name:
+                if '_target' not in name:
                     #logging.debug(f"Retained: {name}")
                     continue
             merged_graph = relabel_nodes_preserve_attrs(merged_graph, mapping)
             merged_graph = sync_names(merged_graph)
         else:
-            # remove _query suffix
-            # (relabel query nodes node from group_xxx_x_query to group_xxx_x)
+            # remove _target suffix
+            # (relabel target nodes node from group_xxx_x_target to group_xxx_x)
             mapping = {}
             for node_id, node_data in merged_graph.nodes(data=True):
                 name = node_data.get('name', '')
-                if '_query' in name:
-                    new_name = re.sub(r'_query.*$', "", name)
+                if '_target' in name:
+                    new_name = re.sub(r'_target.*$', "", name)
                     mapping[node_id] = new_name
                     #logging.debug(f"Changed: {name} to {new_name}")
-                if '_query' not in name:
+                if '_target' not in name:
                     #logging.debug(f"Retained: {name}")
                     continue
             merged_graph = relabel_nodes_preserve_attrs(merged_graph, mapping)
@@ -1032,7 +1032,7 @@ def main():
                 for node in merged_graph.nodes():
                     name = node
                     #if f'_g{graph_count+2}' not in name:
-                    seqs = merged_graph.nodes[node]["protein"]
+                    seqs = merged_graph.nodes[node]["protein"][0]
                     fasta_out.write(f">{node}\n{seqs}\n")
             mmseqs_createdb(fasta=updated_node_names, outdb=base_db, threads=options.threads, nt2aa=False)
         else:
@@ -1042,7 +1042,7 @@ def main():
                 for node in merged_graph.nodes():
                     name = node
                     if name.endswith(f'_g{graph_count+2}'):
-                        seqs = merged_graph.nodes[node]["protein"]
+                        seqs = merged_graph.nodes[node]["protein"][0]
                         fasta_out.write(f">{node}\n{seqs}\n")
 
             # update mmseqs database
@@ -1063,7 +1063,7 @@ def main():
 
         # reduce memory by removing intermediate files
         for name in [
-            "mapping", "mapping_query", "mapping_groups_new",
+            "mapping", "mapping_target", "mapping_groups_new",
             "centroids_fa",
             "reordered_pairs",
         ]:
