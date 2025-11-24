@@ -1023,21 +1023,14 @@ def main():
         logging.debug("After formatting metadata:")
         for node in list(merged_graph.nodes())[:5]:
             logging.debug(f"  node: {node}")
-        
-        # info statement...
-        logging.info('Writing merged graph to outdir...')
-
-        # write new graph to GML
-        output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}.gml"
-        nx.write_gml(merged_graph, str(output_path))
 
         # write new pan-genome reference to fasta (stream to reduce memory)
-        reference_out = Path(options.outdir) / f"pan_genome_reference_{graph_count+1}.fa"
-        with open(reference_out, "w") as fasta_out:
-            for node in merged_graph.nodes():
-                seqs = merged_graph.nodes[node]["dna"].split(";")
-                node_centroid_seq = max(seqs, key=len)
-                fasta_out.write(f">{node}\n{node_centroid_seq}\n")
+        #reference_out = Path(options.outdir) / f"pan_genome_reference_{graph_count+1}.fa"
+        #with open(reference_out, "w") as fasta_out:
+        #    for node in merged_graph.nodes():
+        #        seqs = merged_graph.nodes[node]["dna"].split(";")
+        #        node_centroid_seq = max(seqs, key=len)
+        #        fasta_out.write(f">{node}\n{node_centroid_seq}\n")
 
         # after first iter, update base mmseqs database so first graph has _g1 appended node names
         if graph_count == 0:
@@ -1082,6 +1075,20 @@ def main():
             mmseqs_concatdbs(db1=base_db, db2=new_nodes_db, outdb=outdb, tmpdir=str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
             base_db = outdb
 
+        
+        # info statement...
+        logging.info('Writing merged graph to outdir...')
+
+        # write new graph to GML
+        output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}.gml"
+        #nx.write_gml(merged_graph, str(output_path))
+        # temporarily: only write graphs w no metadata to allow for slow nx write speed
+        for n in merged_graph.nodes():
+            merged_graph.nodes[n].clear()
+        for u, v in merged_graph.edges():
+            merged_graph[u][v].clear()
+        nx.write_gml(merged_graph, str(output_path))
+        
         # write version without metadata for later visualization
         if graph_count == (n_graphs-2):
             output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}_nometadata.gml"
