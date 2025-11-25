@@ -701,6 +701,7 @@ def main():
         def write_centroids_to_fasta(G, query_fa):
             with open(query_fa, "w") as ft:
                 for node, data in G.nodes(data=True):
+                    name = node
                     if name.endswith("_target") or "_target" in name:
                         # pre-existing nodes -- already in target db
                         continue
@@ -1085,8 +1086,10 @@ def main():
         # temporarily: only write graphs w no metadata to allow for slow nx write speed
         for n in merged_graph.nodes():
             merged_graph.nodes[n].clear()
+            merged_graph.nodes[n]["name"] = n
         for u, v in merged_graph.edges():
             merged_graph[u][v].clear()
+            merged_graph[u][v]["name"] = n
         nx.write_gml(merged_graph, str(output_path))
 
         # write version without metadata for later visualization
