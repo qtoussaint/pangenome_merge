@@ -1088,17 +1088,21 @@ def main():
             merged_graph.nodes[n].clear()
             merged_graph.nodes[n]["name"] = n
             merged_graph.nodes[n]["seqIDs"] = []
-            merged_graph.nodes[n]["geneIDs"] = []
+            merged_graph.nodes[n]["geneIDs"] = ''
             merged_graph.nodes[n]["members"] = []
             merged_graph.nodes[n]["genomeIDs"] = []
             merged_graph.nodes[n]["size"] = 1
             merged_graph.nodes[n]["lengths"] = []
-
+            merged_graph.nodes[n]['longCentroidID'] = [] 
+            merged_graph.nodes[n]['maxLenId'] = ''
+            merged_graph.nodes[n]['centroid'] = []
+            
         for u, v in merged_graph.edges():
             merged_graph[u][v].clear()
             merged_graph[u][v]["name"] = n
             merged_graph[u][v]["size"] = 1
             merged_graph[u][v]["members"] = []
+            merged_graph[u][v]['genomeIDs'] = ''
         nx.write_gml(merged_graph, str(output_path))
 
         # write version without metadata for later visualization
