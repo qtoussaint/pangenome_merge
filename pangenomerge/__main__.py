@@ -1085,17 +1085,26 @@ def main():
         #nx.write_gml(merged_graph, str(output_path))
         # temporarily: only write graphs w no metadata to allow for slow nx write speed
         for n in merged_graph.nodes():
+            degrees = merged_graph.nodes[n]["degrees"]
             merged_graph.nodes[n].clear()
             merged_graph.nodes[n]["name"] = n
             merged_graph.nodes[n]["seqIDs"] = []
             merged_graph.nodes[n]["geneIDs"] = ''
             merged_graph.nodes[n]["members"] = []
-            merged_graph.nodes[n]["genomeIDs"] = []
+            merged_graph.nodes[n]["genomeIDs"] = ''
             merged_graph.nodes[n]["size"] = 1
             merged_graph.nodes[n]["lengths"] = []
             merged_graph.nodes[n]['longCentroidID'] = [] 
             merged_graph.nodes[n]['maxLenId'] = ''
             merged_graph.nodes[n]['centroid'] = []
+            merged_graph.nodes[n]['dna'] = [""]
+            merged_graph.nodes[n]['protein'] = [""]
+            merged_graph.nodes[n]["hasEnd"] = 0
+            merged_graph.nodes[n]["annotation"] = ''
+            merged_graph.nodes[n]["description"] = ''
+            merged_graph.nodes[n]["paralog"] = 0
+            merged_graph.nodes[n]["mergedDNA"] = ''
+            merged_graph.nodes[n]["degrees"] = degrees
             
         for u, v in merged_graph.edges():
             merged_graph[u][v].clear()
