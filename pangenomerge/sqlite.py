@@ -64,10 +64,11 @@ def sqlite_init(con: sqlite3.Connection):
     );
 
     CREATE TABLE IF NOT EXISTS node_lengths (
-        iteration INTEGER,
-        node_id TEXT,
-        length INTEGER,
-        PRIMARY KEY (iteration, node_id, length)
+    iteration INTEGER,
+    node_id TEXT,
+    length INTEGER,
+    count INTEGER,
+    PRIMARY KEY (iteration, node_id, length)
     );
 
     CREATE TABLE IF NOT EXISTS node_longCentroidID (
@@ -160,9 +161,11 @@ def add_metadata_to_sqlite(G, database: str, iteration: int, con):
         if isinstance(centroids, str):
             centroids = [centroids]
 
-        for L in (data.get("lengths") or []):
-            if L is not None:
-                length_rows.append((iteration, node_id, int(L)))
+        # get unique lengths and their counts
+        lengths = data.get("lengths") or []
+        ctr = Counter(int(L) for L in lengths if L is not None)
+        for L, c in ctr.items():
+            length_rows.append((iteration, node_id, L, c))
 
         for t in (data.get("longCentroidID") or []):
             longcid_rows.append((iteration, node_id, str(t)))
@@ -183,7 +186,7 @@ def add_metadata_to_sqlite(G, database: str, iteration: int, con):
     cur.executemany("INSERT INTO node_seqids(iteration,node_id,seqid) VALUES (?,?,?)", seqid_rows)
     cur.executemany("INSERT INTO node_geneids(iteration,node_id,geneid) VALUES (?,?,?)", geneid_rows)
     cur.executemany("INSERT INTO node_centroids(iteration,node_id,centroid) VALUES (?,?,?)", centroid_rows)
-    cur.executemany("INSERT INTO node_lengths(iteration,node_id,length) VALUES (?,?,?)", length_rows)
+    cur.executemany("INSERT INTO node_lengths(iteration,node_id,length,count) VALUES (?,?,?,?)", length_rows)
     cur.executemany("INSERT INTO node_longCentroidID(iteration,node_id,tag) VALUES (?,?,?)", longcid_rows)
     cur.executemany("INSERT INTO node_sequences(iteration,node_id,dna,protein) VALUES (?,?,?,?)", seq_rows)
 

@@ -143,8 +143,15 @@ def main():
     # this will always point to the current combined pangenome db
     base_db = None
 
-    # add sqlite database
+    # define sqlite database path
     sqlite_path = str(Path(options.outdir) / "pangenome_metadata.sqlite")
+
+    # delete any existing sqlite database
+    if sqlite_path.exists():
+        logging.info(f"Removing existing SQLite database: {sqlite_path}")
+        sqlite_path.unlink()
+
+    # create new sqlite database
     con = sqlite_connect(sqlite_path)
     sqlite_init(con)
 
