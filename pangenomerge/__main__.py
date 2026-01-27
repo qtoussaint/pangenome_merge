@@ -76,8 +76,8 @@ def get_options():
                     default=False,
                     type=bool,
                     required=False,
-                    help='Keep metadata in final graph GML in addition to the SQLite database. Dramatically increases runtime \
-                    and memory consumption. Not recommended with >10k isolates.')
+                    help='Retains metadata in the final graph GML (in addition to the SQLite database). Dramatically increases \
+                    runtime and memory consumption. Not recommended with >10k isolates.')
 
     parameters = parser.add_argument_group('Parameters')
     parameters.add_argument('--family-threshold',
@@ -119,8 +119,9 @@ def main():
 
     # check whether metadata should be left in merged graph and provide warning
     if options.keep_metadata_in_graph is True:
-        logging.warning(f"Metadata will be retained in the final graph GML (in addition to the SQLite database). Dramatically increases runtime \
-                        and memory consumption. Not recommended with >10k isolates. To remove this warning, run without '--metadata-in-graph'.")
+        logging.warning(f"Metadata will be retained in the final graph GML (in addition to the SQLite database). \
+            Dramatically increases runtime and memory consumption. Not recommended with >10k isolates. \
+            To remove this warning, run without '--metadata-in-graph'.")
     if options.mode == 'test' and options.keep_metadata_in_graph is not True:
         logging.warning(f"Keeping metadata in graph is required for test mode! Running with --metadata-in-graph...")
         options.keep_metadata_in_graph = True
@@ -1107,11 +1108,11 @@ def main():
         # define new graph name 
         output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}.gml"
 
-        if keep_metadata_in_graph is True:
+        if options.keep_metadata_in_graph is True:
             # write new graph to GML with all metadata
             nx.write_gml(merged_graph, str(output_path))
 
-        if keep_metadata_in_graph is not True:
+        if options.keep_metadata_in_graph is not True:
             # write new graph to GML without metadata (to allow for slow nx write speed)
             for n in merged_graph.nodes():
                 degrees = merged_graph.nodes[n]["degrees"]
@@ -1144,7 +1145,7 @@ def main():
             
             nx.write_gml(merged_graph, str(output_path))
 
-        if keep_metadata_in_graph is True:
+        if options.keep_metadata_in_graph is True:
             # write an additional version of the final graph that doesn't have metadata
             if graph_count == (n_graphs-2):
                 output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}_nometadata.gml"
