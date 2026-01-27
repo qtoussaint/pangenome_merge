@@ -31,7 +31,7 @@ from panaroo_functions.merge_nodes import merge_node_cluster, gen_edge_iterables
 from .relabel_nodes import relabel_nodes_preserve_attrs,sync_names
 from .context_similarity import context_similarity_seq
 from .context_similarity import build_ident_lookup, init_parallel, compute_scores_parallel
-from .sqlite import sqlite_connect, sqlite_init
+from .sqlite import sqlite_connect, sqlite_init, add_metadata_to_sqlite
 
 from .__init__ import __version__
 
@@ -117,6 +117,14 @@ def main():
     if options.mode == 'test' and options.graph_all is None:
         logging.critical("Specifying --graph-all is required for test mode!")
 
+    # check whether metadata should be left in merged graph and provide warning
+    if options.keep_metadata_in_graph is True:
+        logging.warning(f"Metadata will be retained in the final graph GML (in addition to the SQLite database). Dramatically increases runtime \
+                        and memory consumption. Not recommended with >10k isolates. To remove this warning, run without '--metadata-in-graph'.")
+    if options.mode == 'test' and options.keep_metadata_in_graph is not True:
+        logging.warning(f"Keeping metadata in graph is required for test mode! Running with --metadata-in-graph...")
+        options.keep_metadata_in_graph = True
+
     # set logging to 'debug' or 'info' (default)
     if options.debug:
         logging.basicConfig(level=logging.DEBUG, format="[%(levelname)s] %(message)s")
@@ -138,11 +146,6 @@ def main():
     sqlite_path = str(Path(options.outdir) / "pangenome_metadata.sqlite")
     con = sqlite_connect(sqlite_path)
     sqlite_init(con)
-
-    # check whether metadata should be left in merged graph and provide warning
-    if options.keep_metadata_in_graph is True:
-        logging.warning(f"Metadata will be retained in the final graph GML (in addition to the SQLite database). Dramatically increases runtime \
-                        and memory consumption. Not recommended with >10k isolates. To remove this warning, run without '--metadata-in-graph'.")
 
     ### read in two graphs
 
