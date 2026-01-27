@@ -31,6 +31,7 @@ from panaroo_functions.merge_nodes import merge_node_cluster, gen_edge_iterables
 from .relabel_nodes import relabel_nodes_preserve_attrs,sync_names
 from .context_similarity import context_similarity_seq
 from .context_similarity import build_ident_lookup, init_parallel, compute_scores_parallel
+from .sqlite import connect_db, init_schema
 
 from .__init__ import __version__
 
@@ -70,6 +71,13 @@ def get_options():
                     default=None,
                     help='Path to Panaroo output directory of pan-genome gene graph created from all samples in component-graphs. \
                     Only required for the test case, where it is used as the ground truth.')
+    IO.add_argument('--metadata-in-graph',
+                    dest='keep_metadata_in_graph',
+                    default=False,
+                    type=bool,
+                    required=False,
+                    help='Keep metadata in final graph GML in addition to the SQLite database. Dramatically increases runtime \
+                    and memory consumption. Not recommended with >10k isolates.')
 
     parameters = parser.add_argument_group('Parameters')
     parameters.add_argument('--family-threshold',
@@ -125,6 +133,16 @@ def main():
 
     # this will always point to the current combined pangenome db
     base_db = None
+
+    # add sqlite database
+    sqlite_path = str(Path(options.outdir) / "pangenome_metadata.sqlite")
+    con = sqlite_connect(sqlite_path)
+    sqlite_init(con)
+
+    # check whether metadata should be left in merged graph and provide warning
+    if options.keep_metadata_in_graph is True:
+        logging.warning(f"Metadata will be retained in the final graph GML (in addition to the SQLite database). Dramatically increases runtime \
+                        and memory consumption. Not recommended with >10k isolates. To remove this warning, run without '--metadata-in-graph'.")
 
     ### read in two graphs
 
@@ -1080,48 +1098,58 @@ def main():
         # info statement...
         logging.info('Writing merged graph to outdir...')
 
-        # write new graph to GML
-        output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}.gml"
-        #nx.write_gml(merged_graph, str(output_path))
-        # temporarily: only write graphs w no metadata to allow for slow nx write speed
-        for n in merged_graph.nodes():
-            degrees = merged_graph.nodes[n]["degrees"]
-            merged_graph.nodes[n].clear()
-            merged_graph.nodes[n]["name"] = n
-            merged_graph.nodes[n]["seqIDs"] = []
-            merged_graph.nodes[n]["geneIDs"] = ''
-            merged_graph.nodes[n]["members"] = []
-            merged_graph.nodes[n]["genomeIDs"] = ''
-            merged_graph.nodes[n]["size"] = 1
-            merged_graph.nodes[n]["lengths"] = []
-            merged_graph.nodes[n]['longCentroidID'] = [] 
-            merged_graph.nodes[n]['maxLenId'] = ''
-            merged_graph.nodes[n]['centroid'] = []
-            merged_graph.nodes[n]['dna'] = [""]
-            merged_graph.nodes[n]['protein'] = [""]
-            merged_graph.nodes[n]["hasEnd"] = 0
-            merged_graph.nodes[n]["annotation"] = ''
-            merged_graph.nodes[n]["description"] = ''
-            merged_graph.nodes[n]["paralog"] = 0
-            merged_graph.nodes[n]["mergedDNA"] = ''
-            merged_graph.nodes[n]["degrees"] = degrees
-            
-        for u, v in merged_graph.edges():
-            merged_graph[u][v].clear()
-            merged_graph[u][v]["name"] = n
-            merged_graph[u][v]["size"] = 1
-            merged_graph[u][v]["members"] = []
-            merged_graph[u][v]['genomeIDs'] = ''
-        nx.write_gml(merged_graph, str(output_path))
+        # add metadata to SQLite database
+        add_metadata_to_sqlite(G=merged_graph, database=sqlite_path, iteration=graph_count+1)
 
-        # write version without metadata for later visualization
-        if graph_count == (n_graphs-2):
-            output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}_nometadata.gml"
+        # define new graph name 
+        output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}.gml"
+
+        if keep_metadata_in_graph is True:
+            # write new graph to GML with all metadata
+            nx.write_gml(merged_graph, str(output_path))
+
+        if keep_metadata_in_graph is not True:
+            # write new graph to GML without metadata (to allow for slow nx write speed)
             for n in merged_graph.nodes():
+                degrees = merged_graph.nodes[n]["degrees"]
                 merged_graph.nodes[n].clear()
+                merged_graph.nodes[n]["name"] = n
+                merged_graph.nodes[n]["seqIDs"] = []
+                merged_graph.nodes[n]["geneIDs"] = ''
+                merged_graph.nodes[n]["members"] = []
+                merged_graph.nodes[n]["genomeIDs"] = ''
+                merged_graph.nodes[n]["size"] = 1
+                merged_graph.nodes[n]["lengths"] = []
+                merged_graph.nodes[n]['longCentroidID'] = [] 
+                merged_graph.nodes[n]['maxLenId'] = ''
+                merged_graph.nodes[n]['centroid'] = []
+                merged_graph.nodes[n]['dna'] = [""]
+                merged_graph.nodes[n]['protein'] = [""]
+                merged_graph.nodes[n]["hasEnd"] = 0
+                merged_graph.nodes[n]["annotation"] = ''
+                merged_graph.nodes[n]["description"] = ''
+                merged_graph.nodes[n]["paralog"] = 0
+                merged_graph.nodes[n]["mergedDNA"] = ''
+                merged_graph.nodes[n]["degrees"] = degrees
+                
             for u, v in merged_graph.edges():
                 merged_graph[u][v].clear()
+                merged_graph[u][v]["name"] = n
+                merged_graph[u][v]["size"] = 1
+                merged_graph[u][v]["members"] = []
+                merged_graph[u][v]['genomeIDs'] = ''
+            
             nx.write_gml(merged_graph, str(output_path))
+
+        if keep_metadata_in_graph is True:
+            # write an additional version of the final graph that doesn't have metadata
+            if graph_count == (n_graphs-2):
+                output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}_nometadata.gml"
+                for n in merged_graph.nodes():
+                    merged_graph.nodes[n].clear()
+                for u, v in merged_graph.edges():
+                    merged_graph[u][v].clear()
+                nx.write_gml(merged_graph, str(output_path))
 
         # reduce memory by removing intermediate files
         for name in [
