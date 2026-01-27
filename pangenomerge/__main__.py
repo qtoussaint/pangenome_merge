@@ -1103,7 +1103,7 @@ def main():
         logging.info('Writing merged graph to outdir...')
 
         # add metadata to SQLite database
-        add_metadata_to_sqlite(G=merged_graph, database=sqlite_path, iteration=graph_count+1)
+        add_metadata_to_sqlite(G=merged_graph, database=sqlite_path, iteration=graph_count+1, con=con)
 
         # define new graph name 
         output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}.gml"

@@ -105,9 +105,7 @@ def sqlite_init(con: sqlite3.Connection):
     """)
     con.commit()
 
-def add_metadata_to_sqlite(G, database: str, iteration: int):
-    con = sqlite_connect(database)
-    sqlite_init(con)
+def add_metadata_to_sqlite(G, database: str, iteration: int, con):
     cur = con.cursor()
     cur.execute("BEGIN;")
 
