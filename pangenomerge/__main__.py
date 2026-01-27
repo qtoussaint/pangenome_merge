@@ -1170,6 +1170,9 @@ def main():
 
         # print progress statement...
         logging.info(f"Iteration {graph_count} of {n_graphs-1} complete.")
+    
+    # close connection to sqlite db
+    con.close()
 
     # info statement...
     logging.info('Finished successfully.')

@@ -1,6 +1,9 @@
 import sqlite3, json
 from pathlib import Path
 
+from collections import Counter
+
+
 def canon_uv(u, v):
     u, v = str(u), str(v)
     return (u, v) if u <= v else (v, u)
@@ -106,6 +109,7 @@ def sqlite_init(con: sqlite3.Connection):
     con.commit()
 
 def add_metadata_to_sqlite(G, database: str, iteration: int, con):
+    sqlite_init(con)
     cur = con.cursor()
     cur.execute("BEGIN;")
 
@@ -151,8 +155,10 @@ def add_metadata_to_sqlite(G, database: str, iteration: int, con):
                 if gid:
                     geneid_rows.append((iteration, node_id, gid))
 
-        for c in (data.get("centroid") or []):
-            centroid_rows.append((iteration, node_id, str(c)))
+        # ensure centroid strings aren't read as individual characters
+        centroids = data.get("centroid") or []
+        if isinstance(centroids, str):
+            centroids = [centroids]
 
         for L in (data.get("lengths") or []):
             if L is not None:
@@ -197,4 +203,3 @@ def add_metadata_to_sqlite(G, database: str, iteration: int, con):
     cur.executemany("INSERT INTO edge_members(iteration,u,v,member) VALUES (?,?,?,?)", edge_member_rows)
 
     cur.execute("COMMIT;")
-    con.close()
