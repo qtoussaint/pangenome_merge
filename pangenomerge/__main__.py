@@ -144,7 +144,7 @@ def main():
     base_db = None
 
     # define sqlite database path
-    sqlite_path = str(Path(options.outdir) / "pangenome_metadata.sqlite")
+    sqlite_path = Path(options.outdir) / "pangenome_metadata.sqlite"
 
     # delete any existing sqlite database
     if sqlite_path.exists():
