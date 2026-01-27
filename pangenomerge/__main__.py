@@ -31,7 +31,7 @@ from panaroo_functions.merge_nodes import merge_node_cluster, gen_edge_iterables
 from .relabel_nodes import relabel_nodes_preserve_attrs,sync_names
 from .context_similarity import context_similarity_seq
 from .context_similarity import build_ident_lookup, init_parallel, compute_scores_parallel
-from .sqlite import connect_db, init_schema
+from .sqlite import sqlite_connect, sqlite_init
 
 from .__init__ import __version__
 
