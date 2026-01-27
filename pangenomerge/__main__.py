@@ -836,7 +836,7 @@ def main():
             reordered_pairs.append((a, b))
         
         # debug statement...
-        logging.debug(f"accepted pairs (reordered): {accepted_pairs[:10]}")
+        logging.debug(f"accepted pairs (reordered): {reordered_pairs[:10]}")
 
         # reduce memory by removing intermediate files
         for name in ["mmseqs", "scores", "scores_sorted", "accepted_pairs", "unique_pairs"]:
