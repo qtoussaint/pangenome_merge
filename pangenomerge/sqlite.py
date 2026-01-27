@@ -111,10 +111,6 @@ def add_metadata_to_sqlite(G, database: str, iteration: int):
     cur = con.cursor()
     cur.execute("BEGIN;")
 
-    # overwrite snapshot for this iteration
-    cur.execute("INSERT OR REPLACE INTO iterations(iteration, graph_file_1, graph_file_2) VALUES (?, ?, ?)",
-                (iteration, graph_file_1, graph_file_2))
-
     for tbl in ["nodes","node_members","node_seqids","node_geneids","node_centroids","node_lengths",
                 "node_longCentroidID","node_sequences","edges","edge_members"]:
         cur.execute(f"DELETE FROM {tbl} WHERE iteration=?", (iteration,))
