@@ -231,11 +231,11 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
             last_iteration = MAX(nodes.last_iteration, excluded.last_iteration)
     """, node_rows)
 
-    cur.executemany("INSERT OR IGNORE INTO node_members(node_id,member) VALUES (?,?)", members_rows)
-    cur.executemany("INSERT OR IGNORE INTO node_seqids(node_id,seqid) VALUES (?,?)", seqid_rows)
-    cur.executemany("INSERT OR IGNORE INTO node_geneids(node_id,geneid) VALUES (?,?)", geneid_rows)
-    cur.executemany("INSERT OR IGNORE INTO node_centroids(node_id,centroid) VALUES (?,?)", centroid_rows)
-    cur.executemany("INSERT OR IGNORE INTO node_longCentroidID(node_id,tag) VALUES (?,?)", longcid_rows)
+    cur.executemany("INSERT INTO node_members(node_id,member) VALUES (?,?)", members_rows)
+    cur.executemany("INSERT INTO node_seqids(node_id,seqid) VALUES (?,?)", seqid_rows)
+    cur.executemany("INSERT INTO node_geneids(node_id,geneid) VALUES (?,?)", geneid_rows)
+    cur.executemany("INSERT INTO node_centroids(node_id,centroid) VALUES (?,?)", centroid_rows)
+    cur.executemany("INSERT INTO node_longCentroidID(node_id,tag) VALUES (?,?)", longcid_rows)
 
     # lengths: increment counts if already present
     cur.executemany("""
