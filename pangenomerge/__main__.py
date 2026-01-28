@@ -1109,7 +1109,7 @@ def main():
         logging.info('Writing new metadata to SQLite database...')
 
         # add metadata to SQLite database
-        add_metadata_to_sqlite(G=merged_graph, database=sqlite_path, iteration=graph_count+1, con=con)
+        add_metadata_to_sqlite(G=merged_graph, iteration=graph_count+1, con=con)
 
         # info statement...
         logging.info('Writing merged graph to outdir...')
