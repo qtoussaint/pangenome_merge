@@ -1,0 +1,24 @@
+# assemblies in poppunk assign format
+assemblies_tsv: "/full/path/to/assemblies.tsv"  
+
+# poppunk database
+poppunk_db: "/nfs/research/jlees/jacqueline/poppunk_dbs/s_pneumo_all/GPS_v4"
+
+# manual installs
+ggcaller_runner: "/hps/software/users/jlees/jacqueline/manual_installs/bin/ggcaller/ggCaller/ggcaller-runner.py"
+merge_script: "/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/COG_merge/tokenized_merge_clone/pangenome_merge/pangenomerge-runner.py"
+
+# merge clusters with < min_cluster_size samples
+# split clusters with > max_cluster_size samples
+min_cluster_size: 10
+max_cluster_size: 2500
+
+threads:
+  poppunk: 48
+  ggcaller: 48
+  panaroo: 48
+  merge: 48
+
+# optional: increase sqlite cache size when running pangenomerge
+sqlite_cache: 1048576
+
