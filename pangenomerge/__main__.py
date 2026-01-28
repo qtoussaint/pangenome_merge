@@ -1105,12 +1105,14 @@ def main():
             mmseqs_concatdbs(db1=base_db, db2=new_nodes_db, outdb=outdb, tmpdir=str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
             base_db = outdb
 
-        
         # info statement...
-        logging.info('Writing merged graph to outdir...')
+        logging.info('Writing new metadata to SQLite database...')
 
         # add metadata to SQLite database
         add_metadata_to_sqlite(G=merged_graph, database=sqlite_path, iteration=graph_count+1, con=con)
+
+        # info statement...
+        logging.info('Writing merged graph to outdir...')
 
         # define new graph name 
         output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}.gml"
