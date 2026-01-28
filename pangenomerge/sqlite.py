@@ -32,48 +32,36 @@ def sqlite_init_schema(con: sqlite3.Connection):
         last_iteration INTEGER
     );
 
-    CREATE TABLE IF NOT EXISTS node_members (
-        node_id TEXT,
-        member TEXT,
-        PRIMARY KEY (node_id, member)
-    );
-
     CREATE TABLE IF NOT EXISTS node_seqids (
         node_id TEXT,
         seqid TEXT,
         PRIMARY KEY (node_id, seqid)
-    );
+    ) WITHOUT ROWID;
 
     CREATE TABLE IF NOT EXISTS node_geneids (
         node_id TEXT,
         geneid TEXT,
         PRIMARY KEY (node_id, geneid)
-    );
+    ) WITHOUT ROWID;
 
     CREATE TABLE IF NOT EXISTS node_centroids (
         node_id TEXT,
         centroid TEXT,
         PRIMARY KEY (node_id, centroid)
-    );
+    ) WITHOUT ROWID;
 
     CREATE TABLE IF NOT EXISTS node_lengths (
         node_id TEXT,
         length INTEGER,
         count INTEGER,
         PRIMARY KEY (node_id, length)
-    );
+    ) WITHOUT ROWID;
 
     CREATE TABLE IF NOT EXISTS node_longCentroidID (
         node_id TEXT,
         tag TEXT,
         PRIMARY KEY (node_id, tag)
-    );
-
-    CREATE TABLE IF NOT EXISTS node_sequences (
-        node_id TEXT PRIMARY KEY,
-        dna TEXT,
-        protein TEXT
-    );
+    ) WITHOUT ROWID;
 
     CREATE TABLE IF NOT EXISTS edges (
         u TEXT,
@@ -82,14 +70,15 @@ def sqlite_init_schema(con: sqlite3.Connection):
         genomeIDs TEXT,
         last_iteration INTEGER,
         PRIMARY KEY (u, v)
-    );
+    ) WITHOUT ROWID;
 
     CREATE TABLE IF NOT EXISTS edge_members (
         u TEXT,
         v TEXT,
         member TEXT,
         PRIMARY KEY (u, v, member)
-    );
+    ) WITHOUT ROWID;
+
     """)
     con.commit()
 
