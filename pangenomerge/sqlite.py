@@ -306,6 +306,12 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
             size_val = None
         else:
             size_val = int(size) if size is not None else None
+        
+        emembers = edata.get("members") or []
+        genomeIDs = _norm_text_or_none(edata.get("genomeIDs"))
+
+        if not emembers and genomeIDs is None:
+            continue   # skip placeholder edge entirely
 
         edge_rows.append((u, v, size_val, genomeIDs, int(iteration)))
 
@@ -320,6 +326,9 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
             size = COALESCE(excluded.size, edges.size),
             genomeIDs = COALESCE(excluded.genomeIDs, edges.genomeIDs),
             last_iteration = MAX(edges.last_iteration, excluded.last_iteration)
+        WHERE
+            excluded.size IS NOT NULL OR
+            excluded.genomeIDs IS NOT NULL;
     """, edge_rows)
 
     cur.executemany("INSERT OR IGNORE INTO edge_members(u,v,member) VALUES (?,?,?)", edge_member_rows)
