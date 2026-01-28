@@ -32,6 +32,12 @@ def sqlite_init_schema(con: sqlite3.Connection):
         last_iteration INTEGER
     );
 
+    CREATE TABLE IF NOT EXISTS node_members (
+        node_id TEXT,
+        member TEXT,
+        PRIMARY KEY (node_id, member)
+    ) WITHOUT ROWID;
+
     CREATE TABLE IF NOT EXISTS node_seqids (
         node_id TEXT,
         seqid TEXT,
@@ -63,6 +69,12 @@ def sqlite_init_schema(con: sqlite3.Connection):
         PRIMARY KEY (node_id, tag)
     ) WITHOUT ROWID;
 
+    CREATE TABLE IF NOT EXISTS node_sequences (
+        node_id TEXT PRIMARY KEY,
+        dna TEXT,
+        protein TEXT
+    ) WITHOUT ROWID;
+
     CREATE TABLE IF NOT EXISTS edges (
         u TEXT,
         v TEXT,
@@ -78,7 +90,6 @@ def sqlite_init_schema(con: sqlite3.Connection):
         member TEXT,
         PRIMARY KEY (u, v, member)
     ) WITHOUT ROWID;
-
     """)
     con.commit()
 
