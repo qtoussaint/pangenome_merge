@@ -11,6 +11,7 @@ def sqlite_connect(database: str, sqlite_cache: int) -> sqlite3.Connection:
     con = sqlite3.connect(database)
     con.execute("PRAGMA journal_mode=WAL;")
     con.execute("PRAGMA synchronous=NORMAL;")
+    con.execute("PRAGMA foreign_keys=OFF;")
     con.execute("PRAGMA temp_store=MEMORY;")
     con.execute("PRAGMA wal_autocheckpoint=100000;")
     con.execute(f"PRAGMA cache_size=-{sqlite_cache};")
