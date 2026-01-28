@@ -153,7 +153,7 @@ def main():
 
     # create new sqlite database
     con = sqlite_connect(sqlite_path)
-    sqlite_init(con)
+    sqlite_init_schema(con)
 
     ### read in two graphs
 
@@ -1180,6 +1180,9 @@ def main():
         # print progress statement...
         logging.info(f"Iteration {graph_count} of {n_graphs-1} complete.")
     
+    # create indexes for SQLite database
+    sqlite_create_indexes(con)
+
     # close connection to sqlite db
     con.close()
 

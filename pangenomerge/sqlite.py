@@ -14,7 +14,7 @@ def sqlite_connect(database: str) -> sqlite3.Connection:
     con.execute("PRAGMA foreign_keys=ON;")
     return con
 
-def sqlite_init(con: sqlite3.Connection):
+def sqlite_init_schema(con: sqlite3.Connection):
     # cumulative tables keyed by node_id / (u,v)
     con.executescript("""
     CREATE TABLE IF NOT EXISTS nodes (
@@ -90,7 +90,12 @@ def sqlite_init(con: sqlite3.Connection):
         member TEXT,
         PRIMARY KEY (u, v, member)
     );
+    """)
+    con.commit()
 
+def sqlite_create_indexes(con: sqlite3.Connection):
+    # cumulative tables keyed by node_id / (u,v)
+    con.executescript("""
     CREATE INDEX IF NOT EXISTS idx_node_members_member ON node_members(member);
     CREATE INDEX IF NOT EXISTS idx_node_seqids_seqid ON node_seqids(seqid);
     CREATE INDEX IF NOT EXISTS idx_node_geneids_geneid ON node_geneids(geneid);
@@ -112,8 +117,7 @@ def _is_placeholder_seq(dna, protein):
     prot_txt = ";".join(protein) if isinstance(protein, list) else (protein or "")
     return (dna_txt.strip() == "" and prot_txt.strip() == "")
 
-def add_metadata_to_sqlite(G, database: str, iteration: int, con: sqlite3.Connection):
-    sqlite_init(con)
+def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
     cur = con.cursor()
     cur.execute("BEGIN;")
 
