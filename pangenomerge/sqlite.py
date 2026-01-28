@@ -134,6 +134,33 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
     for node_id, data in G.nodes(data=True):
         node_id = str(node_id)
 
+        # check for payload
+        members = data.get("members") or []
+        seqids  = data.get("seqIDs") or []
+        geneIDs = (data.get("geneIDs") or "").strip()
+        centroids = data.get("centroid") or []
+        lengths = data.get("lengths") or []
+        longcid = data.get("longCentroidID") or []
+
+        dna = data.get("dna")
+        protein = data.get("protein")
+        has_seq = not _is_placeholder_seq(dna, protein)
+
+        has_payload = (
+            bool(members) or bool(seqids) or bool(geneIDs) or bool(centroids) or
+            bool(lengths) or bool(longcid) or has_seq or
+            bool(_norm_text_or_none(data.get("annotation"))) or
+            bool(_norm_text_or_none(data.get("description"))) or
+            bool(_norm_text_or_none(data.get("genomeIDs"))) or
+            bool(_norm_text_or_none(data.get("maxLenId"))) or
+            bool(_norm_text_or_none(data.get("mergedDNA"))) or
+            data.get("hasEnd") not in (None, 0) or
+            data.get("paralog") not in (None, 0)
+        )
+
+        if not has_payload:
+            continue   # don’t upsert this node at all
+
         # Decide placeholder-ness per field (don’t overwrite with placeholders)
         name = _norm_text_or_none(data.get("name"))
         size = data.get("size")
@@ -215,7 +242,8 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
 
     # nodes UPSERT: keep old value when excluded is NULL (placeholder => we passed None)
     cur.executemany("""
-        INSERT INTO nodes(node_id,name,size,degrees,genomeIDs,maxLenId,hasEnd,annotation,description,paralog,mergedDNA,last_iteration)
+        INSERT INTO nodes(node_id,name,size,degrees,genomeIDs,maxLenId,hasEnd,
+                        annotation,description,paralog,mergedDNA,last_iteration)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(node_id) DO UPDATE SET
             name         = COALESCE(excluded.name, nodes.name),
@@ -229,6 +257,16 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
             paralog      = COALESCE(excluded.paralog, nodes.paralog),
             mergedDNA    = COALESCE(excluded.mergedDNA, nodes.mergedDNA),
             last_iteration = MAX(nodes.last_iteration, excluded.last_iteration)
+        WHERE
+            excluded.size IS NOT NULL OR
+            excluded.degrees IS NOT NULL OR
+            excluded.genomeIDs IS NOT NULL OR
+            excluded.maxLenId IS NOT NULL OR
+            excluded.hasEnd IS NOT NULL OR
+            excluded.annotation IS NOT NULL OR
+            excluded.description IS NOT NULL OR
+            excluded.paralog IS NOT NULL OR
+            excluded.mergedDNA IS NOT NULL;
     """, node_rows)
 
     cur.executemany("INSERT INTO node_members(node_id,member) VALUES (?,?)", members_rows)
