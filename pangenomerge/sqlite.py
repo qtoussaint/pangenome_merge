@@ -161,10 +161,11 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
             data.get("paralog") not in (None, 0)
         )
 
+        # if no non-placeholder metadata, skip node
         if not has_payload:
-            continue   # don’t upsert this node at all
+            continue 
 
-        # don’t overwrite with placeholders
+        # change any placeholder metadata to NULL
         name = _norm_text_or_none(data.get("name"))
         size = data.get("size")
         degrees = data.get("degrees")
@@ -194,7 +195,6 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
             int(iteration)
         ))
 
-        # child tables: only add non-empty (non-placeholder) values
         for m in members:
             m = str(m).strip()
             if m:
@@ -282,7 +282,7 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
             count = node_lengths.count + excluded.count
     """, length_rows)
 
-    # update sequences -- only if non-null (non-placeholder)
+    # update sequences
     cur.executemany("""
         INSERT INTO node_sequences(node_id,dna,protein) VALUES (?,?,?)
         ON CONFLICT(node_id) DO UPDATE SET
@@ -290,7 +290,8 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
             protein = COALESCE(excluded.protein, node_sequences.protein)
     """, seq_rows)
 
-    # ---- UPSERT edges ----
+    ### ---- UPSERT edges ----
+
     edge_rows = []
     edge_member_rows = []
 
@@ -310,8 +311,9 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
         emembers = edata.get("members") or []
         genomeIDs = _norm_text_or_none(edata.get("genomeIDs"))
 
+        # skip placeholder edges
         if not emembers and genomeIDs is None:
-            continue   # skip placeholder edge entirely
+            continue
 
         edge_rows.append((u, v, size_val, genomeIDs, int(iteration)))
 
