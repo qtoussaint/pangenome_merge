@@ -6,12 +6,14 @@ def canon_uv(u, v):
     u, v = str(u), str(v)
     return (u, v) if u <= v else (v, u)
 
-def sqlite_connect(database: str) -> sqlite3.Connection:
+def sqlite_connect(database: str, sqlite_cache: int) -> sqlite3.Connection:
     Path(database).parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(database)
     con.execute("PRAGMA journal_mode=WAL;")
     con.execute("PRAGMA synchronous=NORMAL;")
-    con.execute("PRAGMA foreign_keys=ON;")
+    con.execute("PRAGMA temp_store=MEMORY;")
+    con.execute("PRAGMA wal_autocheckpoint=100000;")
+    con.execute(f"PRAGMA cache_size=-{sqlite_cache};")
     return con
 
 def sqlite_init_schema(con: sqlite3.Connection):
@@ -119,7 +121,7 @@ def _is_placeholder_seq(dna, protein):
 
 def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
     cur = con.cursor()
-    cur.execute("BEGIN;")
+    cur.execute("BEGIN IMMEDIATE;")
 
     # ---- UPSERT nodes (merge scalars, ignore placeholders) ----
     node_rows = []

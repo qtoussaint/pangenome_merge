@@ -99,6 +99,12 @@ def get_options():
                     default=1,
                     type=int,
                     help='Number of threads')
+    other.add_argument('--sqlite-cache',
+                    dest="sqlite_cache",
+                    default=2000,
+                    type=int,
+                    required=False,
+                    help='Desired size of SQLite cache expressed in KB. Diminishing returns above 1 GB (1048576 KB). Defaults to 2000 KB.')
     other.add_argument('--debug',
                     action='store_true',
                     help="Set logging to 'debug' instead of 'info' (default)")
@@ -152,7 +158,7 @@ def main():
         sqlite_path.unlink()
 
     # create new sqlite database
-    con = sqlite_connect(sqlite_path)
+    con = sqlite_connect(database=sqlite_path, sqlite_cache=options.sqlite_cache)
     sqlite_init_schema(con)
 
     ### read in two graphs
