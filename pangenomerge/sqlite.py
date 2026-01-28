@@ -106,14 +106,14 @@ def sqlite_create_indexes(con: sqlite3.Connection):
     con.commit()
 
 def _norm_text_or_none(x):
-    """Treat empty string / None as None."""
+    # treat empty string/None as None
     if x is None:
         return None
     s = str(x)
     return s if s.strip() != "" else None
 
 def _is_placeholder_seq(dna, protein):
-    # your placeholder writer uses dna=[""], protein=[""] (or could be "" after join)
+    # identify whether real or placeholder sequence to overwriting real sequences
     if dna is None and protein is None:
         return True
     dna_txt = ";".join(dna) if isinstance(dna, list) else (dna or "")
@@ -124,7 +124,7 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
     cur = con.cursor()
     cur.execute("BEGIN IMMEDIATE;")
 
-    # ---- UPSERT nodes (merge scalars, ignore placeholders) ----
+    # ---- UPSERT nodes ----
     node_rows = []
     seq_rows = []
     members_rows = []
@@ -137,7 +137,7 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
     for node_id, data in G.nodes(data=True):
         node_id = str(node_id)
 
-        # check for payload
+        # check for payload (any form of non-placeholder metadata)
         members = data.get("members") or []
         seqids  = data.get("seqIDs") or []
         geneIDs = (data.get("geneIDs") or "").strip()
@@ -164,7 +164,7 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
         if not has_payload:
             continue   # don’t upsert this node at all
 
-        # Decide placeholder-ness per field (don’t overwrite with placeholders)
+        # don’t overwrite with placeholders
         name = _norm_text_or_none(data.get("name"))
         size = data.get("size")
         degrees = data.get("degrees")
@@ -175,10 +175,8 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
         description = _norm_text_or_none(data.get("description"))
         paralog = data.get("paralog")
         mergedDNA = _norm_text_or_none(data.get("mergedDNA"))
-
-        # Convert placeholder-y numerics: if your placeholder sets size=1 but you
-        # don’t want that to overwrite, treat 1 as placeholder ONLY when there’s
-        # otherwise no real metadata. We’ll keep it simple: only write size if members exist.
+        
+        # only write size if members exist (to prevent adding placeholder size=1)
         members = data.get("members") or []
         if not members:
             size_val = None
@@ -196,7 +194,7 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
             int(iteration)
         ))
 
-        # Child tables: only add non-empty values (prevents placeholders from polluting)
+        # child tables: only add non-empty (non-placeholder) values
         for m in members:
             m = str(m).strip()
             if m:
@@ -214,7 +212,6 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
                 if gid:
                     geneid_rows.append((node_id, gid))
 
-        # ---- FIX: centroids were never inserted before ----
         centroids = data.get("centroid") or []
         if isinstance(centroids, str):
             centroids = [centroids]
@@ -243,7 +240,7 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
             if dna_txt is not None or prot_txt is not None:
                 seq_rows.append((node_id, dna_txt, prot_txt))
 
-    # nodes UPSERT: keep old value when excluded is NULL (placeholder => we passed None)
+    # keep old value when excluded is NULL (placeholder)
     cur.executemany("""
         INSERT INTO nodes(node_id,name,size,degrees,genomeIDs,maxLenId,hasEnd,
                         annotation,description,paralog,mergedDNA,last_iteration)
@@ -278,14 +275,14 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
     cur.executemany("INSERT INTO node_centroids(node_id,centroid) VALUES (?,?)", centroid_rows)
     cur.executemany("INSERT INTO node_longCentroidID(node_id,tag) VALUES (?,?)", longcid_rows)
 
-    # lengths: increment counts if already present
+    # update lengths (increment counts if the length is already present)
     cur.executemany("""
         INSERT INTO node_lengths(node_id,length,count) VALUES (?,?,?)
         ON CONFLICT(node_id,length) DO UPDATE SET
             count = node_lengths.count + excluded.count
     """, length_rows)
 
-    # sequences: only update if incoming non-null (we filtered placeholders above)
+    # update sequences -- only if non-null (non-placeholder)
     cur.executemany("""
         INSERT INTO node_sequences(node_id,dna,protein) VALUES (?,?,?)
         ON CONFLICT(node_id) DO UPDATE SET
@@ -293,7 +290,7 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
             protein = COALESCE(excluded.protein, node_sequences.protein)
     """, seq_rows)
 
-    # ---- UPSERT edges (merge scalars, ignore placeholders) ----
+    # ---- UPSERT edges ----
     edge_rows = []
     edge_member_rows = []
 
