@@ -130,16 +130,6 @@ rule panaroo_all:
     output:
         touch(RESULTS / "panaroo" / "ALL_DONE.txt")
 
-# dynamic expansion of per-cluster rules after checkpoint
-def panaroo_done_files(wildcards):
-    # ensure checkpoint + parsing exists
-    checkpoints.poppunk_assign.get(**wildcards)
-    # make sure parser created index
-    if not (RESULTS / "clusters" / "sizebalanced_clusters_index.csv").exists():
-        raise ValueError("sizebalanced_clusters_index.csv not found; did poppunk_to_cluster_lists run?")
-    clusters = read_cluster_ids()
-    return [RESULTS / "panaroo" / c / "done.txt" for c in clusters]
-
 # list all panaroo graphs
 rule list_panaroo_graphs:
     input:

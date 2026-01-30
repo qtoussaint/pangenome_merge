@@ -80,5 +80,5 @@ for (cluster in unique(assemblies$V2)) {
 }
 
 # write merged index
-write.table(merged_isolates, file = paste0(outdir, "/sizebalanced_clusters_index.csv"),
+write.table(sort(unique(assemblies$V2)), file = paste0(outdir, "/sizebalanced_clusters_index.csv"),
             col.names = F, row.names = F, quote = F)
