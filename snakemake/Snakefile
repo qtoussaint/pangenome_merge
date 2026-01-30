@@ -1,1 +1,35 @@
-#
+import os
+from pathlib import Path
+
+configfile: "config.yaml"
+
+RESULTS = Path("results")
+
+# later change this rule to look for the final no_metadata graph
+# or multiple results (one from each step, ggcaller, panaroo etc)
+rule all:
+    input:
+        RESULTS / "merge" / "done.txt"
+
+
+### run poppunk
+
+checkpoint poppunk_assign:
+    input:
+        assemblies=config["assemblies_tsv"]
+    output:
+        outdir=directory(RESULTS / "poppunk" / "assign"),
+        done=RESULTS / "poppunk" / "assign" / "done.txt"
+    threads: config["threads"]["poppunk"]
+    shell:
+        r"""
+        mkdir -p {output.outdir}
+        poppunk_assign --db {config[poppunk_db]} \
+            --query {input.assemblies} \
+            --threads {threads} \
+            --output {output.outdir} \
+            --serial
+        echo "ok" > {output.done}
+        """
+
+
