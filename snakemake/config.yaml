@@ -1,5 +1,5 @@
 # assemblies in poppunk assign format
-assemblies_tsv: "/full/path/to/assemblies.tsv"  
+assemblies_tsv: "/nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/s_pneumoniae/pp_sketchlib/fasta_paths.txt"  
 
 # poppunk database
 poppunk_db: "/nfs/research/jlees/jacqueline/poppunk_dbs/s_pneumo_all/GPS_v4"

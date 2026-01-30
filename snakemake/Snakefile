@@ -143,7 +143,6 @@ def panaroo_done_files(wildcards):
 # list all panaroo graphs
 rule list_panaroo_graphs:
     input:
-        panaroo_dir=RESULTS / "panaroo" ,
         all_done=RESULTS / "panaroo" / "ALL_DONE.txt"
     output:
         graph_paths=RESULTS / "pangenomes" / "pangenomes.tsv"
@@ -152,7 +151,7 @@ rule list_panaroo_graphs:
         mkdir -p $(dirname {output.graph_paths})
         > {output.graph_paths}
 
-        for d in {input.panaroo_dir}/*/; 
+        for d in {RESULTS}/panaroo/*/; 
             do echo "${d%/}" >> {output.graph_paths};
         done
         

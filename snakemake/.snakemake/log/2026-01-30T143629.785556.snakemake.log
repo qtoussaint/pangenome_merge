@@ -1,0 +1,10 @@
+Building DAG of jobs...
+WorkflowError:
+MissingInputException: Missing input files for rule poppunk_assign:
+    output: results/poppunk/assign, results/poppunk/assign/done.txt
+    affected files:
+        /full/path/to/assemblies.tsv
+MissingInputException: Missing input files for rule poppunk_assign:
+    output: results/poppunk/assign, results/poppunk/assign/done.txt
+    affected files:
+        /full/path/to/assemblies.tsv
