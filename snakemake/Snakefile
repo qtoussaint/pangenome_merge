@@ -5,11 +5,10 @@ configfile: "config.yaml"
 
 RESULTS = Path("results")
 
-# later change this rule to look for the final no_metadata graph
-# or multiple results (one from each step, ggcaller, panaroo etc)
+# later change this rule to look for multiple results (one from each step, ggcaller, panaroo etc)
 rule all:
     input:
-        RESULTS / "merge" / "done.txt"
+        RESULTS / "pangenomerge" / "done.txt"
 
 
 ### run poppunk
@@ -32,4 +31,127 @@ checkpoint poppunk_assign:
         echo "ok" > {output.done}
         """
 
+
+### from poppunk, obtain lists of assemblies in each cluster
+# and index containing the paths of all these lists
+
+rule poppunk_to_cluster_lists:
+    input:
+        done=RESULTS / "poppunk" / "assign" / "done.txt",
+        poppunk_dir=RESULTS / "poppunk" / "assign",
+        assemblies=config["assemblies_tsv"]
+    output:
+        clusters_dir=directory(RESULTS / "clusters"),
+        combined_clusters=RESULTS / "clusters" / "combined_clusters.csv",
+        index=RESULTS / "clusters" / "sizebalanced_clusters_index.csv"
+        # also have all clusterfiles as output but not sure how to add that here
+    params:
+        min_n=config["min_cluster_size"],
+        max_n=config["max_cluster_size"]
+    shell:
+        r"""
+        mkdir -p {output.clusters_dir}
+        
+        # get list of all poppunk cluster designations
+        { head -n 1 "$(ls *.csv | head -n 1)"; for f in {input.poppunk_dir}/*_clusters.csv; do tail -n +2 "$f"; done; } > {output.combined_clusters}
+
+        # add paths to each sample and
+        # create size-balanced clusters(min and max size)
+        Rsript workflow/scripts/adjust_cluster_sizes.R \
+            --poppunk-dir {input.poppunk_dir} \
+            --assemblies {input.assemblies} \
+            --min {params.min_n} \
+            --max {params.max_n} \
+            --outdir {output.clusters_dir}
+
+        """
+
+### run ggcaller on each cluster
+rule ggcaller_cluster:
+    input:
+        index=RESULTS / "clusters" / "sizebalanced_clusters_index.csv",
+        cluster_list=lambda wc: RESULTS / "clusters" / f"sizebalanced_cluster_{wc.cluster}.txt"
+    output:
+        outdir=directory(RESULTS / "ggcaller" / "{cluster}"),
+        done=RESULTS / "ggcaller" / "{cluster}" / "done.txt"
+    threads: config["threads"]["ggcaller"]
+    shell:
+        r"""
+        mkdir -p {output.outdir}
+        python {config[ggcaller_runner]} \
+            --refs {input.cluster_list} \
+            --save --gene-finding-only \
+            --out {output.outdir} \
+            --threads {threads}
+        echo "ok" > {output.done}
+        """
+
+### run panaroo on each cluster 
+rule panaroo_cluster:
+    input:
+        gg_done=RESULTS / "ggcaller" / "{cluster}" / "done.txt"
+    output:
+        outdir=directory(RESULTS / "panaroo" / "{cluster}"),
+        graph=RESULTS / "panaroo" / "{cluster}" / "final_graph.gml",
+        done=RESULTS / "panaroo" / "{cluster}" / "done.txt"
+    threads: config["threads"]["panaroo"]
+    shell:
+        r"""
+        mkdir -p {output.outdir}
+        gffs=$(ls -1 results/ggcaller/{wildcards.cluster}/GFF/*.fa.gff)
+        panaroo -i $gffs -o {output.outdir} \
+            --threads {threads} \
+            --clean-mode strict --refind-mode off --remove-invalid-genes
+        test -f {output.graph}
+        echo "ok" > {output.done}
+        """
+
+# dynamic expansion of per-cluster rules after checkpoint
+def panaroo_done_files(wildcards):
+    # ensure checkpoint + parsing exists
+    checkpoints.poppunk_assign.get(**wildcards)
+    # make sure parser created index
+    if not (RESULTS / "clusters" / "sizebalanced_clusters_index.csv").exists():
+        raise ValueError("sizebalanced_clusters_index.csv not found; did poppunk_to_cluster_lists run?")
+    clusters = read_cluster_ids()
+    return [RESULTS / "panaroo" / c / "done.txt" for c in clusters]
+
+# list all panaroo graphs
+rule list_panaroo_graphs:
+    input:
+        panaroo_dir=RESULTS / "panaroo" 
+    output:
+        graph_paths=RESULTS / "pangenomes" / "pangenomes.tsv"
+    shell:
+        r"""
+        mkdir -p $(dirname {output.graph_paths})
+        > {output.graph_paths}
+
+        for d in {input.panaroo_dir}/*/; 
+            do echo "${d%/}" >> {output.graph_paths};
+        done
+        
+        """
+
+# run pangenomerge on the complete list of pangenomes
+rule merge_pangenomes:
+    input:
+        graphs=RESULTS / "pangenomes" / "pangenomes.tsv"
+    output:
+        outdir=directory(RESULTS / "pangenomerge"),
+        done=RESULTS / "pangenomerge" / "done.txt"
+    threads: config["threads"]["pangenomerge"]
+    params:
+        sqlite_cache=config["sqlite_cache"]
+    shell:
+        r"""
+        mkdir -p {output.outdir}
+        python3 {config[pangenomerge_runner]} \
+            --mode run \
+            --outdir {output.outdir} \
+            --component-graphs {input.graphs} \
+            --threads {threads} \
+            --sqlite-cache {params.sqlite_cache}
+        echo "ok" > {output.done}
+        """
 
