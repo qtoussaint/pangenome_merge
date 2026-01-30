@@ -16,11 +16,9 @@ max_count        <- as.integer(get_arg("--max"))
 outdir <- get_arg("--outdir")
 
 # get paths to assemblies from poppunk input file (paths are in second column, sampleids are in first column)
-#/nfs/research/jlees/john/2kk_v020/all_files.txt
 paths <- read.delim(paths_file, header=F) 
 
 # get all poppunk clusters (from bashscript output)
-# "/nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/s_pneumoniae/poppunk/combined_clusters.csv"
 assemblies <- read.csv(file = paste0(outdir, "/combined_clusters.csv"), header = F) 
 assemblies <- assemblies[order(assemblies$V2), ]
 
@@ -80,9 +78,7 @@ for (cluster in unique(assemblies$V2)) {
             file = paste0(outdir, "/sizebalanced_cluster_", cluster, ".txt"),
             col.names = F, row.names = F, quote = F)
 }
-# "/nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/s_pneumoniae/poppunk/all_clusters_mincount_10/cluster_"
 
 # write merged index
 write.table(merged_isolates, file = paste0(outdir, "/sizebalanced_clusters_index.csv"),
             col.names = F, row.names = F, quote = F)
-#"/nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/s_pneumoniae/poppunk/merged_clusters_index.csv"

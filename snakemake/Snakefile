@@ -10,7 +10,6 @@ rule all:
     input:
         RESULTS / "pangenomerge" / "done.txt"
 
-
 ### run poppunk
 
 checkpoint poppunk_assign:
@@ -23,14 +22,13 @@ checkpoint poppunk_assign:
     shell:
         r"""
         mkdir -p {output.outdir}
-        poppunk_assign --db {config[poppunk_db]} \
+        poppunk_assign --db {config["poppunk_db"]} \
             --query {input.assemblies} \
             --threads {threads} \
             --output {output.outdir} \
             --serial
         echo "ok" > {output.done}
         """
-
 
 ### from poppunk, obtain lists of assemblies in each cluster
 # and index containing the paths of all these lists
@@ -52,18 +50,21 @@ rule poppunk_to_cluster_lists:
         r"""
         mkdir -p {output.clusters_dir}
         
-        # get list of all poppunk cluster designations
-        { head -n 1 "$(ls *.csv | head -n 1)"; for f in {input.poppunk_dir}/*_clusters.csv; do tail -n +2 "$f"; done; } > {output.combined_clusters}
+        ### get list of all poppunk cluster designations
 
-        # add paths to each sample and
-        # create size-balanced clusters(min and max size)
-        Rsript workflow/scripts/adjust_cluster_sizes.R \
+        # first pick the first cluster csv as the header source (from poppunk output dir)
+        first="$(ls -1 {input.poppunk_dir}/*_clusters.csv | head -n 1)"
+
+        # concatenate all *_clusters.csv with a single header row
+        {{ head -n 1 "$first"; for f in {input.poppunk_dir}/*_clusters.csv; do tail -n +2 "$f"; done; }} > {output.combined_clusters}
+
+        # create size-balanced clusters (min/max size) + per-cluster lists + index
+        Rscript workflow/scripts/adjust_cluster_sizes.R \
             --poppunk-dir {input.poppunk_dir} \
             --assemblies {input.assemblies} \
             --min {params.min_n} \
             --max {params.max_n} \
             --outdir {output.clusters_dir}
-
         """
 
 ### run ggcaller on each cluster
@@ -78,13 +79,29 @@ rule ggcaller_cluster:
     shell:
         r"""
         mkdir -p {output.outdir}
-        python {config[ggcaller_runner]} \
+        python {config["ggcaller_runner"]} \
             --refs {input.cluster_list} \
             --save --gene-finding-only \
             --out {output.outdir} \
             --threads {threads}
         echo "ok" > {output.done}
         """
+
+def read_cluster_ids(index_path):
+    with open(index_path) as f:
+        return [line.strip() for line in f if line.strip()]
+
+def panaroo_done_files(wildcards):
+    # ensure upstream checkpoint and clustering ran
+    ckpt = checkpoints.poppunk_assign.get(**wildcards)
+    index_path = RESULTS / "clusters" / "sizebalanced_clusters_index.csv"
+
+    # make panaroo finishing as "done" dependent on clustering output existing
+    if not index_path.exists():
+        raise ValueError("Missing sizebalanced_clusters_index.csv")
+
+    clusters = read_cluster_ids(index_path)
+    return expand(str(RESULTS / "panaroo" / "{cluster}" / "done.txt"), cluster=clusters)
 
 ### run panaroo on each cluster 
 rule panaroo_cluster:
@@ -106,6 +123,13 @@ rule panaroo_cluster:
         echo "ok" > {output.done}
         """
 
+# run panaroo on all clusters
+rule panaroo_all:
+    input:
+        panaroo_done_files
+    output:
+        touch(RESULTS / "panaroo" / "ALL_DONE.txt")
+
 # dynamic expansion of per-cluster rules after checkpoint
 def panaroo_done_files(wildcards):
     # ensure checkpoint + parsing exists
@@ -119,7 +143,8 @@ def panaroo_done_files(wildcards):
 # list all panaroo graphs
 rule list_panaroo_graphs:
     input:
-        panaroo_dir=RESULTS / "panaroo" 
+        panaroo_dir=RESULTS / "panaroo" ,
+        all_done=RESULTS / "panaroo" / "ALL_DONE.txt"
     output:
         graph_paths=RESULTS / "pangenomes" / "pangenomes.tsv"
     shell:
@@ -146,7 +171,7 @@ rule merge_pangenomes:
     shell:
         r"""
         mkdir -p {output.outdir}
-        python3 {config[pangenomerge_runner]} \
+        python3 {config["pangenomerge_runner"]} \
             --mode run \
             --outdir {output.outdir} \
             --component-graphs {input.graphs} \
