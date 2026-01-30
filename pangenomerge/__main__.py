@@ -1117,6 +1117,9 @@ def main():
         # add metadata to SQLite database
         add_metadata_to_sqlite(G=merged_graph, iteration=graph_count+1, con=con)
 
+        # ensure WAL doesn't increase dramatically (execute after iteration finishes)
+        con.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+
         # info statement...
         logging.info('Writing merged graph to outdir...')
 
