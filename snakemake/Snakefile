@@ -138,6 +138,10 @@ checkpoint poppunk_to_cluster_lists:
             --min {params.min_n} \
             --max {params.max_n} \
             --outdir {output.clusters_dir}
+
+        # check that sizebalanced_clusters_index.csv was created
+        test -s {output.index}
+
         """
 
 
@@ -246,12 +250,13 @@ rule list_panaroo_graphs:
         all_done=RESULTS / "panaroo" / "ALL_DONE.txt"
     output:
         graph_paths=RESULTS / "pangenomes" / "pangenomes.tsv"
+    params:
+        results_dir=str(RESULTS)
     shell:
         r"""
-        mkdir -p $(dirname {output.graph_paths})
-        > {output.graph_paths}
+        mkdir -p $(dirname {output.graph_paths}) > {output.graph_paths}
 
-        for d in {RESULTS}/panaroo/*/; 
+        for d in {params.results_dir}/panaroo/*/; 
             do echo "${d%/}" >> {output.graph_paths}; 
         done
         
