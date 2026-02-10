@@ -1,0 +1,31 @@
+host: codon-slurm-login-03.ebi.ac.uk
+Building DAG of jobs...
+SLURM run ID: bd390339-6058-4112-bd80-cb2e8d2552db
+MinJobAge 120s (>= 120s). 'squeue' should work reliably for status queries.
+Using shell: /bin/bash
+Provided remote nodes: 200
+Conda environments: ignored
+Job stats:
+job                         count
+------------------------  -------
+all                             1
+ggcaller_all                    1
+list_panaroo_graphs             1
+merge_pangenomes                1
+panaroo_all                     1
+poppunk_assign                  1
+poppunk_to_cluster_lists        1
+total                           7
+
+Select jobs to execute...
+Execute 1 jobs...
+[Tue Feb 10 18:02:15 2026] Group job job_array (jobs in lexicogr. order):
+    [Tue Feb 10 18:02:15 2026]
+    checkpoint poppunk_assign:
+        input: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/s_pneumoniae/pp_sketchlib/fasta_paths.txt
+        output: results/poppunk/assign, results/poppunk/assign/done.txt
+        jobid: 6
+        reason: Missing output files: results/poppunk/assign, results/poppunk/assign/done.txt
+        threads: 24
+        resources: tmpdir=<TBD>, disk_mb=1000, disk=1 GB, disk_mib=954, mem_mb=150000, mem=150 GB, mem_mib=143052, slurm_account=lilyjacqueline, runtime=2280, nodes=1, slurm_partition=research, cpus_per_task=24, tasks=20
+DAG of jobs will be updated after completion.

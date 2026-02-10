@@ -6,7 +6,7 @@ poppunk_db: "/nfs/research/jlees/jacqueline/poppunk_dbs/s_pneumo_all/GPS_v4"
 
 # manual installs
 ggcaller_runner: "/hps/software/users/jlees/jacqueline/manual_installs/bin/ggcaller/ggCaller/ggcaller-runner.py"
-pangenomerge_runner: "/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/COG_merge/tokenized_merge_clone/pangenome_merge/pangenomerge-runner.py"
+pangenomerge_runner: "/hps/software/users/jlees/jacqueline/pangenome_merge/pangenomerge-runner.py"
 
 # merge clusters with < min_cluster_size samples
 # split clusters with > max_cluster_size samples

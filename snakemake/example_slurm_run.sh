@@ -13,10 +13,11 @@ max_concurrent=200
 max_concurrent_array=20
 
 # fresh install of micromamba 
-micromamba activate snakemake
+#source ~/.bashrc
+#micromamba activate snakemake
 
 # with snakemake env activated:
-snakemake --executor slurm -j $max_concurrent --group-components job_array=$max_concurrent_array 
+snakemake --executor slurm -j $max_concurrent --group-components job_array=$max_concurrent_array --default-resources slurm_account=jlees
 
 # then run:
 #sbatch run_snakemake.sbatch

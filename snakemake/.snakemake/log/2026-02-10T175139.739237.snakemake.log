@@ -1,0 +1,53 @@
+host: codon-slurm-login-03.ebi.ac.uk
+Building DAG of jobs...
+SLURM run ID: e5efdc42-a172-41a1-8b62-b98f9dc6b583
+MinJobAge 120s (>= 120s). 'squeue' should work reliably for status queries.
+Using shell: /bin/bash
+Provided remote nodes: 200
+Conda environments: ignored
+Job stats:
+job                         count
+------------------------  -------
+all                             1
+ggcaller_all                    1
+list_panaroo_graphs             1
+merge_pangenomes                1
+panaroo_all                     1
+poppunk_assign                  1
+poppunk_to_cluster_lists        1
+total                           7
+
+Select jobs to execute...
+Execute 1 jobs...
+[Tue Feb 10 17:51:40 2026] Group job job_array (jobs in lexicogr. order):
+    [Tue Feb 10 17:51:40 2026]
+    checkpoint poppunk_assign:
+        input: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/s_pneumoniae/pp_sketchlib/fasta_paths.txt
+        output: results/poppunk/assign, results/poppunk/assign/done.txt
+        jobid: 6
+        reason: Missing output files: results/poppunk/assign, results/poppunk/assign/done.txt
+        threads: 24
+        resources: tmpdir=<TBD>, runtime=2280, nodes=1, slurm_partition=research, cpus_per_task=24, tasks=20, mem_mb=150000, mem=150 GB, mem_mib=143052
+DAG of jobs will be updated after completion.
+No SLURM account given, trying to guess.
+Unable to guess SLURM account. Trying to proceed without.
+Error in group job_array
+    [Tue Feb 10 17:51:40 2026]
+    Error in rule poppunk_assign:
+        message: None
+        jobid: 6
+        input: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/s_pneumoniae/pp_sketchlib/fasta_paths.txt
+        output: results/poppunk/assign, results/poppunk/assign/done.txt
+        shell:
+        
+            mkdir -p results/poppunk/assign
+            poppunk_assign --db /nfs/research/jlees/jacqueline/poppunk_dbs/s_pneumo_all/GPS_v4 \
+                --query /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/s_pneumoniae/pp_sketchlib/fasta_paths.txt \
+                --threads 24 \
+                --output results/poppunk/assign \
+                --serial
+            echo "ok" > results/poppunk/assign/done.txt
+        
+            (command exited with non-zero exit code)
+Shutting down, this might take some time.
+Terminating processes on user request, this might take some time.
