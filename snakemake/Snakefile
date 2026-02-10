@@ -22,11 +22,15 @@ checkpoint poppunk_assign:
         done=RESULTS / "poppunk" / "assign" / "done.txt"
     params: db=config["poppunk_db"]
     conda: "envs/poppunk.yaml"
-    threads:
-        threads=config["resources_batch"]["threads"]
+    group: "array_job"
+    threads: config["resources_batch"]["threads"]
     resources:
-        mem=config["resources_batch"]["mem"]
-        runtime=config["resources_batch"]["runtime"]
+        mem=config["resources_batch"]["mem"],
+        runtime=config["resources_batch"]["runtime"],
+        nodes=config["resources_batch"]["nodes"],
+        slurm_partition=config["resources_batch"]["slurm_partition"],
+        cpus_per_task=config["resources_batch"]["cpus_per_task"],
+        tasks=config["resources_batch"]["tasks"]
     shell:
         r"""
         mkdir -p {output.outdir}
@@ -57,8 +61,10 @@ rule poppunk_to_cluster_lists:
     conda: "envs/R.yaml"
     threads: config["resources_batch"]["threads"]
     resources:
-        mem=config["resources_batch"]["mem"]
-        runtime=config["resources_batch"]["runtime"]
+        mem=config["resources_batch"]["mem"],
+        runtime=config["resources_batch"]["runtime"],
+        nodes=config["resources_batch"]["nodes"],
+        slurm_partition=config["resources_batch"]["slurm_partition"]
     shell:
         r"""
         mkdir -p {output.clusters_dir}
@@ -89,10 +95,15 @@ rule ggcaller_cluster:
         outdir=directory(RESULTS / "ggcaller" / "{cluster}"),
         done=RESULTS / "ggcaller" / "{cluster}" / "done.txt"
     conda: "envs/ggcaller.yaml"
+    group: "array_job"
     threads: config["resources_batch"]["threads"]
     resources:
-        mem=config["resources_batch"]["mem"]
-        runtime=config["resources_batch"]["runtime"]
+        mem=config["resources_batch"]["mem"],
+        runtime=config["resources_batch"]["runtime"],
+        nodes=config["resources_batch"]["nodes"],
+        slurm_partition=config["resources_batch"]["slurm_partition"],
+        cpus_per_task=config["resources_batch"]["cpus_per_task"],
+        tasks=config["resources_batch"]["tasks"]
     shell:
         r"""
         mkdir -p {output.outdir}
@@ -129,10 +140,15 @@ rule panaroo_cluster:
         graph=RESULTS / "panaroo" / "{cluster}" / "final_graph.gml",
         done=RESULTS / "panaroo" / "{cluster}" / "done.txt"
     conda: "envs/panaroo.yaml"
+    group: "array_job"
     threads: config["resources_batch"]["threads"]
     resources:
-        mem=config["resources_batch"]["mem"]
-        runtime=config["resources_batch"]["runtime"]
+        mem=config["resources_batch"]["mem"],
+        runtime=config["resources_batch"]["runtime"],
+        nodes=config["resources_batch"]["nodes"],
+        slurm_partition=config["resources_batch"]["slurm_partition"],
+        cpus_per_task=config["resources_batch"]["cpus_per_task"],
+        tasks=config["resources_batch"]["tasks"]
     shell:
         r"""
         mkdir -p {output.outdir}
@@ -176,10 +192,12 @@ rule merge_pangenomes:
         outdir=directory(RESULTS / "pangenomerge"),
         done=RESULTS / "pangenomerge" / "done.txt"
     conda: "envs/pangenomerge.yaml"
-    threads: config["resources_batch"]["threads"]
+    threads: config["resources_pangenomerge"]["threads"]
     resources:
-        mem=config["resources_batch"]["mem"]
-        runtime=config["resources_batch"]["runtime"]
+        mem=config["resources_pangenomerge"]["mem"],
+        runtime=config["resources_pangenomerge"]["runtime"],
+        nodes=config["resources_pangenomerge"]["nodes"],
+        slurm_partition=config["resources_pangenomerge"]["slurm_partition"]
     params:
         sqlite_cache=config["sqlite_cache"]
     shell:
