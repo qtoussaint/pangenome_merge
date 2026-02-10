@@ -13,12 +13,20 @@ pangenomerge_runner: "/nfs/research/jlees/jacqueline/atb_analyses/merge_tests/CO
 min_cluster_size: 10
 max_cluster_size: 2500
 
-threads:
-  poppunk: 48
-  ggcaller: 48
-  panaroo: 48
-  pangenomerge: 48
-
 # optional: increase sqlite cache size when running pangenomerge
 sqlite_cache: 1048576
 
+
+# SLURM SETTINGS
+
+# per job in batch array
+resources_batch:
+  threads=24,
+  memory=150G,
+  runtime=48:00:00
+
+# for big job at the end
+resources_pangenomerge:
+  threads=48,
+  memory=295G,
+  runtime=48:00:00

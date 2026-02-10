@@ -20,16 +20,19 @@ checkpoint poppunk_assign:
     output:
         outdir=directory(RESULTS / "poppunk" / "assign"),
         done=RESULTS / "poppunk" / "assign" / "done.txt"
-    threads: config["threads"]["poppunk"]
     params: db=config["poppunk_db"]
     conda:
       "envs/poppunk.yaml"
+    resources:
+        threads=config["resources_batch"]["threads"]
+        memory=config["resources_batch"]["memory"]
+        runtime=config["resources_batch"]["runtime"]
     shell:
         r"""
         mkdir -p {output.outdir}
         poppunk_assign --db {params.db} \
             --query {input.assemblies} \
-            --threads {threads} \
+            --threads {resources.threads} \
             --output {output.outdir} \
             --serial
         echo "ok" > {output.done}
@@ -53,6 +56,10 @@ rule poppunk_to_cluster_lists:
         max_n=config["max_cluster_size"]
     conda:
       "envs/R.yaml"
+    resources:
+        threads=config["resources_batch"]["threads"]
+        memory=config["resources_batch"]["memory"]
+        runtime=config["resources_batch"]["runtime"]
     shell:
         r"""
         mkdir -p {output.clusters_dir}
@@ -82,9 +89,12 @@ rule ggcaller_cluster:
     output:
         outdir=directory(RESULTS / "ggcaller" / "{cluster}"),
         done=RESULTS / "ggcaller" / "{cluster}" / "done.txt"
-    threads: config["threads"]["ggcaller"]
     conda:
       "envs/ggcaller.yaml"
+    resources:
+        threads=config["resources_batch"]["threads"]
+        memory=config["resources_batch"]["memory"]
+        runtime=config["resources_batch"]["runtime"]
     shell:
         r"""
         mkdir -p {output.outdir}
@@ -92,7 +102,7 @@ rule ggcaller_cluster:
             --refs {input.cluster_list} \
             --save --gene-finding-only \
             --out {output.outdir} \
-            --threads {threads}
+            --threads {resources.threads}
         echo "ok" > {output.done}
         """
 
@@ -120,15 +130,18 @@ rule panaroo_cluster:
         outdir=directory(RESULTS / "panaroo" / "{cluster}"),
         graph=RESULTS / "panaroo" / "{cluster}" / "final_graph.gml",
         done=RESULTS / "panaroo" / "{cluster}" / "done.txt"
-    threads: config["threads"]["panaroo"]
     conda:
       "envs/panaroo.yaml"
+    resources:
+        threads=config["resources_batch"]["threads"]
+        memory=config["resources_batch"]["memory"]
+        runtime=config["resources_batch"]["runtime"]
     shell:
         r"""
         mkdir -p {output.outdir}
         gffs=$(ls -1 {RESULTS}/ggcaller/{wildcards.cluster}/GFF/*.fa.gff)
         panaroo -i $gffs -o {output.outdir} \
-            --threads {threads} \
+            --threads {resources.threads} \
             --clean-mode strict --refind-mode off --remove-invalid-genes
         test -f {output.graph}
         echo "ok" > {output.done}
@@ -165,9 +178,11 @@ rule merge_pangenomes:
     output:
         outdir=directory(RESULTS / "pangenomerge"),
         done=RESULTS / "pangenomerge" / "done.txt"
-    threads: config["threads"]["pangenomerge"]
-    conda:
-      "envs/pangenomerge.yaml"
+    conda: "envs/pangenomerge.yaml"
+    resources:
+        threads=config["resources_pangenomerge"]["threads"]
+        memory=config["resources_pangenomerge"]["memory"]
+        runtime=config["resources_pangenomerge"]["runtime"]
     params:
         sqlite_cache=config["sqlite_cache"]
     shell:
@@ -177,7 +192,7 @@ rule merge_pangenomes:
             --mode run \
             --outdir {output.outdir} \
             --component-graphs {input.graphs} \
-            --threads {threads} \
+            --threads {resources.threads} \
             --sqlite-cache {params.sqlite_cache}
         echo "ok" > {output.done}
         """
