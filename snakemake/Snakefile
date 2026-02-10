@@ -50,7 +50,7 @@ rule poppunk_to_cluster_lists:
         min_n=config["min_cluster_size"],
         max_n=config["max_cluster_size"]
     conda:
-      "envs/R.yaml"
+      "workflow/envs/R.yaml"
     shell:
         r"""
         mkdir -p {output.clusters_dir}
@@ -82,7 +82,7 @@ rule ggcaller_cluster:
         done=RESULTS / "ggcaller" / "{cluster}" / "done.txt"
     threads: config["threads"]["ggcaller"]
     conda:
-      "envs/ggcaller.yaml"
+      "workflow/envs/ggcaller.yaml"
     shell:
         r"""
         mkdir -p {output.outdir}
@@ -120,11 +120,11 @@ rule panaroo_cluster:
         done=RESULTS / "panaroo" / "{cluster}" / "done.txt"
     threads: config["threads"]["panaroo"]
     conda:
-      "envs/panaroo.yaml"
+      "workflow/envs/panaroo.yaml"
     shell:
         r"""
         mkdir -p {output.outdir}
-        gffs=$(ls -1 results/ggcaller/{wildcards.cluster}/GFF/*.fa.gff)
+        gffs=$(ls -1 {RESULTS}/ggcaller/{wildcards.cluster}/GFF/*.fa.gff)
         panaroo -i $gffs -o {output.outdir} \
             --threads {threads} \
             --clean-mode strict --refind-mode off --remove-invalid-genes
@@ -165,7 +165,7 @@ rule merge_pangenomes:
         done=RESULTS / "pangenomerge" / "done.txt"
     threads: config["threads"]["pangenomerge"]
     conda:
-      "envs/pangenomerge.yaml"
+      "workflow/envs/pangenomerge.yaml"
     params:
         sqlite_cache=config["sqlite_cache"]
     shell:
