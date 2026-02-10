@@ -12,8 +12,11 @@ max_concurrent=200
 # maximum number of concurrent jobs in job array
 max_concurrent_array=20
 
-# with snakemake conda env activated:
-snakemake --profile slurm --executor slurm -j $max_concurrent --group-components job_array=$max_concurrent_array
+# fresh install of micromamba 
+micromamba activate snakemake
+
+# with snakemake env activated:
+snakemake --executor slurm -j $max_concurrent --group-components job_array=$max_concurrent_array 
 
 # then run:
 #sbatch run_snakemake.sbatch

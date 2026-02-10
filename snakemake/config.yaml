@@ -16,7 +16,6 @@ max_cluster_size: 2500
 # optional: increase sqlite cache size when running pangenomerge
 sqlite_cache: 1048576
 
-
 # SLURM SETTINGS
 
 # note runtime must be specified in MINUTES
