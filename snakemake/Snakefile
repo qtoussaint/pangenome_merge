@@ -21,18 +21,18 @@ checkpoint poppunk_assign:
         outdir=directory(RESULTS / "poppunk" / "assign"),
         done=RESULTS / "poppunk" / "assign" / "done.txt"
     params: db=config["poppunk_db"]
-    conda:
-      "envs/poppunk.yaml"
-    resources:
+    conda: "envs/poppunk.yaml"
+    threads:
         threads=config["resources_batch"]["threads"]
-        memory=config["resources_batch"]["memory"]
+    resources:
+        mem=config["resources_batch"]["mem"]
         runtime=config["resources_batch"]["runtime"]
     shell:
         r"""
         mkdir -p {output.outdir}
         poppunk_assign --db {params.db} \
             --query {input.assemblies} \
-            --threads {resources.threads} \
+            --threads {threads} \
             --output {output.outdir} \
             --serial
         echo "ok" > {output.done}
@@ -54,11 +54,10 @@ rule poppunk_to_cluster_lists:
     params:
         min_n=config["min_cluster_size"],
         max_n=config["max_cluster_size"]
-    conda:
-      "envs/R.yaml"
+    conda: "envs/R.yaml"
+    threads: config["resources_batch"]["threads"]
     resources:
-        threads=config["resources_batch"]["threads"]
-        memory=config["resources_batch"]["memory"]
+        mem=config["resources_batch"]["mem"]
         runtime=config["resources_batch"]["runtime"]
     shell:
         r"""
@@ -89,11 +88,10 @@ rule ggcaller_cluster:
     output:
         outdir=directory(RESULTS / "ggcaller" / "{cluster}"),
         done=RESULTS / "ggcaller" / "{cluster}" / "done.txt"
-    conda:
-      "envs/ggcaller.yaml"
+    conda: "envs/ggcaller.yaml"
+    threads: config["resources_batch"]["threads"]
     resources:
-        threads=config["resources_batch"]["threads"]
-        memory=config["resources_batch"]["memory"]
+        mem=config["resources_batch"]["mem"]
         runtime=config["resources_batch"]["runtime"]
     shell:
         r"""
@@ -102,7 +100,7 @@ rule ggcaller_cluster:
             --refs {input.cluster_list} \
             --save --gene-finding-only \
             --out {output.outdir} \
-            --threads {resources.threads}
+            --threads {threads}
         echo "ok" > {output.done}
         """
 
@@ -130,18 +128,17 @@ rule panaroo_cluster:
         outdir=directory(RESULTS / "panaroo" / "{cluster}"),
         graph=RESULTS / "panaroo" / "{cluster}" / "final_graph.gml",
         done=RESULTS / "panaroo" / "{cluster}" / "done.txt"
-    conda:
-      "envs/panaroo.yaml"
+    conda: "envs/panaroo.yaml"
+    threads: config["resources_batch"]["threads"]
     resources:
-        threads=config["resources_batch"]["threads"]
-        memory=config["resources_batch"]["memory"]
+        mem=config["resources_batch"]["mem"]
         runtime=config["resources_batch"]["runtime"]
     shell:
         r"""
         mkdir -p {output.outdir}
         gffs=$(ls -1 {RESULTS}/ggcaller/{wildcards.cluster}/GFF/*.fa.gff)
         panaroo -i $gffs -o {output.outdir} \
-            --threads {resources.threads} \
+            --threads {threads} \
             --clean-mode strict --refind-mode off --remove-invalid-genes
         test -f {output.graph}
         echo "ok" > {output.done}
@@ -179,10 +176,10 @@ rule merge_pangenomes:
         outdir=directory(RESULTS / "pangenomerge"),
         done=RESULTS / "pangenomerge" / "done.txt"
     conda: "envs/pangenomerge.yaml"
+    threads: config["resources_batch"]["threads"]
     resources:
-        threads=config["resources_pangenomerge"]["threads"]
-        memory=config["resources_pangenomerge"]["memory"]
-        runtime=config["resources_pangenomerge"]["runtime"]
+        mem=config["resources_batch"]["mem"]
+        runtime=config["resources_batch"]["runtime"]
     params:
         sqlite_cache=config["sqlite_cache"]
     shell:
@@ -192,7 +189,7 @@ rule merge_pangenomes:
             --mode run \
             --outdir {output.outdir} \
             --component-graphs {input.graphs} \
-            --threads {resources.threads} \
+            --threads {threads} \
             --sqlite-cache {params.sqlite_cache}
         echo "ok" > {output.done}
         """
