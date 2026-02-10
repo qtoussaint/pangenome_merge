@@ -116,6 +116,11 @@ rule ggcaller_cluster:
         echo "ok" > {output.done}
         """
 
+def get_cluster_ids(wildcards):
+    ckpt = checkpoints.poppunk_to_cluster_lists.get(**wildcards)
+    index_path = ckpt.output.index
+    return read_cluster_ids(index_path)
+
 def ggcaller_done_files(wildcards):
     clusters = get_cluster_ids(wildcards)
     return expand(str(RESULTS / "ggcaller" / "{cluster}" / "done.txt"), cluster=clusters)
