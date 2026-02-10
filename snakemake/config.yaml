@@ -24,19 +24,19 @@ sqlite_cache: 1048576
 # per job in batch array
 # tasks = maximum num of concurrent jobs 
 resources_batch:
-  threads: 24,
-  mem: 150G,
-  runtime: 2280,
-  nodes: 1,
-  slurm_partition: research,
-  cpus_per_task: 24,
+  threads: 24
+  mem: 150G
+  runtime: 2280
+  nodes: 1
+  slurm_partition: research
+  cpus_per_task: 24
   tasks: 20
 
 # for big job at the end
 resources_pangenomerge:
-  threads: 48,
-  mem: 450G,
-  runtime: 2280,
-  nodes: 1,
+  threads: 48
+  mem: 450G
+  runtime: 2280
+  nodes: 1
   slurm_partition: bigmem
 
