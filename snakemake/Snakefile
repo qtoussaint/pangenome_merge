@@ -45,7 +45,7 @@ checkpoint poppunk_assign:
 ### from poppunk, obtain lists of assemblies in each cluster
 # and index containing the paths of all these lists
 
-rule poppunk_to_cluster_lists:
+checkpoint poppunk_to_cluster_lists:
     input:
         done=RESULTS / "poppunk" / "assign" / "done.txt",
         poppunk_dir=RESULTS / "poppunk" / "assign",
@@ -87,6 +87,7 @@ rule poppunk_to_cluster_lists:
         """
 
 ### run ggcaller on each cluster
+
 rule ggcaller_cluster:
     input:
         index=RESULTS / "clusters" / "sizebalanced_clusters_index.csv",
@@ -114,6 +115,16 @@ rule ggcaller_cluster:
             --threads {threads}
         echo "ok" > {output.done}
         """
+
+def ggcaller_done_files(wildcards):
+    clusters = get_cluster_ids(wildcards)
+    return expand(str(RESULTS / "ggcaller" / "{cluster}" / "done.txt"), cluster=clusters)
+
+rule ggcaller_all:
+    input:
+        ggcaller_done_files
+    output:
+        touch(RESULTS / "ggcaller" / "ALL_DONE.txt")
 
 def read_cluster_ids(index_path):
     with open(index_path) as f:
@@ -163,7 +174,8 @@ rule panaroo_cluster:
 # run panaroo on all clusters
 rule panaroo_all:
     input:
-        panaroo_done_files
+        gg_all_done=RESULTS / "ggcaller" / "ALL_DONE.txt",
+        panaroo_done_files=panaroo_done_files
     output:
         touch(RESULTS / "panaroo" / "ALL_DONE.txt")
 
