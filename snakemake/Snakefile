@@ -14,25 +14,69 @@ rule all:
     input:
         RESULTS / "pangenomerge" / "done.txt"
 
+### split isolates into batches (to make running poppunk feasible)
+
+checkpoint split_assemblies_tsv:
+    input:
+        tsv=config["assemblies_tsv"]
+    output:
+        outdir=directory(RESULTS / "poppunk" / "batches"),
+        index=RESULTS / "poppunk" / "batches" / "batches.index"
+    params:
+        max_isolates=10000
+    shell:
+        r"""
+        mkdir -p {output.outdir}
+
+        in="{input.tsv}"
+        outdir="{output.outdir}"
+        max="{params.max_isolates}"
+
+        # split into blocks of samples
+        split -l "{params.max_isolates}" "{input.tsv}" "{output.outdir}"/assemblies_batch_
+        
+        # rename to assemblies_batch_000.txt, assemblies_batch_001.txt, etc.
+        n=0
+        for f in "{output.outdir}"/assemblies_batch_*; do
+            mv "$f" "{output.outdir}"/assemblies_batch_$(printf "%03d.tsv" $n);
+            n=$((n+1));
+        done
+        
+        # create and test index
+        ls -1 "{output.outdir}"/assemblies_batch_*.txt > "{output.index}"
+        test -s "{output.index}"
+
+        """
+
+def read_ids(path):
+    with open(path) as f:
+        return [ln.strip() for ln in f if ln.strip()]
+
+def get_batch_ids(wildcards):
+    ckpt = checkpoints.split_assemblies_tsv.get(**wildcards)
+    return read_ids(ckpt.output.index)
+
+def poppunk_done_files(wildcards):
+    batches = get_batch_ids(wildcards)
+    return expand(str(RESULTS / "poppunk" / "assign" / "{batch}" / "done.txt"), batch=batches)
+
 ### run poppunk
 
-checkpoint poppunk_assign:
+rule poppunk_assign:
     input:
-        assemblies=config["assemblies_tsv"]
+        assemblies=lambda wc: RESULTS / "poppunk" / "batches" / f"assemblies_batch_{wc.batch}.tsv"
     output:
-        outdir=directory(RESULTS / "poppunk" / "assign"),
-        done=RESULTS / "poppunk" / "assign" / "done.txt"
+        outdir=directory(RESULTS / "poppunk" / "assign" / "{batch}"),
+        done=RESULTS / "poppunk" / "assign" / "{batch}" / "done.txt"
     params: db=config["poppunk_db"]
     conda: "envs/poppunk.yaml"
-    group: "job_array"
+    group: "job_array" 
     threads: config["resources_batch"]["threads"]
     resources:
         mem=config["resources_batch"]["mem"],
         runtime=config["resources_batch"]["runtime"],
         nodes=config["resources_batch"]["nodes"],
-        slurm_partition=config["resources_batch"]["slurm_partition"],
-        cpus_per_task=config["resources_batch"]["cpus_per_task"],
-        tasks=config["resources_batch"]["tasks"]
+        slurm_partition=config["resources_batch"]["slurm_partition"]
     shell:
         r"""
         mkdir -p {output.outdir}
@@ -44,12 +88,19 @@ checkpoint poppunk_assign:
         echo "ok" > {output.done}
         """
 
+rule poppunk_assign_all:
+    input:
+        poppunk_done_files
+    output:
+        touch(RESULTS / "poppunk" / "assign" / "ALL_DONE.txt")
+
+
 ### from poppunk, obtain lists of assemblies in each cluster
 # and index containing the paths of all these lists
 
 checkpoint poppunk_to_cluster_lists:
     input:
-        done=RESULTS / "poppunk" / "assign" / "done.txt",
+        batches_done=RESULTS / "poppunk" / "assign" / "ALL_DONE.txt",
         poppunk_dir=RESULTS / "poppunk" / "assign",
         assemblies=config["assemblies_tsv"]
     output:
@@ -74,19 +125,21 @@ checkpoint poppunk_to_cluster_lists:
         ### get list of all poppunk cluster designations
 
         # first pick the first cluster csv as the header source (from poppunk output dir)
-        first="$(ls -1 {input.poppunk_dir}/*_clusters.csv | head -n 1)"
+        first="$(ls -1 {input.poppunk_dir}/*/*_clusters.csv | head -n 1)"
 
         # concatenate all *_clusters.csv with a single header row
-        {{ head -n 1 "$first"; for f in {input.poppunk_dir}/*_clusters.csv; do tail -n +2 "$f"; done; }} > {output.combined_clusters}
+        {{ head -n 1 "$first"; for f in {input.poppunk_dir}/*/*_clusters.csv; do tail -n +2 "$f"; done; }} > {output.combined_clusters}
 
         # create size-balanced clusters (min/max size) + per-cluster lists + index
         Rscript workflow/scripts/adjust_cluster_sizes.R \
             --poppunk-dir {input.poppunk_dir} \
             --assemblies {input.assemblies} \
+            --combined-clusters {output.combined_clusters} \
             --min {params.min_n} \
             --max {params.max_n} \
             --outdir {output.clusters_dir}
         """
+
 
 ### run ggcaller on each cluster
 
@@ -138,8 +191,7 @@ def read_cluster_ids(index_path):
         return [line.strip() for line in f if line.strip()]
 
 def panaroo_done_files(wildcards):
-    # ensure upstream checkpoint and clustering ran
-    ckpt = checkpoints.poppunk_assign.get(**wildcards)
+    # ensure clustering ran
     index_path = RESULTS / "clusters" / "sizebalanced_clusters_index.csv"
 
     # make panaroo finishing as "done" dependent on clustering output existing

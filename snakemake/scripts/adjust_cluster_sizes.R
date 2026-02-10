@@ -10,6 +10,7 @@ get_arg <- function(flag) {
 }
 
 paths_file       <- get_arg("--assemblies")
+assemblies <- get_arg("--combined-clusters")
 poppunk_dir    <- get_arg("--poppunk-dir")
 min_count        <- as.integer(get_arg("--min"))
 max_count        <- as.integer(get_arg("--max"))
@@ -19,7 +20,7 @@ outdir <- get_arg("--outdir")
 paths <- read.delim(paths_file, header=F) 
 
 # get all poppunk clusters (from bashscript output)
-assemblies <- read.csv(file = paste0(outdir, "/combined_clusters.csv"), header = F) 
+#assemblies <- read.csv(file = paste0(outdir, "/combined_clusters.csv"), header = F) 
 assemblies <- assemblies[order(assemblies$V2), ]
 
 # add paths to sampleids in poppunk clusters csv
