@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 
 configfile: "config.yaml"
+conda_prefix: ".snakemake/conda"
+shell.executable("/bin/bash")
 
 RESULTS = Path("results")
 
@@ -50,7 +52,7 @@ rule poppunk_to_cluster_lists:
         min_n=config["min_cluster_size"],
         max_n=config["max_cluster_size"]
     conda:
-      "workflow/envs/R.yaml"
+      "envs/R.yaml"
     shell:
         r"""
         mkdir -p {output.clusters_dir}
@@ -82,7 +84,7 @@ rule ggcaller_cluster:
         done=RESULTS / "ggcaller" / "{cluster}" / "done.txt"
     threads: config["threads"]["ggcaller"]
     conda:
-      "workflow/envs/ggcaller.yaml"
+      "envs/ggcaller.yaml"
     shell:
         r"""
         mkdir -p {output.outdir}
@@ -120,7 +122,7 @@ rule panaroo_cluster:
         done=RESULTS / "panaroo" / "{cluster}" / "done.txt"
     threads: config["threads"]["panaroo"]
     conda:
-      "workflow/envs/panaroo.yaml"
+      "envs/panaroo.yaml"
     shell:
         r"""
         mkdir -p {output.outdir}
@@ -151,7 +153,7 @@ rule list_panaroo_graphs:
         > {output.graph_paths}
 
         for d in {RESULTS}/panaroo/*/; 
-            do echo "${d%/}" >> {output.graph_paths};
+            do echo "${d%/}" >> {output.graph_paths}; 
         done
         
         """
@@ -165,7 +167,7 @@ rule merge_pangenomes:
         done=RESULTS / "pangenomerge" / "done.txt"
     threads: config["threads"]["pangenomerge"]
     conda:
-      "workflow/envs/pangenomerge.yaml"
+      "envs/pangenomerge.yaml"
     params:
         sqlite_cache=config["sqlite_cache"]
     shell:
