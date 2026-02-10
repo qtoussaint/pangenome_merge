@@ -19,10 +19,11 @@ checkpoint poppunk_assign:
         outdir=directory(RESULTS / "poppunk" / "assign"),
         done=RESULTS / "poppunk" / "assign" / "done.txt"
     threads: config["threads"]["poppunk"]
+    params: db=config["poppunk_db"]
     shell:
         r"""
         mkdir -p {output.outdir}
-        poppunk_assign --db {config["poppunk_db"]} \
+        poppunk_assign --db {params.db} \
             --query {input.assemblies} \
             --threads {threads} \
             --output {output.outdir} \
