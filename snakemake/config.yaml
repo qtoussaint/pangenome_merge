@@ -19,12 +19,14 @@ sqlite_cache: 1048576
 
 # SLURM SETTINGS
 
+# note runtime must be specified in MINUTES
+
 # per job in batch array
 # tasks = maximum num of concurrent jobs 
 resources_batch:
   threads: 24,
   mem: 150G,
-  runtime: 48:00:00,
+  runtime: 2280,
   nodes: 1,
   slurm_partition: research,
   cpus_per_task: 24,
@@ -34,7 +36,7 @@ resources_batch:
 resources_pangenomerge:
   threads: 48,
   mem: 450G,
-  runtime: 48:00:00,
+  runtime: 2280,
   nodes: 1,
   slurm_partition: bigmem
 

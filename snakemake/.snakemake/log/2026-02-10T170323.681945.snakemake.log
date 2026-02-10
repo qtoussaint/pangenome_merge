@@ -1,0 +1,2 @@
+WorkflowError in file "/hps/software/users/jlees/jacqueline/pangenome_merge/snakemake/Snakefile", line 19:
+Resource 'runtime' with value '48:00:00,' could not be parsed as minutes

@@ -1,14 +1,19 @@
 #!/bin/bash
-#SBATCH --job-name=smk-driver
+#SBATCH --job-name=snakemake
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=4G
-#SBATCH --time=12:00:00
-#SBATCH --output=logs/smk-driver.%j.out
-#SBATCH --error=logs/smk-driver.%j.err
+#SBATCH --time=48:00:00
+#SBATCH --output=/path/to/logs/snakemake/snakemake.%j.out
+#SBATCH --error=/path/to/logs/snakemake/snakemake.%j.err
+
+# maximum number of concurrent jobs (across all rules)
+max_concurrent=200
+
+# maximum number of concurrent jobs in job array
+max_concurrent_array=20
 
 # with snakemake conda env activated:
-
-snakemake --profile slurm -s Snakefile  -j 200
+snakemake --profile slurm --executor slurm -j $max_concurrent --group-components job_array=$max_concurrent_array
 
 # then run:
 #sbatch run_snakemake.sbatch

@@ -2,7 +2,9 @@ import os
 from pathlib import Path
 
 configfile: "config.yaml"
-conda_prefix: ".snakemake/conda"
+
+# in snakemake profile:
+#conda_prefix: ".snakemake/conda"
 shell.executable("/bin/bash")
 
 RESULTS = Path("results")
@@ -22,7 +24,7 @@ checkpoint poppunk_assign:
         done=RESULTS / "poppunk" / "assign" / "done.txt"
     params: db=config["poppunk_db"]
     conda: "envs/poppunk.yaml"
-    group: "array_job"
+    group: "job_array"
     threads: config["resources_batch"]["threads"]
     resources:
         mem=config["resources_batch"]["mem"],
@@ -96,7 +98,7 @@ rule ggcaller_cluster:
         outdir=directory(RESULTS / "ggcaller" / "{cluster}"),
         done=RESULTS / "ggcaller" / "{cluster}" / "done.txt"
     conda: "envs/ggcaller.yaml"
-    group: "array_job"
+    group: "job_array"
     threads: config["resources_batch"]["threads"]
     resources:
         mem=config["resources_batch"]["mem"],
@@ -158,7 +160,7 @@ rule panaroo_cluster:
     params:
         indir=str(RESULTS)
     conda: "envs/panaroo.yaml"
-    group: "array_job"
+    group: "job_array"
     threads: config["resources_batch"]["threads"]
     resources:
         mem=config["resources_batch"]["mem"],
