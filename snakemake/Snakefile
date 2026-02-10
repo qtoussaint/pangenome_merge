@@ -155,6 +155,8 @@ rule panaroo_cluster:
         outdir=directory(RESULTS / "panaroo" / "{cluster}"),
         graph=RESULTS / "panaroo" / "{cluster}" / "final_graph.gml",
         done=RESULTS / "panaroo" / "{cluster}" / "done.txt"
+    params:
+        indir=str(RESULTS)
     conda: "envs/panaroo.yaml"
     group: "array_job"
     threads: config["resources_batch"]["threads"]
@@ -168,7 +170,7 @@ rule panaroo_cluster:
     shell:
         r"""
         mkdir -p {output.outdir}
-        gffs=$(ls -1 {RESULTS}/ggcaller/{wildcards.cluster}/GFF/*.fa.gff)
+        gffs=$(ls -1 {params.indir}/ggcaller/{wildcards.cluster}/GFF/*.fa.gff)
         panaroo -i $gffs -o {output.outdir} \
             --threads {threads} \
             --clean-mode strict --refind-mode off --remove-invalid-genes
