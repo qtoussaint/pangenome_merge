@@ -51,7 +51,7 @@ checkpoint split_assemblies_tsv:
         nodes=config["resources_small"]["nodes"],
         slurm_partition=config["resources_small"]["slurm_partition"],
     log:
-        lambda wc: log_path("split_assemblies_tsv"),
+        str(LOGDIR / "split_assemblies_tsv.log"),
     shell:
         r"""
 
@@ -131,7 +131,7 @@ rule poppunk_assign:
         nodes=config["resources_batch"]["nodes"],
         slurm_partition=config["resources_batch"]["slurm_partition"],
     log:
-        lambda wc: log_path("poppunk_assign", wc),
+        str(LOGDIR / "poppunk_assign" / "{batch}.log"),
     shell:
         r"""
 
@@ -189,7 +189,7 @@ checkpoint poppunk_to_cluster_lists:
         nodes=config["resources_batch"]["nodes"],
         slurm_partition=config["resources_batch"]["slurm_partition"],
     log:
-        lambda wc: log_path("poppunk_to_cluster_lists"),
+        str(LOGDIR / "poppunk_to_cluster_lists.log"),
     shell:
         r"""
 
@@ -267,7 +267,7 @@ rule ggcaller_cluster:
         cpus_per_task=config["resources_batch"]["cpus_per_task"],
         tasks=config["resources_batch"]["tasks"],
     log:
-        lambda wc: log_path("ggcaller_cluster", wc),
+        str(LOGDIR / "ggcaller_cluster" / "{cluster}.log"),
     shell:
         r"""
 
@@ -337,7 +337,7 @@ rule panaroo_cluster:
         cpus_per_task=config["resources_batch"]["cpus_per_task"],
         tasks=config["resources_batch"]["tasks"],
     log:
-        lambda wc: log_path("panaroo_cluster", wc),
+        str(LOGDIR / "panaroo_cluster" / "{cluster}.log"),
     shell:
         r"""
 
@@ -382,7 +382,7 @@ rule list_panaroo_graphs:
         nodes=config["resources_small"]["nodes"],
         slurm_partition=config["resources_small"]["slurm_partition"],
     log:
-        lambda wc: log_path("list_panaroo_graphs"),
+        str(LOGDIR / "list_panaroo_graphs.log"),
     shell:
         r"""
 
@@ -421,7 +421,7 @@ rule merge_pangenomes:
         nodes=config["resources_pangenomerge"]["nodes"],
         slurm_partition=config["resources_pangenomerge"]["slurm_partition"],
     log:
-        lambda wc: log_path("merge_pangenomes"),
+        str(LOGDIR / "merge_pangenomes.log"),
     shell:
         r"""
 
