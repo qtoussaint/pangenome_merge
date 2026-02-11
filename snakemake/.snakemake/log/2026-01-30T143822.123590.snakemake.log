@@ -1,6 +1,0 @@
-Building DAG of jobs...
-MissingInputException in rule list_panaroo_graphs in file /hps/software/users/jlees/jacqueline/pangenome_merge/snakemake/Snakefile, line 144:
-Missing input files for rule list_panaroo_graphs:
-    output: results/pangenomes/pangenomes.tsv
-    affected files:
-        results/panaroo
