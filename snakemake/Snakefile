@@ -152,6 +152,18 @@ checkpoint poppunk_to_cluster_lists:
 
         """
 
+def read_cluster_ids(index_path):
+    with open(index_path) as f:
+        return [line.strip() for line in f if line.strip()]
+
+def get_cluster_ids_from_ckpt(wildcards):
+    ckpt = checkpoints.poppunk_to_cluster_lists.get(**wildcards)
+    return read_cluster_ids(ckpt.output.index)
+
+def panaroo_done_files_from_ckpt(wildcards):
+    clusters = get_cluster_ids_from_ckpt(wildcards)
+    return expand(str(RESULTS / "panaroo" / "{cluster}" / "done.txt"), cluster=clusters)
+
 
 ### run ggcaller on each cluster
 
@@ -248,9 +260,10 @@ rule panaroo_cluster:
 rule panaroo_all:
     input:
         gg_all_done=RESULTS / "ggcaller" / "ALL_DONE.txt",
-        panaroo_done_files=panaroo_done_files
+        panaroo_done_files=panaroo_done_files_from_ckpt
     output:
         touch(RESULTS / "panaroo" / "ALL_DONE.txt")
+
 
 # list all panaroo graphs
 rule list_panaroo_graphs:
@@ -262,8 +275,9 @@ rule list_panaroo_graphs:
         results_dir=str(RESULTS)
     shell:
         r"""
-        mkdir -p $(dirname {output.graph_paths}) > {output.graph_paths}
+        mkdir -p $(dirname {output.graph_paths})
 
+        >  {output.graph_paths}
         for d in {params.results_dir}/panaroo/*/; 
             do echo "${d%/}" >> {output.graph_paths}; 
         done
