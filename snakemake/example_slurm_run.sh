@@ -21,6 +21,9 @@ max_concurrent_array=20
 #hash -r
 #conda --version   # should now be 26.1.0
 
+# to make new yaml for pangenomerge if dependencies change:
+#pipreqs /hps/software/users/jlees/jacqueline/pangenome_merge/pangenomerge
+
 # with snakemake env activated:
 snakemake --executor slurm  -j $max_concurrent --group-components job_array=$max_concurrent_array --default-resources slurm_account=jlees --use-conda --latency-wait 60 --verbose
 

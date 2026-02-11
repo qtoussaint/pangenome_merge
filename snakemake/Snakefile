@@ -12,7 +12,7 @@ shell.executable("/bin/bash")
 RESULTS = Path(config["results_directory"], "results")
 
 
-#### LOGGING
+# LOGGING
 
 from datetime import datetime
 
@@ -25,18 +25,13 @@ def log_path(rule_name, wildcards=None):
         return LOGDIR / sub / f"{wc}.log"
     return LOGDIR / f"{rule_name}.log"
 
-####
-
 
 # later change this rule to look for multiple results (one from each step, ggcaller, panaroo etc)
 rule all:
-    input:
-        RESULTS / "pangenomerge" / "done.txt",
+    input: RESULTS / "pangenomerge" / "done.txt",
+    
 
-
-### split isolates into batches (to make running poppunk feasible)
-
-
+# split isolates into batches (to make running poppunk feasible)
 checkpoint split_assemblies_tsv:
     input:
         tsv=config["assemblies_tsv"],
@@ -450,5 +445,7 @@ rule merge_pangenomes:
             --component-graphs {input.graphs} \
             --threads {threads} \
             --sqlite-cache {params.sqlite_cache}
+        
         echo "ok" > {output.done}
+       
         """
