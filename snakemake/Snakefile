@@ -38,11 +38,11 @@ checkpoint split_assemblies_tsv:
         # rename to assemblies_batch_000.tsv, assemblies_batch_001.tsv, etc.
         n=0
         for f in {output.outdir}/assemblies_batch_*; do
-            mv "$f" "{output.outdir}"/assemblies_batch_$(printf "%03d.tsv" $n)
+            mv "$f" {output.outdir}/assemblies_batch_$(printf "%03d.tsv" $n)
             n=$((n+1))
         done
 
-        # after renaming
+        # create and test index
         for f in {output.outdir}/assemblies_batch_*.tsv; do
             bn=$(basename "$f")                # assemblies_batch_000.tsv
             id=${bn#assemblies_batch_}         # 000.tsv
@@ -50,8 +50,6 @@ checkpoint split_assemblies_tsv:
             echo "$id"
         done > "{output.index}"
 
-        # create and test index
-        #ls -1 "{output.outdir}"/assemblies_batch_*.tsv > "{output.index}"
         test -s "{output.index}"
 
         """

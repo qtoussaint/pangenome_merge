@@ -1,0 +1,108 @@
+Lints for snakefile /hps/software/users/jlees/jacqueline/pangenome_merge/snakemake/Snakefile:
+    * Absolute path "/bin/bash" in line 8:
+      Do not define absolute paths inside of the workflow, since this renders your workflow irreproducible on other machines. Use path relative to the working directory instead, or make
+      the path configurable via a config file.
+      Also see:
+      https://snakemake.readthedocs.io/en/latest/snakefiles/configuration.html#configuration
+    * Absolute path "/assemblies_batch_$(printf " in line 41:
+      Do not define absolute paths inside of the workflow, since this renders your workflow irreproducible on other machines. Use path relative to the working directory instead, or make
+      the path configurable via a config file.
+      Also see:
+      https://snakemake.readthedocs.io/en/latest/snakefiles/configuration.html#configuration
+    * Absolute path "/assemblies_batch_*.tsv > " in line 54:
+      Do not define absolute paths inside of the workflow, since this renders your workflow irreproducible on other machines. Use path relative to the working directory instead, or make
+      the path configurable via a config file.
+      Also see:
+      https://snakemake.readthedocs.io/en/latest/snakefiles/configuration.html#configuration
+
+Lints for rule split_assemblies_tsv (line 19, /hps/software/users/jlees/jacqueline/pangenome_merge/snakemake/Snakefile):
+    * No log directive defined:
+      Without a log directive, all output will be printed to the terminal. In distributed environments, this means that errors are harder to discover. In local environments, output of
+      concurrent jobs will be mixed and become unreadable.
+      Also see:
+      https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#log-files
+    * Specify a conda environment or container for each rule.:
+      This way, the used software for each specific step is documented, and the workflow can be executed on any machine without prerequisites.
+      Also see:
+      https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#integrated-package-management
+      https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#running-jobs-in-containers
+    * Shell command directly uses variable bn from outside of the rule:
+      It is recommended to pass all files as input and output, and non-file parameters via the params directive. Otherwise, provenance tracking is less accurate.
+      Also see:
+      https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#non-file-parameters-for-rules
+    * Shell command directly uses variable id from outside of the rule:
+      It is recommended to pass all files as input and output, and non-file parameters via the params directive. Otherwise, provenance tracking is less accurate.
+      Also see:
+      https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#non-file-parameters-for-rules
+
+Lints for rule poppunk_assign (line 73, /hps/software/users/jlees/jacqueline/pangenome_merge/snakemake/Snakefile):
+    * No log directive defined:
+      Without a log directive, all output will be printed to the terminal. In distributed environments, this means that errors are harder to discover. In local environments, output of
+      concurrent jobs will be mixed and become unreadable.
+      Also see:
+      https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#log-files
+
+Lints for rule poppunk_to_cluster_lists (line 109, /hps/software/users/jlees/jacqueline/pangenome_merge/snakemake/Snakefile):
+    * No log directive defined:
+      Without a log directive, all output will be printed to the terminal. In distributed environments, this means that errors are harder to discover. In local environments, output of
+      concurrent jobs will be mixed and become unreadable.
+      Also see:
+      https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#log-files
+
+Lints for rule ggcaller_cluster (line 170, /hps/software/users/jlees/jacqueline/pangenome_merge/snakemake/Snakefile):
+    * No log directive defined:
+      Without a log directive, all output will be printed to the terminal. In distributed environments, this means that errors are harder to discover. In local environments, output of
+      concurrent jobs will be mixed and become unreadable.
+      Also see:
+      https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#log-files
+    * Shell command directly uses variable config from outside of the rule:
+      It is recommended to pass all files as input and output, and non-file parameters via the params directive. Otherwise, provenance tracking is less accurate.
+      Also see:
+      https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#non-file-parameters-for-rules
+
+Lints for rule panaroo_cluster (line 218, /hps/software/users/jlees/jacqueline/pangenome_merge/snakemake/Snakefile):
+    * No log directive defined:
+      Without a log directive, all output will be printed to the terminal. In distributed environments, this means that errors are harder to discover. In local environments, output of
+      concurrent jobs will be mixed and become unreadable.
+      Also see:
+      https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#log-files
+    * Param indir is a prefix of input or output file but hardcoded:
+      If this is meant to represent a file path prefix, it will fail when running workflow in environments without a shared filesystem. Instead, provide a function that infers the
+      appropriate prefix from the input or output file, e.g.: lambda w, input: os.path.splitext(input[0])[0]
+      Also see:
+      https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#non-file-parameters-for-rules
+      https://snakemake.readthedocs.io/en/stable/tutorial/advanced.html#tutorial-input-functions
+
+Lints for rule list_panaroo_graphs (line 258, /hps/software/users/jlees/jacqueline/pangenome_merge/snakemake/Snakefile):
+    * No log directive defined:
+      Without a log directive, all output will be printed to the terminal. In distributed environments, this means that errors are harder to discover. In local environments, output of
+      concurrent jobs will be mixed and become unreadable.
+      Also see:
+      https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#log-files
+    * Specify a conda environment or container for each rule.:
+      This way, the used software for each specific step is documented, and the workflow can be executed on any machine without prerequisites.
+      Also see:
+      https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#integrated-package-management
+      https://snakemake.readthedocs.io/en/latest/snakefiles/deployment.html#running-jobs-in-containers
+    * Shell command directly uses variable d from outside of the rule:
+      It is recommended to pass all files as input and output, and non-file parameters via the params directive. Otherwise, provenance tracking is less accurate.
+      Also see:
+      https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#non-file-parameters-for-rules
+    * Param results_dir is a prefix of input or output file but hardcoded:
+      If this is meant to represent a file path prefix, it will fail when running workflow in environments without a shared filesystem. Instead, provide a function that infers the
+      appropriate prefix from the input or output file, e.g.: lambda w, input: os.path.splitext(input[0])[0]
+      Also see:
+      https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#non-file-parameters-for-rules
+      https://snakemake.readthedocs.io/en/stable/tutorial/advanced.html#tutorial-input-functions
+
+Lints for rule merge_pangenomes (line 277, /hps/software/users/jlees/jacqueline/pangenome_merge/snakemake/Snakefile):
+    * No log directive defined:
+      Without a log directive, all output will be printed to the terminal. In distributed environments, this means that errors are harder to discover. In local environments, output of
+      concurrent jobs will be mixed and become unreadable.
+      Also see:
+      https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#log-files
+    * Shell command directly uses variable config from outside of the rule:
+      It is recommended to pass all files as input and output, and non-file parameters via the params directive. Otherwise, provenance tracking is less accurate.
+      Also see:
+      https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#non-file-parameters-for-rules
+
