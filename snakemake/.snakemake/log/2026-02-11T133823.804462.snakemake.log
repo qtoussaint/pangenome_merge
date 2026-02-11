@@ -1,0 +1,5 @@
+Assuming unrestricted shared filesystem usage.
+host: codon-slurm-login-04.ebi.ac.uk
+Building DAG of jobs...
+MissingRuleException:
+No rule to produce results/poppunk/assign/000/done.txt (if you use input functions make sure that they don't raise unexpected exceptions).

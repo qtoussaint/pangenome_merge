@@ -1,5 +1,6 @@
 name: plotting
 channels:
+  - nodefaults
   - conda-forge
   - bioconda
   - r

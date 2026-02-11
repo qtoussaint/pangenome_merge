@@ -1,0 +1,133 @@
+host: codon-slurm-login-04.ebi.ac.uk
+Building DAG of jobs...
+SLURM run ID: 378cacea-c092-41f8-9890-d3f84929bb57
+MinJobAge 120s (>= 120s). 'squeue' should work reliably for status queries.
+Using shell: /bin/bash
+Provided remote nodes: 200
+Conda environments: ignored
+Job stats:
+job                         count
+------------------------  -------
+all                             1
+ggcaller_all                    1
+list_panaroo_graphs             1
+merge_pangenomes                1
+panaroo_all                     1
+poppunk_assign_all              1
+poppunk_to_cluster_lists        1
+split_assemblies_tsv            1
+total                           8
+
+Select jobs to execute...
+Execute 1 jobs...
+[Wed Feb 11 13:34:04 2026]
+checkpoint split_assemblies_tsv:
+    input: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/test_data/assemblies.tsv
+    output: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches, /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/batches.index
+    jobid: 7
+    reason: Params have changed since last execution: Union of exclusive params before and now across all output: before: 10000 now: 50 
+    resources: tmpdir=<TBD>, mem_mb=150000, mem=150 GB, mem_mib=143052, disk_mb=1000, disk=1 GB, disk_mib=954, slurm_account=jlees, runtime=2280, nodes=1, slurm_partition=research
+DAG of jobs will be updated after completion.
+Job 7 has been submitted with SLURM jobid 53268516 (log: /hps/software/users/jlees/jacqueline/pangenome_merge/snakemake/.snakemake/slurm_logs/rule_split_assemblies_tsv/53268516.log).
+[Wed Feb 11 13:34:45 2026]
+Finished jobid: 7 (Rule: split_assemblies_tsv)
+1 of 8 steps (12%) done
+Updating checkpoint dependencies.
+Select jobs to execute...
+Execute 1 jobs...
+[Wed Feb 11 13:34:45 2026] Group job job_array (jobs in lexicogr. order):
+    [Wed Feb 11 13:34:45 2026]
+    rule poppunk_assign:
+        input: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_000.tsv
+        output: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/000, /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/000/done.txt
+        jobid: 12
+        reason: Missing output files: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/000/done.txt
+        wildcards: batch=000
+        threads: 24
+        resources: tmpdir=<TBD>, mem_mb=150000, mem=150 GB, mem_mib=143052, disk_mb=1000, disk=1 GB, disk_mib=954, slurm_account=jlees, runtime=2280, nodes=1, slurm_partition=research
+    [Wed Feb 11 13:34:45 2026]
+    rule poppunk_assign:
+        input: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_001.tsv
+        output: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001, /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001/done.txt
+        jobid: 13
+        reason: Missing output files: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001/done.txt
+        wildcards: batch=001
+        threads: 24
+        resources: tmpdir=<TBD>, mem_mb=150000, mem=150 GB, mem_mib=143052, disk_mb=1000, disk=1 GB, disk_mib=954, slurm_account=jlees, runtime=2280, nodes=1, slurm_partition=research
+Job e9b765c9-625e-596e-8650-d790050200f6 has been submitted with SLURM jobid 53268697 (log: /hps/software/users/jlees/jacqueline/pangenome_merge/snakemake/.snakemake/slurm_logs/group_job_array_poppunk_assign/53268697.log).
+Error in group job_array
+    [Wed Feb 11 13:35:25 2026]
+    Error in rule poppunk_assign:
+        message: None
+        jobid: 12
+        input: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_000.tsv
+        output: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/000, /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/000/done.txt
+        shell:
+        
+            mkdir -p /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/000
+            poppunk_assign --db /nfs/research/jlees/jacqueline/poppunk_dbs/s_pneumo_all/GPS_v4 \
+                --query /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_000.tsv \
+                --threads 24 \
+                --output /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/000 \
+                --serial
+            echo "ok" > /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/000/done.txt
+        
+            (command exited with non-zero exit code)
+    [Wed Feb 11 13:35:25 2026]
+    Error in rule poppunk_assign:
+        message: None
+        jobid: 13
+        input: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_001.tsv
+        output: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001, /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001/done.txt
+        shell:
+        
+            mkdir -p /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001
+            poppunk_assign --db /nfs/research/jlees/jacqueline/poppunk_dbs/s_pneumo_all/GPS_v4 \
+                --query /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_001.tsv \
+                --threads 24 \
+                --output /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001 \
+                --serial
+            echo "ok" > /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001/done.txt
+        
+            (command exited with non-zero exit code)
+Shutting down, this might take some time.
+Cleaning up SLURM log files older than 10 day(s).
+Exiting because a job execution failed. Look below for error messages
+Error in group job_array
+    [Wed Feb 11 13:36:15 2026]
+    Error in rule poppunk_assign:
+        message: None
+        jobid: 12
+        input: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_000.tsv
+        output: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/000, /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/000/done.txt
+        shell:
+        
+            mkdir -p /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/000
+            poppunk_assign --db /nfs/research/jlees/jacqueline/poppunk_dbs/s_pneumo_all/GPS_v4 \
+                --query /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_000.tsv \
+                --threads 24 \
+                --output /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/000 \
+                --serial
+            echo "ok" > /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/000/done.txt
+        
+            (command exited with non-zero exit code)
+    [Wed Feb 11 13:36:15 2026]
+    Error in rule poppunk_assign:
+        message: None
+        jobid: 13
+        input: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_001.tsv
+        output: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001, /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001/done.txt
+        shell:
+        
+            mkdir -p /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001
+            poppunk_assign --db /nfs/research/jlees/jacqueline/poppunk_dbs/s_pneumo_all/GPS_v4 \
+                --query /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_001.tsv \
+                --threads 24 \
+                --output /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001 \
+                --serial
+            echo "ok" > /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001/done.txt
+        
+            (command exited with non-zero exit code)
+Complete log(s): /hps/software/users/jlees/jacqueline/pangenome_merge/snakemake/.snakemake/log/2026-02-11T133404.680964.snakemake.log
+WorkflowError:
+At least one job did not complete successfully.

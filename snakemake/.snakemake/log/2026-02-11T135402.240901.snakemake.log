@@ -1,0 +1,56 @@
+Assuming unrestricted shared filesystem usage.
+host: codon-slurm-login-04.ebi.ac.uk
+Building DAG of jobs...
+Creating conda environment envs/poppunk.yaml...
+Downloading and installing remote packages.
+CreateCondaEnvironmentException:
+Could not create conda environment from /hps/software/users/jlees/jacqueline/pangenome_merge/snakemake/envs/poppunk.yaml:
+Command:
+conda env create --quiet --no-default-packages --file "/hps/software/users/jlees/jacqueline/pangenome_merge/snakemake/.snakemake/conda/9247254c10620175cc0a3e9a4f63d1e9_.yaml" --prefix "/hps/software/users/jlees/jacqueline/pangenome_merge/snakemake/.snakemake/conda/9247254c10620175cc0a3e9a4f63d1e9_"
+Output:
+Channels:
+ - defaults
+ - conda-forge
+ - bioconda
+ - r
+ - nodefaults
+Platform: linux-64
+Collecting package metadata (repodata.json): ...working... Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ConnectTimeoutError(<HTTPSConnection(host='repo.anaconda.com', port=443) at 0x7f431fe10190>, 'Connection to repo.anaconda.com timed out. (connect timeout=9.15)')': /pkgs/main/noarch/repodata.json.zst
+
+Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ConnectTimeoutError(<HTTPSConnection(host='repo.anaconda.com', port=443) at 0x7f431fe107d0>, 'Connection to repo.anaconda.com timed out. (connect timeout=9.15)')': /pkgs/r/linux-64/repodata.json.zst
+
+Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ConnectTimeoutError(<HTTPSConnection(host='repo.anaconda.com', port=443) at 0x7f431fe10910>, 'Connection to repo.anaconda.com timed out. (connect timeout=9.15)')': /pkgs/r/noarch/repodata.json.zst
+
+Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ConnectTimeoutError(<HTTPSConnection(host='repo.anaconda.com', port=443) at 0x7f431fe10cd0>, 'Connection to repo.anaconda.com timed out. (connect timeout=9.15)')': /pkgs/main/linux-64/repodata.json.zst
+
+Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ConnectTimeoutError(<HTTPSConnection(host='repo.anaconda.com', port=443) at 0x7f4323bf8190>, 'Connection to repo.anaconda.com timed out. (connect timeout=9.15)')': /pkgs/main/noarch/repodata.json.zst
+
+Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ConnectTimeoutError(<HTTPSConnection(host='repo.anaconda.com', port=443) at 0x7f431fec7d90>, 'Connection to repo.anaconda.com timed out. (connect timeout=9.15)')': /pkgs/r/linux-64/repodata.json.zst
+
+Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ConnectTimeoutError(<HTTPSConnection(host='repo.anaconda.com', port=443) at 0x7f431fdcad50>, 'Connection to repo.anaconda.com timed out. (connect timeout=9.15)')': /pkgs/main/linux-64/repodata.json.zst
+
+Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ConnectTimeoutError(<HTTPSConnection(host='repo.anaconda.com', port=443) at 0x7f431fec7ed0>, 'Connection to repo.anaconda.com timed out. (connect timeout=9.15)')': /pkgs/r/noarch/repodata.json.zst
+
+Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ConnectTimeoutError(<HTTPSConnection(host='repo.anaconda.com', port=443) at 0x7f431fdc9810>, 'Connection to repo.anaconda.com timed out. (connect timeout=9.15)')': /pkgs/main/linux-64/repodata.json.zst
+
+Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ConnectTimeoutError(<HTTPSConnection(host='repo.anaconda.com', port=443) at 0x7f431fdc8a50>, 'Connection to repo.anaconda.com timed out. (connect timeout=9.15)')': /pkgs/main/noarch/repodata.json.zst
+
+Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ConnectTimeoutError(<HTTPSConnection(host='repo.anaconda.com', port=443) at 0x7f431fdc96d0>, 'Connection to repo.anaconda.com timed out. (connect timeout=9.15)')': /pkgs/r/linux-64/repodata.json.zst
+
+Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ConnectTimeoutError(<HTTPSConnection(host='repo.anaconda.com', port=443) at 0x7f431fdc9950>, 'Connection to repo.anaconda.com timed out. (connect timeout=9.15)')': /pkgs/r/noarch/repodata.json.zst
+
+failed
+
+CondaHTTPError: HTTP 000 CONNECTION FAILED for url <https://repo.anaconda.com/pkgs/main/linux-64/repodata.json>
+Elapsed: -
+
+An HTTP error occurred when trying to retrieve this URL.
+HTTP errors are often intermittent, and a simple retry will get you on your way.
+
+If your current network has https://repo.anaconda.com blocked, please file
+a support request with your network engineering team.
+
+'https//repo.anaconda.com/pkgs/main/linux-64'
+
+
+

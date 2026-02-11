@@ -1,6 +1,6 @@
 name: poppunk
 channels:
-  - nodefaults
+  - defaults
   - conda-forge
   - bioconda
   - r

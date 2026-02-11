@@ -1,0 +1,130 @@
+host: hl-codon-132-01.ebi.ac.uk
+Building DAG of jobs...
+Using shell: /bin/bash
+Provided remote nodes: 1
+Conda environments: ignored
+Select jobs to execute...
+Execute 1 jobs...
+[Wed Feb 11 13:34:54 2026] Group job job_array (jobs in lexicogr. order):
+
+    [Wed Feb 11 13:34:54 2026]
+    rule poppunk_assign:
+        input: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_001.tsv
+        output: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001, /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001/done.txt
+        jobid: 1
+        reason: Forced execution
+        wildcards: batch=001
+        threads: 24
+        resources: tmpdir=<TBD>, mem_mb=150000, mem=150 GB, mem_mib=143052, disk_mb=1000, disk=1 GB, disk_mib=954, slurm_account=jlees, runtime=2280, nodes=1, slurm_partition=research
+host: hl-codon-132-01.ebi.ac.uk
+Building DAG of jobs...
+Using shell: /bin/bash
+Provided cores: 24
+Rules claiming more threads will be scaled down.
+Conda environments: ignored
+Select jobs to execute...
+Execute 1 jobs...
+
+[Wed Feb 11 13:34:56 2026]
+localrule poppunk_assign:
+    input: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_001.tsv
+    output: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001, /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001/done.txt
+    jobid: 0
+    reason: Forced execution
+    wildcards: batch=001
+    threads: 24
+    resources: tmpdir=/tmp, disk_mb=1000, disk=1 GB, disk_mib=954, mem_mb=150000, mem=150 GB, mem_mib=143052, slurm_account=jlees, runtime=2280, nodes=1, slurm_partition=research
+/bin/bash: line 3: poppunk_assign: command not found
+RuleException:
+CalledProcessError in file "/hps/software/users/jlees/jacqueline/pangenome_merge/snakemake/Snakefile", line 110:
+Command 'set -euo pipefail;  
+        mkdir -p /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001
+        poppunk_assign --db /nfs/research/jlees/jacqueline/poppunk_dbs/s_pneumo_all/GPS_v4 \
+            --query /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_001.tsv \
+            --threads 24 \
+            --output /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001 \
+            --serial
+        echo "ok" > /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001/done.txt' returned non-zero exit status 127.
+[Wed Feb 11 13:34:56 2026]
+Error in rule poppunk_assign:
+    message: None
+    jobid: 0
+    input: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_001.tsv
+    output: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001, /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001/done.txt
+    shell:
+        
+        mkdir -p /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001
+        poppunk_assign --db /nfs/research/jlees/jacqueline/poppunk_dbs/s_pneumo_all/GPS_v4 \
+            --query /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_001.tsv \
+            --threads 24 \
+            --output /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001 \
+            --serial
+        echo "ok" > /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001/done.txt
+        
+        (command exited with non-zero exit code)
+Removing output files of failed job poppunk_assign since they might be corrupted:
+/nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look below for error messages
+[Wed Feb 11 13:34:56 2026]
+Error in rule poppunk_assign:
+    message: None
+    jobid: 0
+    input: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_001.tsv
+    output: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001, /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001/done.txt
+    shell:
+        
+        mkdir -p /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001
+        poppunk_assign --db /nfs/research/jlees/jacqueline/poppunk_dbs/s_pneumo_all/GPS_v4 \
+            --query /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_001.tsv \
+            --threads 24 \
+            --output /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001 \
+            --serial
+        echo "ok" > /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001/done.txt
+        
+        (command exited with non-zero exit code)
+Storing output in storage.
+WorkflowError:
+At least one job did not complete successfully.
+srun: error: hl-codon-132-01: task 0: Exited with exit code 1
+Error in group job_array
+    [Wed Feb 11 13:34:57 2026]
+    Error in rule poppunk_assign:
+        message: None
+        jobid: 1
+        input: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_001.tsv
+        output: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001, /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001/done.txt
+        shell:
+        
+            mkdir -p /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001
+            poppunk_assign --db /nfs/research/jlees/jacqueline/poppunk_dbs/s_pneumo_all/GPS_v4 \
+                --query /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_001.tsv \
+                --threads 24 \
+                --output /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001 \
+                --serial
+            echo "ok" > /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001/done.txt
+        
+            (command exited with non-zero exit code)
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look below for error messages
+Error in group job_array
+    [Wed Feb 11 13:34:57 2026]
+    Error in rule poppunk_assign:
+        message: None
+        jobid: 1
+        input: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_001.tsv
+        output: /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001, /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001/done.txt
+        shell:
+        
+            mkdir -p /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001
+            poppunk_assign --db /nfs/research/jlees/jacqueline/poppunk_dbs/s_pneumo_all/GPS_v4 \
+                --query /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/batches/assemblies_batch_001.tsv \
+                --threads 24 \
+                --output /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001 \
+                --serial
+            echo "ok" > /nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/results/poppunk/assign/001/done.txt
+        
+            (command exited with non-zero exit code)
+Storing output in storage.
+WorkflowError:
+At least one job did not complete successfully.

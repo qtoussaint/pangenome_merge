@@ -87,10 +87,7 @@ def poppunk_done_files(wildcards):
 
 rule poppunk_assign:
     input:
-        assemblies=lambda wc: RESULTS
-        / "poppunk"
-        / "batches"
-        / f"assemblies_batch_{wc.batch}.tsv",
+        assemblies=lambda wc: RESULTS / "poppunk" / "batches" / f"assemblies_batch_{wc.batch}.tsv",
     output:
         outdir=directory(RESULTS / "poppunk" / "assign" / "{batch}"),
         done=RESULTS / "poppunk" / "assign" / "{batch}" / "done.txt",

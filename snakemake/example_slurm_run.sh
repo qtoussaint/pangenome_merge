@@ -16,6 +16,11 @@ max_concurrent_array=20
 #source ~/.bashrc
 #micromamba activate snakemake
 
+# possibly necessary to avoid conda issues
+#unset -f conda
+#hash -r
+#conda --version   # should now be 26.1.0
+
 # with snakemake env activated:
 snakemake --executor slurm -j $max_concurrent --group-components job_array=$max_concurrent_array --default-resources slurm_account=jlees
 
