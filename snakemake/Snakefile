@@ -127,7 +127,6 @@ rule poppunk_assign_all:
 checkpoint poppunk_to_cluster_lists:
     input:
         batches_done=RESULTS / "poppunk" / "assign" / "ALL_DONE.txt",
-        poppunk_dir=RESULTS / "poppunk" / "assign",
         assemblies=config["assemblies_tsv"],
     output:
         clusters_dir=directory(RESULTS / "clusters"),
@@ -137,6 +136,7 @@ checkpoint poppunk_to_cluster_lists:
         / "sizebalanced_clusters_index.csv"
         # also have all clusterfiles as output but not sure how to add that here,
     params:
+        poppunk_dir=RESULTS / "poppunk" / "assign",
         min_n=config["min_cluster_size"],
         max_n=config["max_cluster_size"],
     conda:
