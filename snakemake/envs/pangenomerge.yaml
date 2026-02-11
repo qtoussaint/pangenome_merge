@@ -1,12 +1,13 @@
 name: pangenomerge
 channels:
   - bioconda
+  - conda-forge
 dependencies:
-  - biopython
-  - edlib
-  - networkx
-  - numpy
-  - pandas
-  - scipy
-  - python=3.12
-  - scikit-learn
+  - biopython=1.85
+  - edlib=1.2.3
+  - networkx=3.4.2
+  - numpy=2.3.1
+  - pandas=2.3.0
+  - scipy=1.16.0
+  - python=3.12.11
+  - scikit-learn=1.7.0
