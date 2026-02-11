@@ -49,9 +49,9 @@ checkpoint split_assemblies_tsv:
 
         # create and test index
         for f in {output.outdir}/assemblies_batch_*.tsv; do
-            bn=$(basename "$f")                # assemblies_batch_000.tsv
-            id=${bn#assemblies_batch_}         # 000.tsv
-            id=${id%.tsv}                      # 000
+            bn=$(basename "$f")                 # assemblies_batch_000.tsv
+            id=${{bn#assemblies_batch_}}        # 000.tsv
+            id=${{id%.tsv}}                     # 000
             echo "$id"
         done > "{output.index}"
 
