@@ -28,7 +28,7 @@ checkpoint split_assemblies_tsv:
         outdir=directory(RESULTS / "poppunk" / "batches"),
         index=RESULTS / "poppunk" / "batches" / "batches.index",
     params:
-        max_isolates=10000,
+        max_isolates=50,
     resources:
         mem=config["resources_small"]["mem"],
         runtime=config["resources_small"]["runtime"],
@@ -306,6 +306,11 @@ rule list_panaroo_graphs:
         graph_paths=RESULTS / "pangenomes" / "pangenomes.tsv",
     params:
         results_dir=str(RESULTS),
+    resources:
+        mem=config["resources_small"]["mem"],
+        runtime=config["resources_small"]["runtime"],
+        nodes=config["resources_small"]["nodes"],
+        slurm_partition=config["resources_small"]["slurm_partition"],
     shell:
         r"""
         mkdir -p $(dirname {output.graph_paths})
