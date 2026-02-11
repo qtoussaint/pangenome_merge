@@ -144,7 +144,16 @@ rule poppunk_assign:
         echo "[poppunk_assign] outdir: {output.outdir}"
         echo "[poppunk_assign] threads: {threads}"
 
+        echo "[debug] PATH=$PATH"
+        echo "[debug] CONDA_PREFIX=${{CONDA_PREFIX:-<unset>}}"
+        which conda || true
+        which python || true
+        python -V || true
+        which poppunk || true
+        poppunk --version
+
         mkdir -p {output.outdir}
+
         poppunk_assign --db {params.db} \
             --query {input.assemblies} \
             --threads {threads} \

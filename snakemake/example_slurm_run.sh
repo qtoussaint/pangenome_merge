@@ -22,7 +22,7 @@ max_concurrent_array=20
 #conda --version   # should now be 26.1.0
 
 # with snakemake env activated:
-snakemake --executor slurm -j $max_concurrent --group-components job_array=$max_concurrent_array --default-resources slurm_account=jlees
+snakemake --executor slurm  -j $max_concurrent --group-components job_array=$max_concurrent_array --default-resources slurm_account=jlees --use-conda --latency-wait 60 --verbose
 
 # then run:
 #sbatch run_snakemake.sbatch
