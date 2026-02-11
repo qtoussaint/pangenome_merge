@@ -214,17 +214,6 @@ def read_cluster_ids(index_path):
     with open(index_path) as f:
         return [line.strip() for line in f if line.strip()]
 
-def panaroo_done_files(wildcards):
-    # ensure clustering ran
-    index_path = RESULTS / "clusters" / "sizebalanced_clusters_index.csv"
-
-    # make panaroo finishing as "done" dependent on clustering output existing
-    if not index_path.exists():
-        raise ValueError("Missing sizebalanced_clusters_index.csv")
-
-    clusters = read_cluster_ids(index_path)
-    return expand(str(RESULTS / "panaroo" / "{cluster}" / "done.txt"), cluster=clusters)
-
 ### run panaroo on each cluster 
 rule panaroo_cluster:
     input:
