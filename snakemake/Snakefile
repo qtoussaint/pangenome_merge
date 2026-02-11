@@ -12,6 +12,22 @@ shell.executable("/bin/bash")
 RESULTS = Path(config["results_directory"], "results")
 
 
+#### LOGGING
+
+from datetime import datetime
+
+LOGDIR = RESULTS / "logs"
+
+def log_path(rule_name, wildcards=None):
+    sub = f"{rule_name}"
+    if wildcards:
+        wc = "_".join(str(getattr(wildcards, k)) for k in sorted(wildcards.keys()))
+        return LOGDIR / sub / f"{wc}.log"
+    return LOGDIR / f"{rule_name}.log"
+
+####
+
+
 # later change this rule to look for multiple results (one from each step, ggcaller, panaroo etc)
 rule all:
     input:
@@ -36,6 +52,16 @@ checkpoint split_assemblies_tsv:
         slurm_partition=config["resources_small"]["slurm_partition"],
     shell:
         r"""
+
+        mkdir -p "$(dirname "{log}")"
+        exec > >(tee -a "{log}") 2>&1
+        set -euo pipefail
+
+        echo "[split_assemblies_tsv] start: $(date -Is)"
+        echo "[split_assemblies_tsv] input: {input.tsv}"
+        echo "[split_assemblies_tsv] outdir: {output.outdir}"
+        echo "[split_assemblies_tsv] max_isolates: {params.max_isolates}"
+
         mkdir -p {output.outdir}
 
         in="{input.tsv}"
@@ -105,6 +131,17 @@ rule poppunk_assign:
         slurm_partition=config["resources_batch"]["slurm_partition"],
     shell:
         r"""
+
+        mkdir -p "$(dirname "{log}")"
+        exec > >(tee -a "{log}") 2>&1
+        set -euo pipefail
+
+        echo "[poppunk_assign] start: $(date -Is) batch={wildcards.batch}"
+        echo "[poppunk_assign] db: {params.db}"
+        echo "[poppunk_assign] assemblies: {input.assemblies}"
+        echo "[poppunk_assign] outdir: {output.outdir}"
+        echo "[poppunk_assign] threads: {threads}"
+
         mkdir -p {output.outdir}
         poppunk_assign --db {params.db} \
             --query {input.assemblies} \
@@ -151,6 +188,17 @@ checkpoint poppunk_to_cluster_lists:
         slurm_partition=config["resources_batch"]["slurm_partition"],
     shell:
         r"""
+
+        mkdir -p "$(dirname "{log}")"
+        exec > >(tee -a "{log}") 2>&1
+        set -euo pipefail
+
+        echo "[poppunk_to_cluster_lists] start: $(date -Is)"
+        echo "[poppunk_to_cluster_lists] poppunk_dir: {params.poppunk_dir}"
+        echo "[poppunk_to_cluster_lists] assemblies: {input.assemblies}"
+        echo "[poppunk_to_cluster_lists] outdir: {output.clusters_dir}"
+        echo "[poppunk_to_cluster_lists] min/max: {params.min_n}/{params.max_n}"
+
         mkdir -p {output.clusters_dir}
         
         ### get list of all poppunk cluster designations
@@ -217,6 +265,16 @@ rule ggcaller_cluster:
         tasks=config["resources_batch"]["tasks"],
     shell:
         r"""
+
+        mkdir -p "$(dirname "{log}")"
+        exec > >(tee -a "{log}") 2>&1
+        set -euo pipefail
+
+        echo "[ggcaller_cluster] start: $(date -Is) cluster={wildcards.cluster}"
+        echo "[ggcaller_cluster] cluster_list: {input.cluster_list}"
+        echo "[ggcaller_cluster] outdir: {output.outdir}"
+        echo "[ggcaller_cluster] threads: {threads}"
+
         mkdir -p {output.outdir}
         python {config["ggcaller_runner"]} \
             --refs {input.cluster_list} \
@@ -276,6 +334,16 @@ rule panaroo_cluster:
         tasks=config["resources_batch"]["tasks"],
     shell:
         r"""
+
+        mkdir -p "$(dirname "{log}")"
+        exec > >(tee -a "{log}") 2>&1
+        set -euo pipefail
+
+        echo "[panaroo_cluster] start: $(date -Is) cluster={wildcards.cluster}"
+        echo "[panaroo_cluster] indir: {params.indir}"
+        echo "[panaroo_cluster] outdir: {output.outdir}"
+        echo "[panaroo_cluster] threads: {threads}"
+
         mkdir -p {output.outdir}
         gffs=$(ls -1 {params.indir}/ggcaller/{wildcards.cluster}/GFF/*.fa.gff)
         panaroo -i $gffs -o {output.outdir} \
@@ -310,6 +378,15 @@ rule list_panaroo_graphs:
         slurm_partition=config["resources_small"]["slurm_partition"],
     shell:
         r"""
+
+        mkdir -p "$(dirname "{log}")"
+        exec > >(tee -a "{log}") 2>&1
+        set -euo pipefail
+
+        echo "[list_panaroo_graphs] start: $(date -Is)"
+        echo "[list_panaroo_graphs] results_dir: {params.results_dir}"
+        echo "[list_panaroo_graphs] output: {output.graph_paths}"
+
         mkdir -p $(dirname {output.graph_paths})
 
         >  {output.graph_paths}
@@ -339,6 +416,17 @@ rule merge_pangenomes:
         sqlite_cache=config["sqlite_cache"],
     shell:
         r"""
+        
+        mkdir -p "$(dirname "{log}")"
+        exec > >(tee -a "{log}") 2>&1
+        set -euo pipefail
+
+        echo "[merge_pangenomes] start: $(date -Is)"
+        echo "[merge_pangenomes] graphs: {input.graphs}"
+        echo "[merge_pangenomes] outdir: {output.outdir}"
+        echo "[merge_pangenomes] threads: {threads}"
+        echo "[merge_pangenomes] sqlite_cache: {params.sqlite_cache}"
+
         mkdir -p {output.outdir}
         python3 {config["pangenomerge_runner"]} \
             --mode run \
