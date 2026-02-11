@@ -50,12 +50,13 @@ checkpoint split_assemblies_tsv:
         runtime=config["resources_small"]["runtime"],
         nodes=config["resources_small"]["nodes"],
         slurm_partition=config["resources_small"]["slurm_partition"],
+    log:
+        lambda wc: log_path("split_assemblies_tsv"),
     shell:
         r"""
 
         mkdir -p "$(dirname "{log}")"
         exec > >(tee -a "{log}") 2>&1
-        set -euo pipefail
 
         echo "[split_assemblies_tsv] start: $(date -Is)"
         echo "[split_assemblies_tsv] input: {input.tsv}"
@@ -129,12 +130,13 @@ rule poppunk_assign:
         runtime=config["resources_batch"]["runtime"],
         nodes=config["resources_batch"]["nodes"],
         slurm_partition=config["resources_batch"]["slurm_partition"],
+    log:
+        lambda wc: log_path("poppunk_assign", wc),
     shell:
         r"""
 
         mkdir -p "$(dirname "{log}")"
         exec > >(tee -a "{log}") 2>&1
-        set -euo pipefail
 
         echo "[poppunk_assign] start: $(date -Is) batch={wildcards.batch}"
         echo "[poppunk_assign] db: {params.db}"
@@ -186,12 +188,13 @@ checkpoint poppunk_to_cluster_lists:
         runtime=config["resources_batch"]["runtime"],
         nodes=config["resources_batch"]["nodes"],
         slurm_partition=config["resources_batch"]["slurm_partition"],
+    log:
+        lambda wc: log_path("poppunk_to_cluster_lists"),
     shell:
         r"""
 
         mkdir -p "$(dirname "{log}")"
         exec > >(tee -a "{log}") 2>&1
-        set -euo pipefail
 
         echo "[poppunk_to_cluster_lists] start: $(date -Is)"
         echo "[poppunk_to_cluster_lists] poppunk_dir: {params.poppunk_dir}"
@@ -263,12 +266,13 @@ rule ggcaller_cluster:
         slurm_partition=config["resources_batch"]["slurm_partition"],
         cpus_per_task=config["resources_batch"]["cpus_per_task"],
         tasks=config["resources_batch"]["tasks"],
+    log:
+        lambda wc: log_path("ggcaller_cluster", wc),
     shell:
         r"""
 
         mkdir -p "$(dirname "{log}")"
         exec > >(tee -a "{log}") 2>&1
-        set -euo pipefail
 
         echo "[ggcaller_cluster] start: $(date -Is) cluster={wildcards.cluster}"
         echo "[ggcaller_cluster] cluster_list: {input.cluster_list}"
@@ -332,12 +336,13 @@ rule panaroo_cluster:
         slurm_partition=config["resources_batch"]["slurm_partition"],
         cpus_per_task=config["resources_batch"]["cpus_per_task"],
         tasks=config["resources_batch"]["tasks"],
+    log:
+        lambda wc: log_path("panaroo_cluster", wc),
     shell:
         r"""
 
         mkdir -p "$(dirname "{log}")"
         exec > >(tee -a "{log}") 2>&1
-        set -euo pipefail
 
         echo "[panaroo_cluster] start: $(date -Is) cluster={wildcards.cluster}"
         echo "[panaroo_cluster] indir: {params.indir}"
@@ -376,12 +381,13 @@ rule list_panaroo_graphs:
         runtime=config["resources_small"]["runtime"],
         nodes=config["resources_small"]["nodes"],
         slurm_partition=config["resources_small"]["slurm_partition"],
+    log:
+        lambda wc: log_path("list_panaroo_graphs"),
     shell:
         r"""
 
         mkdir -p "$(dirname "{log}")"
         exec > >(tee -a "{log}") 2>&1
-        set -euo pipefail
 
         echo "[list_panaroo_graphs] start: $(date -Is)"
         echo "[list_panaroo_graphs] results_dir: {params.results_dir}"
@@ -404,6 +410,8 @@ rule merge_pangenomes:
     output:
         outdir=directory(RESULTS / "pangenomerge"),
         done=RESULTS / "pangenomerge" / "done.txt",
+    params:
+        sqlite_cache=config["sqlite_cache"],
     conda:
         "envs/pangenomerge.yaml"
     threads: config["resources_pangenomerge"]["threads"]
@@ -412,14 +420,13 @@ rule merge_pangenomes:
         runtime=config["resources_pangenomerge"]["runtime"],
         nodes=config["resources_pangenomerge"]["nodes"],
         slurm_partition=config["resources_pangenomerge"]["slurm_partition"],
-    params:
-        sqlite_cache=config["sqlite_cache"],
+    log:
+        lambda wc: log_path("merge_pangenomes"),
     shell:
         r"""
-        
+
         mkdir -p "$(dirname "{log}")"
         exec > >(tee -a "{log}") 2>&1
-        set -euo pipefail
 
         echo "[merge_pangenomes] start: $(date -Is)"
         echo "[merge_pangenomes] graphs: {input.graphs}"
