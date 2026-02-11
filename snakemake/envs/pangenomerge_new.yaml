@@ -1,0 +1,12 @@
+name: pangenomerge
+channels:
+  - bioconda
+dependencies:
+  - biopython
+  - edlib
+  - networkx
+  - numpy
+  - pandas
+  - scipy
+  - python=3.12
+  - scikit-learn
