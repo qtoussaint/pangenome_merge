@@ -34,6 +34,15 @@ resources_batch:
   cpus_per_task: 24
   tasks: 20
 
+# for small intermediate jobs
+resources_small:
+  threads: 8
+  mem: 150G
+  runtime: 2280
+  nodes: 1
+  slurm_partition: research
+
+
 # for big job at the end
 resources_pangenomerge:
   threads: 48

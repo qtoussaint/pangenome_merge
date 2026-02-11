@@ -29,6 +29,11 @@ checkpoint split_assemblies_tsv:
         index=RESULTS / "poppunk" / "batches" / "batches.index",
     params:
         max_isolates=10000,
+    resources:
+        mem=config["resources_small"]["mem"],
+        runtime=config["resources_small"]["runtime"],
+        nodes=config["resources_small"]["nodes"],
+        slurm_partition=config["resources_small"]["slurm_partition"],
     shell:
         r"""
         mkdir -p {output.outdir}
