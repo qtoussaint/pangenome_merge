@@ -9,7 +9,7 @@ configfile: "config.yaml"
 # conda_prefix: ".snakemake/conda"
 shell.executable("/bin/bash")
 
-RESULTS = Path("results")
+RESULTS = Path(config["results_directory"], "results")
 
 
 # later change this rule to look for multiple results (one from each step, ggcaller, panaroo etc)

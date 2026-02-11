@@ -1,5 +1,5 @@
 # assemblies in poppunk assign format
-assemblies_tsv: "/nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/s_pneumoniae/pp_sketchlib/fasta_paths.txt"  
+assemblies_tsv: "/nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test/test_data/assemblies.tsv"  
 
 # poppunk database
 poppunk_db: "/nfs/research/jlees/jacqueline/poppunk_dbs/s_pneumo_all/GPS_v4"
@@ -7,6 +7,9 @@ poppunk_db: "/nfs/research/jlees/jacqueline/poppunk_dbs/s_pneumo_all/GPS_v4"
 # manual installs
 ggcaller_runner: "/hps/software/users/jlees/jacqueline/manual_installs/bin/ggcaller/ggCaller/ggcaller-runner.py"
 pangenomerge_runner: "/hps/software/users/jlees/jacqueline/pangenome_merge/pangenomerge-runner.py"
+
+# results directory
+results_directory: "/nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/snakemake_test"
 
 # merge clusters with < min_cluster_size samples
 # split clusters with > max_cluster_size samples
