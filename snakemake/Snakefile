@@ -207,6 +207,8 @@ checkpoint poppunk_to_cluster_lists:
         # concatenate all *_clusters.csv with a single header row
         {{ head -n 1 "$first"; for f in {params.poppunk_dir}/*/*_clusters.csv; do tail -n +2 "$f"; done; }} > {output.combined_clusters}
 
+        test -s {output.combined_clusters}
+
         # create size-balanced clusters (min/max size) + per-cluster lists + index
         Rscript scripts/adjust_cluster_sizes.R \
             --poppunk-dir {params.poppunk_dir} \
