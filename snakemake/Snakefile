@@ -169,9 +169,7 @@ checkpoint poppunk_to_cluster_lists:
     output:
         clusters_dir=directory(RESULTS / "clusters"),
         combined_clusters=RESULTS / "clusters" / "combined_clusters.csv",
-        index=RESULTS
-        / "clusters"
-        / "sizebalanced_clusters_index.csv"
+        index=RESULTS / "clusters" / "sizebalanced_clusters_index.csv",
         # also have all clusterfiles as output but not sure how to add that here,
     params:
         poppunk_dir=RESULTS / "poppunk" / "assign",
@@ -210,7 +208,7 @@ checkpoint poppunk_to_cluster_lists:
         {{ head -n 1 "$first"; for f in {params.poppunk_dir}/*/*_clusters.csv; do tail -n +2 "$f"; done; }} > {output.combined_clusters}
 
         # create size-balanced clusters (min/max size) + per-cluster lists + index
-        Rscript workflow/scripts/adjust_cluster_sizes.R \
+        Rscript scripts/adjust_cluster_sizes.R \
             --poppunk-dir {params.poppunk_dir} \
             --assemblies {input.assemblies} \
             --combined-clusters {output.combined_clusters} \
