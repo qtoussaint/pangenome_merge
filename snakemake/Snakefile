@@ -167,12 +167,12 @@ checkpoint poppunk_to_cluster_lists:
         batches_done=RESULTS / "poppunk" / "assign" / "ALL_DONE.txt",
         assemblies=config["assemblies_tsv"],
     output:
-        clusters_dir=directory(RESULTS / "clusters"),
         combined_clusters=RESULTS / "clusters" / "combined_clusters.csv",
         index=RESULTS / "clusters" / "sizebalanced_clusters_index.csv",
         # also have all clusterfiles as output but not sure how to add that here,
     params:
-        poppunk_dir=RESULTS / "poppunk" / "assign",
+        clusters_dir=directory(RESULTS / "clusters"),
+        poppunk_dir=directory(RESULTS / "poppunk" / "assign"),
         min_n=config["min_cluster_size"],
         max_n=config["max_cluster_size"],
     conda:
@@ -194,10 +194,10 @@ checkpoint poppunk_to_cluster_lists:
         echo "[poppunk_to_cluster_lists] start: $(date -Is)"
         echo "[poppunk_to_cluster_lists] poppunk_dir: {params.poppunk_dir}"
         echo "[poppunk_to_cluster_lists] assemblies: {input.assemblies}"
-        echo "[poppunk_to_cluster_lists] outdir: {output.clusters_dir}"
+        echo "[poppunk_to_cluster_lists] outdir: {params.clusters_dir}"
         echo "[poppunk_to_cluster_lists] min/max: {params.min_n}/{params.max_n}"
 
-        mkdir -p {output.clusters_dir}
+        mkdir -p {params.clusters_dir}
         
         ### get list of all poppunk cluster designations
 
@@ -214,7 +214,7 @@ checkpoint poppunk_to_cluster_lists:
             --combined-clusters {output.combined_clusters} \
             --min {params.min_n} \
             --max {params.max_n} \
-            --outdir {output.clusters_dir}
+            --outdir {params.clusters_dir}
 
         # check that sizebalanced_clusters_index.csv was created
         test -s {output.index}
