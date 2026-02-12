@@ -28,7 +28,8 @@ def log_path(rule_name, wildcards=None):
 
 # later change this rule to look for multiple results (one from each step, ggcaller, panaroo etc)
 rule all:
-    input: RESULTS / "pangenomerge" / "done.txt",
+    input:
+        RESULTS / "pangenomerge" / "done.txt"
     
 
 # split isolates into batches (to make running poppunk feasible)

@@ -3,9 +3,9 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - python=3.12.11
-  - biopython=1.85
-  - networkx=3.4.2
+  - python>=3.10
+  - biopython>=1.80
+  - networkx>=3.4.2
   - numpy
   - pandas
   - scipy
