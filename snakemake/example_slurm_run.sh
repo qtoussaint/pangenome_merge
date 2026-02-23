@@ -18,6 +18,14 @@ max_concurrent=200
 # maximum number of concurrent jobs in job array
 max_concurrent_array=20
 
+# with snakemake env activated:
+snakemake --executor slurm -j $max_concurrent --group-components job_array=$max_concurrent_array --default-resources slurm_account=jlees --use-conda --latency-wait 60 --verbose --snakefile $snake --configfile $config
+
+# to run snakemake, submit this script using:
+#sbatch example_slurm_run.sh
+
+### TROUBLESHOOTING
+
 # fresh install of micromamba 
 #source ~/.bashrc
 #micromamba activate snakemake
@@ -29,9 +37,3 @@ max_concurrent_array=20
 
 # to make new yaml for pangenomerge if dependencies change:
 #pipreqs /hps/software/users/jlees/jacqueline/pangenome_merge/pangenomerge
-
-# with snakemake env activated:
-snakemake --executor slurm -j $max_concurrent --group-components job_array=$max_concurrent_array --default-resources slurm_account=jlees --use-conda --latency-wait 60 --verbose --snakefile $snake --configfile $config
-
-# then run:
-#sbatch run_snakemake.sbatch
