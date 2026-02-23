@@ -21,7 +21,7 @@ max_concurrent_array=20
 # with snakemake env activated:
 snakemake --executor slurm -j $max_concurrent --group-components job_array=$max_concurrent_array --default-resources slurm_account=jlees --use-conda --latency-wait 60 --verbose --snakefile $snake --configfile $config
 
-# to run snakemake, submit this script using:
+# once you've created a config.yaml for your project added your desired options to this script, run snakemake using:
 #sbatch example_slurm_run.sh
 
 ### TROUBLESHOOTING
