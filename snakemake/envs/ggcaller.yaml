@@ -1,47 +1,7 @@
 name: ggcaller
 channels:
-  - bioconda
   - conda-forge
+  - bioconda
 dependencies:
-  - python>=3.9
-  - ggcaller
-  - cxx-compiler
-  - pytorch-cpu=1.10
-  - mkl-devel
-  - tbb-devel
-  - boost-cpp
-  - pip
-  - numpy
-  - scipy
-  - pandas
-  - bifrost>=1.3.5
-  - biopython=1.80
-  - bcbio-gff
-  - diamond>=2.0
-  - hmmer
-  - mafft
-  - snp-sites
-  - zlib
-  - pthread-stubs
-  - matplotlib
-  - openblas
-  - intbitset
-  - networkx
-  - pybind11
-  - uncertainties
-  - eigen=3.3
-  - cmake>=3.10
-  - libgomp
-  - protobuf
-  - llvm-openmp
-  - tqdm
-  - setuptools
-  - make
-  - seaborn
-  - rapidnj
-  - python-edlib
-  - joblib
-  - gffutils
-  - cd-hit
-  - python-wget
-
+  - python=3.9
+  - ggcaller=1.4.3
