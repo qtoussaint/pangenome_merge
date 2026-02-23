@@ -18,8 +18,11 @@ max_concurrent=200
 # maximum number of concurrent jobs in job array
 max_concurrent_array=20
 
+# the slurm account you'd like to submit jobs from
+slurm_acct=jlees
+
 # with snakemake env activated:
-snakemake --executor slurm -j $max_concurrent --group-components job_array=$max_concurrent_array --default-resources slurm_account=jlees --use-conda --latency-wait 60 --verbose --snakefile $snake --configfile $config
+snakemake --executor slurm -j $max_concurrent --group-components job_array=$max_concurrent_array --default-resources slurm_account=$slurm_acct --use-conda --latency-wait 60 --verbose --snakefile $snake --configfile $config
 
 # once you've created a config.yaml for your project added your desired options to this script, run snakemake using:
 #sbatch example_slurm_run.sh
