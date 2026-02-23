@@ -32,7 +32,6 @@ resources_batch:
   nodes: 1
   slurm_partition: research
   cpus_per_task: 24
-  tasks: 20
 
 # for small intermediate jobs
 resources_small:

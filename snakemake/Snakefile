@@ -277,8 +277,7 @@ rule ggcaller_cluster:
         echo "[ggcaller_cluster] threads: {threads}"
 
         mkdir -p {output.outdir}
-        python {config["ggcaller_runner"]} \
-            --refs {input.cluster_list} \
+        ggcaller --refs {input.cluster_list} \
             --save --gene-finding-only \
             --out {output.outdir} \
             --threads {threads}
@@ -332,7 +331,6 @@ rule panaroo_cluster:
         nodes=config["resources_batch"]["nodes"],
         slurm_partition=config["resources_batch"]["slurm_partition"],
         cpus_per_task=config["resources_batch"]["cpus_per_task"],
-        tasks=config["resources_batch"]["tasks"],
     log:
         str(LOGDIR / "panaroo_cluster" / "{cluster}.log"),
     shell:
