@@ -262,7 +262,6 @@ rule ggcaller_cluster:
         nodes=config["resources_batch"]["nodes"],
         slurm_partition=config["resources_batch"]["slurm_partition"],
         cpus_per_task=config["resources_batch"]["cpus_per_task"],
-        tasks=config["resources_batch"]["tasks"],
     log:
         str(LOGDIR / "ggcaller_cluster" / "{cluster}.log"),
     shell:
