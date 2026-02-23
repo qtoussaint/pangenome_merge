@@ -25,7 +25,7 @@ max_concurrent_array=20
 #pipreqs /hps/software/users/jlees/jacqueline/pangenome_merge/pangenomerge
 
 # with snakemake env activated:
-snakemake --executor slurm  -j $max_concurrent --group-components job_array=$max_concurrent_array --default-resources slurm_account=jlees --use-conda --latency-wait 60 --verbose
+snakemake --executor slurm -j $max_concurrent --group-components job_array=$max_concurrent_array --default-resources slurm_account=jlees --use-conda --latency-wait 60 --verbose
 
 # then run:
 #sbatch run_snakemake.sbatch
