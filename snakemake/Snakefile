@@ -402,6 +402,7 @@ rule merge_pangenomes:
         done=RESULTS / "pangenomerge" / "done.txt",
     params:
         sqlite_cache=config["sqlite_cache"],
+        pangenomerge_runner=config["pangenomerge_runner"],
     conda:
         "envs/pangenomerge.yaml"
     threads: config["resources_pangenomerge"]["threads"]
@@ -425,7 +426,7 @@ rule merge_pangenomes:
         echo "[merge_pangenomes] sqlite_cache: {params.sqlite_cache}"
 
         mkdir -p {output.outdir}
-        python3 {config["pangenomerge_runner"]} \
+        python3 {params.pangenomerge_runner} \
             --mode run \
             --outdir {output.outdir} \
             --component-graphs {input.graphs} \

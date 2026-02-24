@@ -5,7 +5,6 @@ assemblies_tsv: "/nfs/research/jlees/jacqueline/atb_analyses/species_pangenomes/
 poppunk_db: "/nfs/research/jlees/jacqueline/poppunk_dbs/s_pneumo_all/GPS_v4"
 
 # manual installs
-ggcaller_runner: "/hps/software/users/jlees/jacqueline/manual_installs/bin/ggcaller/ggCaller/ggcaller-runner.py"
 pangenomerge_runner: "/hps/software/users/jlees/jacqueline/pangenome_merge/pangenomerge-runner.py"
 
 # results directory
@@ -41,7 +40,6 @@ resources_small:
   runtime: 2280
   nodes: 1
   slurm_partition: research
-
 
 # for big job at the end
 resources_pangenomerge:
