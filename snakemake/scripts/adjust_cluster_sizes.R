@@ -29,6 +29,9 @@ paths <- paths[index,]
 m <- match(assemblies$V1, paths$V1)
 assemblies$paths <- paths$V2[m] # changed this sort function, possibly not correct anymore, double check
 
+# remove NAs and missing strings
+assemblies <- assemblies[!is.na(assemblies$paths) & assemblies$paths != "", ]
+
 # get counts of each cluster
 counts <- table(assemblies$V2)
 
