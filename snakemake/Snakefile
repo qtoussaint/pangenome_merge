@@ -387,7 +387,7 @@ rule list_panaroo_graphs:
 
         >  {output.graph_paths}
         for d in {params.results_dir}/panaroo/*/; 
-            do echo "${d%/}" >> {output.graph_paths}; 
+            do echo "${{d%/}}" >> {output.graph_paths}; 
         done
         
         """
