@@ -47,5 +47,5 @@ resources_pangenomerge:
   mem: 450G
   runtime: 2280
   nodes: 1
-  slurm_partition: bigmem
+  slurm_partition: research
 
