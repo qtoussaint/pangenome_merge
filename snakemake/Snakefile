@@ -245,9 +245,7 @@ def panaroo_done_files_from_ckpt(wildcards):
 rule ggcaller_cluster:
     input:
         index=RESULTS / "clusters" / "sizebalanced_clusters_index.csv",
-        cluster_list=lambda wc: RESULTS
-        / "clusters"
-        / f"sizebalanced_cluster_{wc.cluster}.txt",
+        cluster_list=lambda wc: RESULTS / "clusters" / f"sizebalanced_cluster_{wc.cluster}.txt",
     output:
         outdir=directory(RESULTS / "ggcaller" / "{cluster}"),
         done=RESULTS / "ggcaller" / "{cluster}" / "done.txt",
@@ -261,8 +259,6 @@ rule ggcaller_cluster:
         runtime=config["resources_batch"]["runtime"],
         nodes=config["resources_batch"]["nodes"],
         slurm_partition=config["resources_batch"]["slurm_partition"],
-        cpus_per_task=config["resources_batch"]["cpus_per_task"],
-        tasks=config["resources_batch"]["tasks"],
     log:
         str(LOGDIR / "ggcaller_cluster" / "{cluster}.log"),
     shell:
@@ -330,8 +326,6 @@ rule panaroo_cluster:
         runtime=config["resources_batch"]["runtime"],
         nodes=config["resources_batch"]["nodes"],
         slurm_partition=config["resources_batch"]["slurm_partition"],
-        cpus_per_task=config["resources_batch"]["cpus_per_task"],
-        tasks=config["resources_batch"]["tasks"],
     log:
         str(LOGDIR / "panaroo_cluster" / "{cluster}.log"),
     shell:

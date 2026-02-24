@@ -15,8 +15,9 @@ config=/path/to/project_directory/config.yaml
 # maximum number of concurrent jobs (across all rules)
 max_concurrent=200
 
-# maximum number of concurrent jobs in job array
-max_concurrent_array=20
+# maximum number of concurrent jobs in each task in group
+# gets weird if you do >1
+max_concurrent_array=1
 
 # the slurm account you'd like to submit jobs from
 slurm_acct=jlees
