@@ -1,11 +1,12 @@
-# pangenome_merge
+# pangenomerge
 
-🚧🚧🚧 Under construction -- use with caution 🚧🚧🚧
+🚧🚧🚧 Pangenomerge is still in beta and is subject to change! 🚧🚧🚧
 
-'Run' mode merges two or more Panaroo pan-genome gene graphs (or iteratively updates an existing graph). 'Test' mode creates a merged graph and provides clustering accuracy metrics based on a ground truth graph; this mode is considerably slower than run mode and is not intended for use with large datasets (>3k samples). 
+'Run' mode merges two or more Panaroo pan-genome gene graphs, or iteratively updates an existing graph with single genomes. 'Test' mode creates a merged graph and provides clustering accuracy metrics based on a ground truth graph; this mode is considerably slower than run mode and is not intended for use with large datasets (>3k samples). 
 
 ```
-usage: pangenomerge [-h] [--mode {run,test}] --outdir OUTDIR [--component-graphs COMPONENT_GRAPHS] [--iterative ITERATIVE] [--graph-all GRAPH_ALL] [--metadata-in-graph KEEP_METADATA_IN_GRAPH] [--family-threshold FAMILY_THRESHOLD] [--context-threshold CONTEXT_THRESHOLD] [--threads THREADS] [--sqlite-cache SQLITE_CACHE] [--debug] [--version]
+usage: pangenomerge [-h] [--mode {run,test}] --outdir OUTDIR [--component-graphs COMPONENT_GRAPHS] [--iterative ITERATIVE] [--graph-all GRAPH_ALL] [--metadata-in-graph KEEP_METADATA_IN_GRAPH] [--family-threshold FAMILY_THRESHOLD] [--context-threshold CONTEXT_THRESHOLD] [--threads THREADS] [--sqlite-cache SQLITE_CACHE]
+                    [--debug] [--version]
 
 Merges two or more Panaroo pan-genome gene graphs, or iteratively updates an existing graph.
 
