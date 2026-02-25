@@ -1,8 +1,14 @@
 # pangenomerge
 
-🚧🚧🚧 Pangenomerge is still in beta and is subject to change! 🚧🚧🚧
+🚧🚧🚧 Pangenomerge is still in beta and is subject to change! Documentation and tutorial are still being updated  -- feel free to contact me at lilyjacqueline [at] ebi [dot] ac [dot] uk 🚧🚧🚧
 
-'Run' mode merges two or more Panaroo pan-genome gene graphs, or iteratively updates an existing graph with single genomes. 'Test' mode creates a merged graph and provides clustering accuracy metrics based on a ground truth graph; this mode is considerably slower than run mode and is not intended for use with large datasets (>3k samples). 
+### Documentation
+
+'Run' mode merges two or more Panaroo pan-genome gene graphs, or iteratively updates an existing graph with single genomes.
+
+'Test' mode creates a merged graph and provides clustering accuracy metrics based on a ground truth graph; this mode is considerably slower than run mode and is not intended for use with large datasets (>3k samples). 
+
+A Snakemake pipeline with Slurm capability is available in the Snakemake folder. To run pangenomerge from Snakemake, follow the steps in `snakemake/example_slurm_run.sh`. This option takes a TSV of sample IDs and assembly paths as input, and runs PopPUNK, ggCaller, panaroo, and pangenomerge with your chosen parameters (spreading compute across your HPC cluster). All software is automatically installed and managed by Snakemake via preconfigured conda YAMLs.
 
 ```
 usage: pangenomerge [-h] [--mode {run,test}] --outdir OUTDIR [--component-graphs COMPONENT_GRAPHS] [--iterative ITERATIVE] [--graph-all GRAPH_ALL] [--metadata-in-graph KEEP_METADATA_IN_GRAPH] [--family-threshold FAMILY_THRESHOLD] [--context-threshold CONTEXT_THRESHOLD] [--threads THREADS] [--sqlite-cache SQLITE_CACHE]
@@ -39,6 +45,8 @@ Other options:
   --version             show program's version number and exit
 ```
 
+### Example Analyses
+
 <img width="1266" height="925" alt="pangenome gene graph" src="https://github.com/user-attachments/assets/6dd0e0d1-6a77-4385-aa9e-950fd80caef1" />
 
-*A pangenome of 119k genomes of Streptococcus pneumoniae with the capsule genes highlighted in red. Made with ggCaller, panaroo, and pangenomerge.*
+*A pangenome gene graph of a large Streptococcus pneumoniae population (119k isolates, sourced from the [AllTheBacteria](https://allthebacteria.org/) project), with capsule genes highlighted in red. Produced using PopPUNK, ggCaller, panaroo, and pangenomerge.*
