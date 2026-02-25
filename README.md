@@ -25,12 +25,12 @@ You can perform tests of clustering accuracy across different threshold values b
 - Use ggCaller to call genes within each strain population
 - Use Panaroo to create graphs of three strains individually
 - Use Panaroo to create a graph of all isolates from the three strains combined
-- Run pangenomerge in test mode with different threshold values; this will compare the graph resulting from pangenomerge merging the three strain graphs to the graph created from all isolates using Panaroo
+- Run pangenomerge in test mode with different threshold values; this will compare the graph resulting from pangenomerge merging the three strain graphs to the "ground truth" graph created from all isolates using Panaroo
 - Use the threshold values that result in the best adjusted Rand index and adjusted mutual information scores
 
 You can additionally compare the level of collapse between genes that you know should be collapsed into one COG or kept separate, and/or the number of new COGs added to the merged graph with each iteration, and adjust the thresholds up or down accordingly.
   
-We have tested various default settings for these thresholds on several bacterial species and obtained the highest clustering accuracy using the current defaults; when in doubt, these are a good baseline. 
+We have tested various default settings for these thresholds on several bacterial species and obtained the highest clustering accuracy using the current defaults; when in doubt, these are a good baseline. An important caveat is that Panaroo is not intended for use on highly diverse populations, such as some mixed-strain datasets; while considering clustering accuracy metrics can help us understand how similar a pangenomerge graph is to a Panaroo graph created from the same isolates, they cannot distinguish which graph is more 'correct'. We nonetheless use Panaroo graphs as a ground truth because Panaroo, as a gold-standard bacterial pangenome graphing tool, provides us the closest estimate to the true graph we can realistically obtain.
 
 ### Workflow management and reproducibility for large analyses
 
