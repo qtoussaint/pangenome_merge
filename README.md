@@ -1,6 +1,8 @@
 # pangenomerge
 
-🚧🚧🚧 Pangenomerge is still in beta and is subject to change! The documentation and tutorial are still being updated  -- feel free to contact me at lilyjacqueline [at] ebi [dot] ac [dot] uk 🚧🚧🚧
+🚧🚧🚧 Pangenomerge is still in beta and is subject to change! 🚧🚧🚧
+
+The full documentation and a tutorial will be added mid-March; in the meantime, feel free to contact me at lilyjacqueline [at] ebi [dot] ac [dot] uk with any questions or features you'd like to see.
 
 ### Documentation
 
