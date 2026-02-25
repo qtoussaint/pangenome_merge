@@ -40,4 +40,5 @@ Other options:
 ```
 
 <img width="1266" height="925" alt="pangenome gene graph" src="https://github.com/user-attachments/assets/6dd0e0d1-6a77-4385-aa9e-950fd80caef1" />
-_A pangenome of 119k genomes of Streptococcus pneumoniae with the capsule genes highlighted in red. Made with ggCaller, panaroo, and pangenomerge._
+
+*A pangenome of 119k genomes of Streptococcus pneumoniae with the capsule genes highlighted in red. Made with ggCaller, panaroo, and pangenomerge.*
