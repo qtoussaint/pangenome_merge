@@ -1,24 +1,24 @@
 # pangenomerge
 
+Create pangenome gene graphs for hundreds of thousands of bacterial genomes
+
+## Installation
+
 🚧🚧🚧 Pangenomerge is still in beta and is subject to change! 🚧🚧🚧
 
-The full documentation and a tutorial will be added mid-March; in the meantime, feel free to contact me at lilyjacqueline [at] ebi [dot] ac [dot] uk with any questions or features you'd like to see.
+pangenomerge v1.0.0 will be released on bioconda in mid-March, along with the full documentation and a tutorial. It is currently installable from the source code using the conda environment in `snakemake/envs/pangenomerge.yaml`, or can be automatically installed and run via Snakemake (see "Workflow management and reproducibility for large analyses").
 
-### Running pangenomerge
+Feel free to contact me at lilyjacqueline [at] ebi [dot] ac [dot] uk with any questions or feature requests.
 
-#### What is the difference between the 'run' and 'test' modes?
+## Running pangenomerge
+
+### What is the difference between the 'run' and 'test' modes?
 
 'Run' mode merges two or more Panaroo pangenome gene graphs, or iteratively updates an existing graph with single genomes.
 
 'Test' mode creates a merged graph and provides clustering accuracy metrics based on a ground truth graph; this mode is considerably slower than run mode and is not intended for use with large datasets (>3k samples). 
 
-#### Workflow management and reproducibility for large analyses
-
-Many people running pangenomerge will be interested in creating pangenomes with hundreds of thousands of genomes. This involves substantial large-scale data analysis prior to running pangenomerge, including clustering genomes into strains by genetic relatedness, calling genes on strain-level populations, and creating hundreds or thousands of strain-level Panaroo gene graphs. To reduce the burden of this upstream analysis and improve its reproducibility, a Snakemake pipeline with Slurm capability is available in the Snakemake folder.
-
-To run pangenomerge from Snakemake, follow the steps in `snakemake/example_slurm_run.sh`. This option takes a TSV of sample IDs and assembly paths as input, and runs the recommended workflow of PopPUNK, ggCaller, panaroo, and pangenomerge with your chosen parameters, spreading compute across your HPC cluster. All software is automatically installed and managed by Snakemake via preconfigured conda YAMLs.
-
-#### What is the most principled method to choose a family and context threshold for my dataset?
+### What is the most principled method to choose a family and context threshold for my dataset?
 
 You can perform tests of clustering accuracy across different threshold values by using 'test' mode on a subset of your data. For instance, an example analysis might look like:
 - Use PopPUNK to separate your population into strains
@@ -32,7 +32,13 @@ You can additionally compare the level of collapse between genes that you know s
   
 We have tested various default settings for these thresholds on several bacterial species and obtained the highest clustering accuracy using the current defaults; when in doubt, these are a good baseline. 
 
-#### Argument library
+### Workflow management and reproducibility for large analyses
+
+Many people running pangenomerge will be interested in creating pangenomes with hundreds of thousands of genomes. This involves substantial large-scale data analysis prior to running pangenomerge, including clustering genomes into strains by genetic relatedness, calling genes on strain-level populations, and creating hundreds or thousands of strain-level Panaroo gene graphs. To reduce the burden of this upstream analysis and improve its reproducibility, a Snakemake pipeline with Slurm capability is available in the Snakemake folder.
+
+To run pangenomerge from Snakemake, follow the steps in `snakemake/example_slurm_run.sh`. This option takes a TSV of sample IDs and assembly paths as input, and runs the recommended workflow of PopPUNK, ggCaller, panaroo, and pangenomerge with your chosen parameters, spreading compute across your HPC cluster. All software is automatically installed and managed by Snakemake via preconfigured conda YAMLs.
+
+## Argument Library
 
 ```
 usage: pangenomerge [-h] [--mode {run,test}] --outdir OUTDIR [--component-graphs COMPONENT_GRAPHS] [--iterative ITERATIVE] [--graph-all GRAPH_ALL] [--metadata-in-graph KEEP_METADATA_IN_GRAPH] [--family-threshold FAMILY_THRESHOLD] [--context-threshold CONTEXT_THRESHOLD] [--threads THREADS] [--sqlite-cache SQLITE_CACHE]
@@ -69,7 +75,7 @@ Other options:
   --version             show program's version number and exit
 ```
 
-### Example Analyses
+## Example Analysis
 
 <img width="1266" height="925" alt="pangenome gene graph" src="https://github.com/user-attachments/assets/6dd0e0d1-6a77-4385-aa9e-950fd80caef1" />
 
