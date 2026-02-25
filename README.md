@@ -4,13 +4,35 @@
 
 The full documentation and a tutorial will be added mid-March; in the meantime, feel free to contact me at lilyjacqueline [at] ebi [dot] ac [dot] uk with any questions or features you'd like to see.
 
-### Documentation
+### Running pangenomerge
+
+#### What is the difference between the 'run' and 'test' modes?
 
 'Run' mode merges two or more Panaroo pangenome gene graphs, or iteratively updates an existing graph with single genomes.
 
 'Test' mode creates a merged graph and provides clustering accuracy metrics based on a ground truth graph; this mode is considerably slower than run mode and is not intended for use with large datasets (>3k samples). 
 
-A Snakemake pipeline with Slurm capability is available in the Snakemake folder. To run pangenomerge from Snakemake, follow the steps in `snakemake/example_slurm_run.sh`. This option takes a TSV of sample IDs and assembly paths as input, and runs PopPUNK, ggCaller, panaroo, and pangenomerge with your chosen parameters (spreading compute across your HPC cluster). All software is automatically installed and managed by Snakemake via preconfigured conda YAMLs.
+#### Workflow management and reproducibility for large analyses
+
+Many people running pangenomerge will be interested in creating pangenomes with hundreds of thousands of genomes. This involves substantial large-scale data analysis prior to running pangenomerge, including clustering genomes into strains by genetic relatedness, calling genes on strain-level populations, and creating hundreds or thousands of strain-level Panaroo gene graphs. To reduce the burden of this upstream analysis and improve its reproducibility, a Snakemake pipeline with Slurm capability is available in the Snakemake folder.
+
+To run pangenomerge from Snakemake, follow the steps in `snakemake/example_slurm_run.sh`. This option takes a TSV of sample IDs and assembly paths as input, and runs the recommended workflow of PopPUNK, ggCaller, panaroo, and pangenomerge with your chosen parameters, spreading compute across your HPC cluster. All software is automatically installed and managed by Snakemake via preconfigured conda YAMLs.
+
+#### What is the most principled method to choose a family and context threshold for my dataset?
+
+You can perform tests of clustering accuracy across different threshold values by using 'test' mode on a subset of your data. For instance, an example analysis might look like:
+- Use PopPUNK to separate your population into strains
+- Use ggCaller to call genes within each strain population
+- Use Panaroo to create graphs of three strains individually
+- Use Panaroo to create a graph of all isolates from the three strains combined
+- Run pangenomerge in test mode with different threshold values; this will compare the graph resulting from pangenomerge merging the three strain graphs to the graph created from all isolates using Panaroo
+- Use the threshold values that result in the best adjusted Rand index and adjusted mutual information scores
+
+You can additionally compare the level of collapse between genes that you know should be collapsed into one COG or kept separate, and/or the number of new COGs added to the merged graph with each iteration, and adjust the thresholds up or down accordingly.
+  
+We have tested various default settings for these thresholds on several bacterial species and obtained the highest clustering accuracy using the current defaults; when in doubt, these are a good baseline. 
+
+#### Argument library
 
 ```
 usage: pangenomerge [-h] [--mode {run,test}] --outdir OUTDIR [--component-graphs COMPONENT_GRAPHS] [--iterative ITERATIVE] [--graph-all GRAPH_ALL] [--metadata-in-graph KEEP_METADATA_IN_GRAPH] [--family-threshold FAMILY_THRESHOLD] [--context-threshold CONTEXT_THRESHOLD] [--threads THREADS] [--sqlite-cache SQLITE_CACHE]
