@@ -1,0 +1,39 @@
+package:
+  name: pangenomerge
+  version: "1.0.0"
+
+source:
+  git_url: https://github.com/qtoussaint/pangenome_merge.git
+  git_rev: v1.0.0
+
+build:
+  noarch: python
+  script: "{{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation"
+
+requirements:
+  host:
+    - python>=3.10
+    - pip
+  run:
+    - python>=3.10
+    - biopython>=1.80
+    - networkx>=3.4.2
+    - mmseqs2
+    - numpy
+    - pandas
+    - scipy
+    - scikit-learn
+    - edlib
+    - tqdm
+
+test:
+  imports:
+    - pangenomerge
+  commands:
+    - python -c "import pangenomerge; print(pangenomerge.__version__)"
+  requires:
+    - python
+
+about:
+  summary: "Create pangenome gene graphs for hundreds of thousands of bacterial genomes"
+  license: MIT
