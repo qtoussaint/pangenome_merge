@@ -22,16 +22,16 @@ import multiprocessing as mp
 import subprocess
 
 # import custom functions
-from .manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array
-from .run_mmseqs import run_mmseqs_search, mmseqs_createdb, mmseqs_concatdbs
+from custom_functions.manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array
+from custom_functions.run_mmseqs import run_mmseqs_search, mmseqs_createdb, mmseqs_concatdbs
 from panaroo_functions.load_graphs import load_graphs
 from panaroo_functions.write_gml_metadata import format_metadata_for_gml
 from panaroo_functions.context_search import collapse_families, single_linkage
 from panaroo_functions.merge_nodes import merge_node_cluster, gen_edge_iterables, gen_node_iterables, iter_del_dups, del_dups
-from .relabel_nodes import relabel_nodes_preserve_attrs,sync_names
-from .context_similarity import context_similarity_seq
-from .context_similarity import build_ident_lookup, init_parallel, compute_scores_parallel
-from .sqlite import sqlite_connect, sqlite_init_schema, sqlite_create_indexes, add_metadata_to_sqlite
+from custom_functions.relabel_nodes import relabel_nodes_preserve_attrs,sync_names
+from custom_functions.context_similarity import context_similarity_seq
+from custom_functions.context_similarity import build_ident_lookup, init_parallel, compute_scores_parallel
+from custom_functions.sqlite import sqlite_connect, sqlite_init_schema, sqlite_create_indexes, add_metadata_to_sqlite
 
 from .__init__ import __version__
 
