@@ -194,7 +194,7 @@ checkpoint poppunk_to_cluster_lists:
         echo "[poppunk_to_cluster_lists] start: $(date -Is)"
         echo "[poppunk_to_cluster_lists] poppunk_dir: {params.poppunk_dir}"
         echo "[poppunk_to_cluster_lists] assemblies: {input.assemblies}"
-        echo "[poppunk_to_cluster_lists] outdir: {params.clusters_dir}"
+        echo "[poppunk_to_cluster_lists] outdir: {output.clusters_dir}"
         echo "[poppunk_to_cluster_lists] min/max: {params.min_n}/{params.max_n}"
 
         mkdir -p {output.clusters_dir}

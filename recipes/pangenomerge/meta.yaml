@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://github.com/qtoussaint/pangenome_merge/archive/refs/tags/v{{ version }}.tar.gz
-  sha256: <TMP -- add sha256>
+  sha256: ea330e54605888d5e99313af576afffef05aa99dc77625d58bde394a5d72d68a 
 
 build:
   noarch: python
