@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pangenomerge"
+version = "1.0.0"
+description = "Create pangenome graphs for hundreds of thousands of bacterial genomes"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "Jacqueline Toussaint", email = "lilyjacqueline [at] ebi [dot] ac [dot] uk"}
+]
+
+dependencies = [
+  "python>=3.10",
+  "biopython>=1.80",
+  "networkx>=3.4.2",
+  "mmseqs2",
+  "numpy",
+  "pandas",
+  "scipy",
+  "scikit-learn",
+  "edlib",
+  "tqdm"
+]
