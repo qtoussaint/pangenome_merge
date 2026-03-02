@@ -167,7 +167,7 @@ checkpoint poppunk_to_cluster_lists:
         batches_done=RESULTS / "poppunk" / "assign" / "ALL_DONE.txt",
         assemblies=config["assemblies_tsv"],
     output:
-	    clusters_dir=directory(RESULTS / "clusters"),
+        clusters_dir=directory(RESULTS / "clusters"),
         combined_clusters=RESULTS / "clusters" / "combined_clusters.csv",
         index=RESULTS / "clusters" / "sizebalanced_clusters_index.csv",
         # also have all clusterfiles as output but not sure how to add that here,
@@ -216,7 +216,7 @@ checkpoint poppunk_to_cluster_lists:
             --combined-clusters {output.combined_clusters} \
             --min {params.min_n} \
             --max {params.max_n} \
-            --outdir {params.clusters_dir}
+            --outdir {output.clusters_dir}
 
         # check that sizebalanced_clusters_index.csv was created
         test -s {output.index}
