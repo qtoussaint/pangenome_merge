@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
-    {name = "Jacqueline Toussaint", email = "lilyjacqueline [at] ebi [dot] ac [dot] uk"}
+    {name = "Jacqueline Toussaint", email = "lilyjacqueline@ebi.ac.uk"}
 ]
 
 dependencies = [
