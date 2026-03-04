@@ -81,16 +81,18 @@ pangenomerge --version
 
 # Quickstart
 
-To merge two or more Panaroo pangenome graphs, create a TSV containing the **paths** to each Panaroo output directory, for example `paths.tsv`. Then run:
+To merge two or more Panaroo pangenome graphs, create a TSV containing the paths to each Panaroo output directory, for example `paths.tsv`. Then run:
 
 ```
 pangenomerge --component-graphs paths.tsv --outdir </path/to/outdir> --threads 16
 ```
+> [!TIP]
+> Make sure to provide paths to the Panaroo _directories_, not the `final_graph.gml` files they contain.
 
 This will generate the following in your results directory:
   - Graphs titled `merged_graph_<index>.gml`: an updated graph is output every time a new graph is merged into the base graph (e.g. when merging 15 graphs, 13 intermediary graphs and one final graph will be output)
   - `mmseqs.db`: an MMseqs2 database containing representative sequences for each node (COG) in the graph
-  - `metadata.sqlite`: an SQLite database containing all metadata for the merged graph
+  - `pangenome_metadata.sqlite`: an SQLite database containing all metadata for the merged graph
 
 # Running pangenomerge
 
