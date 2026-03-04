@@ -1,16 +1,19 @@
-# pangenomerge: create pangenome gene graphs for hundreds of thousands of bacterial genomes
+# pangenomerge
 
-Sometimes a person just wants to create a large pangenome gene graph...
+Construct pangenome gene graphs for hundreds of thousands of bacterial genomes 🦠
+
+# About
+
+pangenomerge is a fast, accurate and reproducible tool to merge [Panaroo](https://github.com/gtonkinhill/panaroo) pangenome gene graphs or update them with individual genomes.
+
+pangenomerge rapidly maps clusters of orthologous genes (COGs) between input graphs using [MMseqs2](https://github.com/soedinglab/MMseqs2) and scores hits by synteny, collapsing their orthologous genes and merging them into a single complete pangenome graph. An option to efficiently create component graphs from a very large (>100k-genome) population is available via Snakemake, which identifies strains within the population using PopPUNK and generates individual strain-level pangenome gene graphs using ggCaller and Panaroo before running pangenomerge to create a final complete graph. 
+
+pangenomerge's runtime scales approximately linearly with the number of graphs to be merged, assuming each graph is comprised of a novel cluster of related isolates such as a strain within the population, while its maximum memory consumption increases asympotically with the number of graphs in rough proportion to the population's rarefaction curve. (Merging 426 component graphs containing, in total, 119k _Streptococcus pneumoniae_ isolates required 8hrs+3min of runtime and 7.8G maximum memory using 48 threads.) Thus, the practical limitation to the size of the pangenome graph that can be created lies primarily in the preceding step of generating component graphs.
+
+> [!NOTE]
+> pangenomerge only takes [Panaroo](https://github.com/gtonkinhill/panaroo) graphs as input
 
 # Installation
-
-🚧🚧🚧 Pangenomerge is still in beta and is subject to change! 🚧🚧🚧
-
-pangenomerge v1.0.0 will be released on bioconda in mid-March, along with the full documentation and a tutorial. It is currently installable from the source code using the conda environment in `snakemake/envs/pangenomerge.yaml`, or can be automatically installed and run via Snakemake (see "Workflow management and reproducibility for large analyses").
-
-Feel free to contact me at lilyjacqueline [at] ebi [dot] ac [dot] uk with any questions or feature requests.
-
-----
 
 ## Dependencies
 
@@ -25,7 +28,7 @@ Feel free to contact me at lilyjacqueline [at] ebi [dot] ac [dot] uk with any qu
   - edlib
   - tqdm
 
-## Installing with Conda 
+## Installing with conda 
 
 pangenomerge is available on the bioconda channel. Install in a new environment (recommended):
 
@@ -40,7 +43,7 @@ conda install -c bioconda pangenomerge
 
 ## Installing with Snakemake
 
-Pangenomerge can be automatically installed and run via Snakemake (see "Workflow management and reproducibility for large analyses"). To use this option, ensure you have installed Snakemake through micromamba.
+pangenomerge can be automatically installed and run via Snakemake (see "Workflow management and reproducibility for large analyses"). To use this option, ensure you have installed Snakemake through micromamba.
 
 First, clone the pangenomerge repository:
 ```
@@ -61,13 +64,19 @@ For more information about these options, consult `snakemake/example_slurm_run.s
 
 You'll need to install the dependencies listed in `meta.yaml` manually. 
 
-Simply clone the pangenomerge repository:
+Clone the pangenomerge repository:
 ```
 git clone https://github.com/qtoussaint/pangenome_merge
 ```
-You can then run pangenomerge:
+You can then run pangenomerge from the helper:
 ```
 python3 /path/to/pangenome_merge/pangenomerge-runner.py --version
+```
+or install via pip:
+```
+cd /path/to/pangenome_merge
+pip install .
+pangenomerge --version
 ```
 
 # Quickstart
@@ -80,18 +89,10 @@ pangenomerge --component-graphs paths.tsv --outdir </path/to/outdir> --threads 1
 
 This will generate the following in your results directory:
   - Graphs titled `merged_graph_<index>.gml`: an updated graph is output every time a new graph is merged into the base graph (e.g. when merging 15 graphs, 13 intermediary graphs and one final graph will be output)
-  - `mmseqs.db`: an mmseqs2 database containing representative sequences for each node (COG) in the graph
+  - `mmseqs.db`: an MMseqs2 database containing representative sequences for each node (COG) in the graph
   - `metadata.sqlite`: an SQLite database containing all metadata for the merged graph
 
 # Running pangenomerge
-
-## Workflow management and reproducibility for large analyses
-
-Many people running pangenomerge will be interested in creating pangenomes with hundreds of thousands of genomes. This involves substantial large-scale data analysis prior to running pangenomerge, including clustering genomes into strains by genetic relatedness, calling genes on strain-level populations, and creating hundreds or thousands of strain-level Panaroo gene graphs. To reduce the burden of this upstream analysis and improve its reproducibility, a Snakemake pipeline with Slurm capability is available in the Snakemake folder.
-
-To run pangenomerge from Snakemake, follow the steps in `snakemake/example_slurm_run.sh`. This option takes a TSV of sample IDs and assembly paths as input, and runs the recommended workflow of PopPUNK, ggCaller, panaroo, and pangenomerge with your chosen parameters, spreading compute across your HPC cluster. All software is automatically installed and managed by Snakemake via preconfigured conda YAMLs.
-
-## FAQ
 
 ### What is the difference between the 'run' and 'test' modes?
 
@@ -113,7 +114,13 @@ You can additionally compare the level of collapse between genes that you know s
   
 We have tested various default settings for these thresholds on several bacterial species and obtained the highest clustering accuracy using the current defaults; when in doubt, these are a good baseline. An important caveat is that Panaroo is not intended for use on highly diverse populations, such as some mixed-strain datasets; while considering clustering accuracy metrics can help us understand how similar a pangenomerge graph is to a Panaroo graph created from the same isolates, they cannot distinguish which graph is more 'correct'. We nonetheless use Panaroo graphs as a ground truth because Panaroo, as a gold-standard graphing method, provides us the closest estimate to the true graph we can realistically obtain.
 
-# Argument Library
+### Workflow management and reproducibility for large analyses
+
+Many people running pangenomerge will be interested in creating pangenomes with hundreds of thousands of genomes. This involves substantial large-scale data analysis prior to running pangenomerge, including clustering genomes into strains by genetic relatedness, calling genes on strain-level populations, and creating hundreds or thousands of strain-level Panaroo gene graphs. To reduce the burden of this upstream analysis and improve its reproducibility, a Snakemake pipeline with Slurm capability is available in the Snakemake folder.
+
+To run pangenomerge from Snakemake, follow the steps in `snakemake/example_slurm_run.sh`. This option takes a TSV of sample IDs and assembly paths as input, and runs the recommended workflow of PopPUNK, ggCaller, panaroo, and pangenomerge with your chosen parameters, spreading compute across your HPC cluster. All software is automatically installed and managed by Snakemake via preconfigured conda YAMLs.
+
+# Reference Library
 
 ```
 usage: pangenomerge [-h] [--mode {run,test}] --outdir OUTDIR [--component-graphs COMPONENT_GRAPHS] [--iterative ITERATIVE] [--graph-all GRAPH_ALL] [--metadata-in-graph KEEP_METADATA_IN_GRAPH] [--family-threshold FAMILY_THRESHOLD] [--context-threshold CONTEXT_THRESHOLD] [--threads THREADS] [--sqlite-cache SQLITE_CACHE]
@@ -155,3 +162,11 @@ Other options:
 <img width="1266" height="925" alt="pangenome gene graph" src="https://github.com/user-attachments/assets/6dd0e0d1-6a77-4385-aa9e-950fd80caef1" />
 
 *A pangenome gene graph of a large Streptococcus pneumoniae population (119k isolates, sourced from the [AllTheBacteria](https://allthebacteria.org/) project), with capsule genes highlighted in red. Produced using PopPUNK, ggCaller, panaroo, and pangenomerge and visualized using Gephi.*
+
+# Citations
+
+Pangenomerge is based on several tools, including:
+
+- Panaroo: Tonkin-Hill G, MacAlasdair N, Ruis C, Weimann A, Horesh G, Lees JA, Gladstone RA, Lo S, Beaudoin C, Floto RA, Frost SDW, Corander J, Bentley SD, Parkhill J. 2020. Producing polished prokaryotic pangenomes with the Panaroo pipeline. Genome Biol 21:180.
+- MMseqs2: Steinegger, M., Söding, J. MMseqs2 enables sensitive protein sequence searching for the analysis of massive data sets. Nat Biotechnol 35, 1026–1028 (2017). https://doi.org/10.1038/nbt.3988
+
