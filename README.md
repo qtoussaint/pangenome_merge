@@ -91,8 +91,8 @@ pangenomerge --component-graphs paths.tsv --outdir </path/to/outdir> --threads 1
 
 This will generate the following in your results directory:
   - Graphs titled `merged_graph_<index>.gml`: an updated graph is output every time a new graph is merged into the base graph (e.g. when merging 15 graphs, 13 intermediary graphs and one final graph will be output)
-  - `mmseqs.db`: an MMseqs2 database containing representative sequences for each node (COG) in the graph
-  - `pangenome_metadata.sqlite`: an SQLite database containing all metadata for the merged graph
+  - `mmseqs_tmp/pan_genome_db_<index>`: an MMseqs2 database containing representative sequences for each node (COG) in the graph
+  - `pangenome_metadata.sqlite`: an SQLite database containing all metadata for the final merged graph
 
 # Running pangenomerge
 
@@ -100,7 +100,15 @@ This will generate the following in your results directory:
 
 'Run' mode merges two or more Panaroo pangenome gene graphs, or iteratively updates an existing graph with single genomes.
 
-'Test' mode creates a merged graph and provides clustering accuracy metrics based on a ground truth graph; this mode is considerably slower than run mode and is not intended for use with large datasets (>3k samples). 
+'Test' mode creates a merged graph and provides clustering accuracy metrics based on a ground truth graph; this mode is considerably slower than run mode and is not intended for use with large datasets (>3k samples).
+
+### What are the family and context thresholds?
+
+These thresholds represent the fraction of identical amino acids between two aligned COGs, expressed as floats (e.g. 98% identity = 0.98).
+
+The **family threshold** is _the minimum amino acid identity required for two COGs to be examined as potential orthologs_. This doesn't mean that all genes with this identity will be merged, but rather that context search will be performed to evaluate their syntenic similarity. Regardless of the family threshold specified, COGs that have AA identity>=98% are always merged (unless one of the COGs has a higher-identity match with a different node).
+
+The **context threshold** is _the minimum amino acid identity required for neighboring genes to be considered a 'match' (orthologous) during context search_. In other words, any neighboring genes with AA identity above this value will count as support towards the hypothesis that the pair of COGs are orthologous and should be merged.
 
 ### What is the most principled method to choose a family and context threshold for my dataset?
 
