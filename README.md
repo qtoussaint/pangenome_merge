@@ -1,4 +1,6 @@
-# pangenomerge
+<img alt="pangenomerge_logo" src="https://github.com/user-attachments/assets/75ad835c-0719-462c-b3d3-3065689b7733" align="right" height="250" />
+
+# pangenomerge 
 
 Construct pangenome gene graphs for hundreds of thousands of bacterial genomes 🦠
 
