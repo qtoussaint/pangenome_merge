@@ -21,4 +21,4 @@ dependencies = [
 packages = ["pangenomerge"]
 
 [project.scripts]
-pangenomerge = "pangenomerge.cli:main"
+pangenomerge = "pangenomerge.__main__:main"
