@@ -203,7 +203,8 @@ checkpoint poppunk_to_cluster_lists:
         ### get list of all poppunk cluster designations
 
         # first pick the first cluster csv as the header source (from poppunk output dir)
-        first="$(ls -1 {params.poppunk_dir}/*/*_clusters.csv | head -n 1)"
+        # note: set +o pipefail needed because head -n 1 exits early, sending SIGPIPE to ls
+        first="$(set +o pipefail; ls -1 {params.poppunk_dir}/000/*_clusters.csv | head -n 1)"
 
         # concatenate all *_clusters.csv with a single header row
         {{ head -n 1 "$first"; for f in {params.poppunk_dir}/*/*_clusters.csv; do tail -n +2 "$f"; done; }} > {output.combined_clusters}
