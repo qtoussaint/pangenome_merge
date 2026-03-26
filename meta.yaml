@@ -29,7 +29,7 @@ requirements:
     - pandas
     - scipy
     - scikit-learn
-    - edlib
+    - python-edlib
     - tqdm
 
 test:
