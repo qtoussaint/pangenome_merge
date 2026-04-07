@@ -231,9 +231,9 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
                 m = _GN_SUFFIX_RE.match(s)
                 if m:
                     prefix, gnum = m.group(1), int(m.group(2))
-                    # member index is the part before the last underscore in prefix
-                    member_parts = prefix.rsplit("_", 1)
-                    member_key = f"{member_parts[0]}_g{gnum}" if len(member_parts) == 2 else s
+                    # member index is the first underscore-separated component
+                    member_idx = prefix.split("_", 1)[0]
+                    member_key = f"{member_idx}_g{gnum}"
                 else:
                     member_key = None
                     gnum = None
@@ -247,8 +247,8 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
                     m = _GN_SUFFIX_RE.match(gid)
                     if m:
                         prefix, gnum = m.group(1), int(m.group(2))
-                        member_parts = prefix.rsplit("_", 1)
-                        member_key = f"{member_parts[0]}_g{gnum}" if len(member_parts) == 2 else gid
+                        member_idx = prefix.split("_", 1)[0]
+                        member_key = f"{member_idx}_g{gnum}"
                     else:
                         member_key = None
                         gnum = None
