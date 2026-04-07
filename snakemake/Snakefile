@@ -202,12 +202,10 @@ checkpoint poppunk_to_cluster_lists:
         
         ### get list of all poppunk cluster designations
 
-        # first pick the first cluster csv as the header source (from poppunk output dir)
-        # note: set +o pipefail needed because head -n 1 exits early, sending SIGPIPE to ls
-        first="$(set +o pipefail; ls -1 {params.poppunk_dir}/000/*_clusters.csv | head -n 1)"
-
         # concatenate all *_clusters.csv with a single header row
-        {{ head -n 1 "$first"; for f in {params.poppunk_dir}/*/*_clusters.csv; do tail -n +2 "$f"; done; }} > {output.combined_clusters}
+        # awk skips the header line (FNR==1) for all files except the first (NR!=1)
+        # this is much faster than spawning a tail process per file on NFS
+        awk 'FNR==1 && NR!=1 {{next}} {{print}}' {params.poppunk_dir}/*/*_clusters.csv > {output.combined_clusters}
 
         test -s {output.combined_clusters}
 
