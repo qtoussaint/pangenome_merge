@@ -1,6 +1,6 @@
 import networkx as nx
-from panaroo_functions.cdhit import *
-from panaroo_functions.merge_nodes import *
+from pangenomerge.panaroo_functions.cdhit import *
+from pangenomerge.panaroo_functions.merge_nodes import *
 
 
 # add collapse families from Panaroo
