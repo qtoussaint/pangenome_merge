@@ -1,6 +1,9 @@
 import sqlite3
+import re
 from pathlib import Path
 from collections import Counter
+
+_GN_SUFFIX_RE = re.compile(r'^(.+)_g(\d+)$')
 
 def canon_uv(u, v):
     u, v = str(u), str(v)
@@ -45,12 +48,16 @@ def sqlite_init_schema(con: sqlite3.Connection):
     CREATE TABLE IF NOT EXISTS node_seqids (
         node_id TEXT,
         seqid TEXT,
+        member TEXT,
+        graph_id INTEGER,
         PRIMARY KEY (node_id, seqid)
     ) WITHOUT ROWID;
 
     CREATE TABLE IF NOT EXISTS node_geneids (
         node_id TEXT,
         geneid TEXT,
+        member TEXT,
+        graph_id INTEGER,
         PRIMARY KEY (node_id, geneid)
     ) WITHOUT ROWID;
 
@@ -94,6 +101,13 @@ def sqlite_init_schema(con: sqlite3.Connection):
         member TEXT,
         PRIMARY KEY (u, v, member)
     ) WITHOUT ROWID;
+
+    CREATE TABLE IF NOT EXISTS isolate_names (
+        graph_id INTEGER NOT NULL,
+        member_index INTEGER NOT NULL,
+        sample_name TEXT NOT NULL,
+        PRIMARY KEY (graph_id, member_index)
+    ) WITHOUT ROWID;
     """)
     con.commit()
 
@@ -103,7 +117,17 @@ def sqlite_create_indexes(con: sqlite3.Connection):
     CREATE INDEX IF NOT EXISTS idx_node_members_member ON node_members(member);
     CREATE INDEX IF NOT EXISTS idx_node_seqids_seqid ON node_seqids(seqid);
     CREATE INDEX IF NOT EXISTS idx_node_geneids_geneid ON node_geneids(geneid);
+    CREATE INDEX IF NOT EXISTS idx_isolate_names_sample ON isolate_names(sample_name);
     """)
+    con.commit()
+
+def add_isolate_names_to_sqlite(con: sqlite3.Connection, graph_id: int, isolate_names: list):
+    cur = con.cursor()
+    rows = [(int(graph_id), int(i), str(name)) for i, name in enumerate(isolate_names)]
+    cur.executemany(
+        "INSERT OR IGNORE INTO isolate_names(graph_id, member_index, sample_name) VALUES (?,?,?)",
+        rows
+    )
     con.commit()
 
 def _norm_text_or_none(x):
@@ -204,14 +228,31 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
         for s in (data.get("seqIDs") or []):
             s = str(s).strip()
             if s:
-                seqid_rows.append((node_id, s))
+                m = _GN_SUFFIX_RE.match(s)
+                if m:
+                    prefix, gnum = m.group(1), int(m.group(2))
+                    # member index is the part before the last underscore in prefix
+                    member_parts = prefix.rsplit("_", 1)
+                    member_key = f"{member_parts[0]}_g{gnum}" if len(member_parts) == 2 else s
+                else:
+                    member_key = None
+                    gnum = None
+                seqid_rows.append((node_id, s, member_key, gnum))
 
         geneIDs = data.get("geneIDs") or ""
         if str(geneIDs).strip():
             for gid in str(geneIDs).split(";"):
                 gid = gid.strip()
                 if gid:
-                    geneid_rows.append((node_id, gid))
+                    m = _GN_SUFFIX_RE.match(gid)
+                    if m:
+                        prefix, gnum = m.group(1), int(m.group(2))
+                        member_parts = prefix.rsplit("_", 1)
+                        member_key = f"{member_parts[0]}_g{gnum}" if len(member_parts) == 2 else gid
+                    else:
+                        member_key = None
+                        gnum = None
+                    geneid_rows.append((node_id, gid, member_key, gnum))
 
         centroids = data.get("centroid") or []
         if isinstance(centroids, str):
@@ -271,8 +312,8 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
     """, node_rows)
 
     cur.executemany("INSERT INTO node_members(node_id,member) VALUES (?,?)", members_rows)
-    cur.executemany("INSERT INTO node_seqids(node_id,seqid) VALUES (?,?)", seqid_rows)
-    cur.executemany("INSERT INTO node_geneids(node_id,geneid) VALUES (?,?)", geneid_rows)
+    cur.executemany("INSERT INTO node_seqids(node_id,seqid,member,graph_id) VALUES (?,?,?,?)", seqid_rows)
+    cur.executemany("INSERT INTO node_geneids(node_id,geneid,member,graph_id) VALUES (?,?,?,?)", geneid_rows)
     cur.executemany("INSERT INTO node_centroids(node_id,centroid) VALUES (?,?)", centroid_rows)
     cur.executemany("INSERT INTO node_longCentroidID(node_id,tag) VALUES (?,?)", longcid_rows)
 
