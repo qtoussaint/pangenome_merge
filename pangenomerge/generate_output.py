@@ -7,11 +7,24 @@ from collections import defaultdict
 
 import networkx as nx
 
-from pangenomerge.custom_functions.sqlite import sqlite_connect, sqlite_connect_sequences, sqlite_create_sequence_indexes, ingest_gene_sequences
+import pandas as pd
+
+from pangenomerge.custom_functions.sqlite import sqlite_connect, sqlite_connect_sequences, sqlite_create_sequence_indexes, ingest_gene_sequences, add_gene_annotations_to_sqlite
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
 _GN_SUFFIX_RE = re.compile(r'^(.+)_g(\d+)$')
+
+
+def ingest_gene_annotations(con, component_graphs_tsv):
+    """Batch-ingest gene annotations from all component graph directories."""
+    graph_files = pd.read_csv(component_graphs_tsv, sep='\t', header=None)
+    n_graphs = len(graph_files)
+    for idx in range(n_graphs):
+        graph_id = idx + 1
+        graph_dir = str(graph_files.iloc[idx][0])
+        add_gene_annotations_to_sqlite(con, graph_id=graph_id, graph_dir=graph_dir)
+    logging.info(f"Ingested gene annotations from {n_graphs} component graphs")
 
 
 def _derive_gene_name(annotation, used_gene_names, unique_id_counter):
@@ -301,8 +314,8 @@ def cli_main():
     parser.add_argument('--output', choices=['all', 'presenceabsence', 'genedata', 'sequences'],
                         default='all',
                         help='Which outputs to generate: presenceabsence (Panaroo-format gene presence-absence tables), Panaroo-format gene_data.csv, pangenome_sequences.sqlite (default: all)')
-    parser.add_argument('--component-graphs', default=None, dest='component_graphs',
-                        help='Path to component graphs TSV (required for --output sequences or all)')
+    parser.add_argument('--component-graphs', required=True, dest='component_graphs',
+                        help='Path to component graphs TSV')
     parser.add_argument('--sequences-sqlite', default=None, dest='sequences_sqlite',
                         help='Path to pangenome_sequences.sqlite (default: pangenome_sequences.sqlite in same dir as --sqlite)')
     parser.add_argument('--sqlite-cache', type=int, default=2000,
@@ -313,8 +326,13 @@ def cli_main():
     if args.output in ('all', 'presenceabsence') and args.gml is None:
         parser.error("--gml is required when --output is 'all' or 'presenceabsence'")
 
-    if args.output in ('all', 'sequences') and args.component_graphs is None:
-        parser.error("--component-graphs is required when --output is 'all' or 'sequences'")
+    if args.component_graphs is None:
+        parser.error("--component-graphs is required")
+
+    # Ingest gene annotations from component graphs (deferred from merge step)
+    meta_con = sqlite_connect(database=args.sqlite, sqlite_cache=args.sqlite_cache)
+    ingest_gene_annotations(meta_con, args.component_graphs)
+    meta_con.close()
 
     if args.output in ('all', 'presenceabsence'):
         generate_gene_presence_absence(

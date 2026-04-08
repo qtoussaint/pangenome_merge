@@ -124,7 +124,7 @@ This generates:
 You can generate specific outputs using `--output`:
 ```
 pangenomerge-postprocess --sqlite db.sqlite --gml graph.gml --outdir out/ --output presenceabsence
-pangenomerge-postprocess --sqlite db.sqlite --outdir out/ --output genedata
+pangenomerge-postprocess --sqlite db.sqlite --component-graphs paths.tsv --outdir out/ --output genedata
 pangenomerge-postprocess --sqlite db.sqlite --component-graphs paths.tsv --outdir out/ --output sequences
 ```
 
@@ -252,8 +252,7 @@ options:
                         Which outputs to generate: presenceabsence (Panaroo-format gene
                         presence-absence tables), Panaroo-format gene_data.csv, pangenome_sequences.sqlite (default: all)
   --component-graphs COMPONENT_GRAPHS
-                        Path to component graphs TSV (required for --output
-                        sequences or all)
+                        Path to component graphs TSV (required)
   --sequences-sqlite SEQUENCES_SQLITE
                         Path to pangenome_sequences.sqlite (default:
                         pangenome_sequences.sqlite in same dir as --sqlite)
