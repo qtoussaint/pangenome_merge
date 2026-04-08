@@ -98,10 +98,10 @@ This will generate the following in your results directory:
 
 ## Generating output files
 
-After a merge, use `pangenomerge-output` to generate Panaroo-compatible output files from the SQLite database and merged graph:
+After a merge, use `pangenomerge-postprocess` to generate Panaroo-compatible output files from the SQLite database and merged graph:
 
 ```
-pangenomerge-output --sqlite </path/to/pangenome_metadata.sqlite> --gml </path/to/merged_graph_N.gml> --component-graphs </path/to/paths.tsv> --outdir </path/to/outdir>
+pangenomerge-postprocess --sqlite </path/to/pangenome_metadata.sqlite> --gml </path/to/merged_graph_N.gml> --component-graphs </path/to/paths.tsv> --outdir </path/to/outdir>
 ```
 
 This generates:
@@ -113,9 +113,9 @@ This generates:
 
 You can generate specific outputs using `--output`:
 ```
-pangenomerge-output --sqlite db.sqlite --gml graph.gml --outdir out/ --output gpa
-pangenomerge-output --sqlite db.sqlite --outdir out/ --output genedata
-pangenomerge-output --sqlite db.sqlite --component-graphs paths.tsv --outdir out/ --output sequences
+pangenomerge-postprocess --sqlite db.sqlite --gml graph.gml --outdir out/ --output presenceabsence
+pangenomerge-postprocess --sqlite db.sqlite --outdir out/ --output genedata
+pangenomerge-postprocess --sqlite db.sqlite --component-graphs paths.tsv --outdir out/ --output sequences
 ```
 
 ### Sequence storage
@@ -222,11 +222,11 @@ Other options:
   --version             show program's version number and exit
 ```
 
-## pangenomerge-output
+## pangenomerge-postprocess
 
 ```
-usage: pangenomerge-output [-h] --sqlite SQLITE [--gml GML] --outdir OUTDIR
-                           [--output {all,gpa,genedata,sequences}]
+usage: pangenomerge-postprocess [-h] --sqlite SQLITE [--gml GML] --outdir OUTDIR
+                           [--output {all,presenceabsence,genedata,sequences}]
                            [--component-graphs COMPONENT_GRAPHS]
                            [--sequences-sqlite SEQUENCES_SQLITE]
                            [--sqlite-cache SQLITE_CACHE]
@@ -236,10 +236,11 @@ Generate Panaroo-format output files from pangenomerge output
 options:
   -h, --help            show this help message and exit
   --sqlite SQLITE       Path to pangenome_metadata.sqlite
-  --gml GML             Path to merged_graph_N.gml (required for GPA output)
+  --gml GML             Path to merged_graph_N.gml (required for gene presence-absence output)
   --outdir OUTDIR       Output directory for generated files
-  --output {all,gpa,genedata,sequences}
-                        Which outputs to generate (default: all)
+  --output {all,presenceabsence,genedata,sequences}
+                        Which outputs to generate: presenceabsence (gene
+                        presence-absence tables), genedata, sequences (default: all)
   --component-graphs COMPONENT_GRAPHS
                         Path to component graphs TSV (required for --output
                         sequences or all)

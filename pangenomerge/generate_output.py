@@ -295,12 +295,12 @@ def cli_main():
     parser.add_argument('--sqlite', required=True,
                         help='Path to pangenome_metadata.sqlite')
     parser.add_argument('--gml', default=None,
-                        help='Path to merged_graph_N.gml (required for GPA output)')
+                        help='Path to merged_graph_N.gml (required for gene presence-absence output)')
     parser.add_argument('--outdir', required=True,
                         help='Output directory for generated files')
-    parser.add_argument('--output', choices=['all', 'gpa', 'genedata', 'sequences'],
+    parser.add_argument('--output', choices=['all', 'presenceabsence', 'genedata', 'sequences'],
                         default='all',
-                        help='Which outputs to generate (default: all)')
+                        help='Which outputs to generate: presenceabsence (gene presence-absence tables), genedata, sequences (default: all)')
     parser.add_argument('--component-graphs', default=None, dest='component_graphs',
                         help='Path to component graphs TSV (required for --output sequences or all)')
     parser.add_argument('--sequences-sqlite', default=None, dest='sequences_sqlite',
@@ -310,13 +310,13 @@ def cli_main():
                         help='SQLite cache size in KB (default: 2000)')
     args = parser.parse_args()
 
-    if args.output in ('all', 'gpa') and args.gml is None:
-        parser.error("--gml is required when --output is 'all' or 'gpa'")
+    if args.output in ('all', 'presenceabsence') and args.gml is None:
+        parser.error("--gml is required when --output is 'all' or 'presenceabsence'")
 
     if args.output in ('all', 'sequences') and args.component_graphs is None:
         parser.error("--component-graphs is required when --output is 'all' or 'sequences'")
 
-    if args.output in ('all', 'gpa'):
+    if args.output in ('all', 'presenceabsence'):
         generate_gene_presence_absence(
             sqlite_path=args.sqlite,
             gml_path=args.gml,
