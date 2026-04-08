@@ -97,9 +97,18 @@ This will generate the following in your results directory:
   - `pangenome_reference_aa/`: an MMseqs2 amino acid database containing representative protein sequences for each node (COG) in the final graph
   - `pangenome_metadata.sqlite`: an SQLite database containing all metadata for the final merged graph
 
-## Generating output files
+## Generating additional outputs
 
-After a merge, use `pangenomerge-postprocess` to generate Panaroo-compatible output files from the SQLite database and merged graph:
+### Panaroo-format outputs
+
+> [!CAUTION]  
+> Some Panaroo outputs, particularly `gene_data.csv`, can be >50GB for large datasets.
+> 
+> I have included them to allow for the use of tools requiring Panaroo-format outputs, but it's better to use the existing pangenomerge metadata files where possible.
+> 
+> If you need to use them, first test on a subset of your component graphs and decide if the filesize will be reasonable for your storage constraints and downstream usage before creating them for your entire dataset. 
+
+After a merge, use `pangenomerge-postprocess` to generate Panaroo-format output files:
 
 ```
 pangenomerge-postprocess --sqlite </path/to/pangenome_metadata.sqlite> --gml </path/to/final_graph.gml> --component-graphs </path/to/paths.tsv> --outdir </path/to/outdir>
@@ -108,7 +117,7 @@ pangenomerge-postprocess --sqlite </path/to/pangenome_metadata.sqlite> --gml </p
 This generates:
   - `gene_presence_absence_roary.csv`: Roary-format gene presence/absence matrix (14 metadata columns + one column per isolate)
   - `gene_presence_absence.csv`: simplified gene presence/absence matrix (3 metadata columns + one column per isolate)
-  - `gene_presence_absence.Rtab`: binary presence/absence matrix (tab-delimited, suitable for R)
+  - `gene_presence_absence.Rtab`: binary presence/absence matrix
   - `gene_data.csv`: per-gene annotation data (Panaroo format)
   - `pangenome_sequences.sqlite`: deduplicated, compressed per-gene DNA and protein sequences, queryable by node/COG
 
@@ -119,9 +128,9 @@ pangenomerge-postprocess --sqlite db.sqlite --outdir out/ --output genedata
 pangenomerge-postprocess --sqlite db.sqlite --component-graphs paths.tsv --outdir out/ --output sequences
 ```
 
-### Sequence storage
+### Complete gene sequence database
 
-Individual per-gene DNA and protein sequences are stored in a separate SQLite database (`pangenome_sequences.sqlite`) with hash-based deduplication and zlib compression. Within a COG, many isolates typically share identical alleles, so deduplication achieves 10-100x size reduction. Combined with compression, this typically results in 5-15 GB for datasets that would otherwise require 100+ GB of raw FASTA storage.
+Individual per-gene DNA and protein sequences are stored in a separate SQLite database (`pangenome_sequences.sqlite`) with hash-based deduplication and zlib compression. Within a COG, many isolates will share identical alleles, so deduplication in combination with compression typically results in 5-15 GB for datasets that would otherwise require 100+ GB of raw FASTA storage.
 
 Sequences can be queried programmatically using the `sequence_queries` module:
 
