@@ -92,8 +92,9 @@ pangenomerge --component-graphs paths.tsv --outdir </path/to/outdir> --threads 1
 > Make sure to provide paths to the Panaroo _directories_, not the `final_graph.gml` files they contain.
 
 This will generate the following in your results directory:
-  - Graphs titled `merged_graph_<index>.gml`: an updated graph is output every time a new graph is merged into the base graph (e.g. when merging 15 graphs, 13 intermediary graphs and one final graph will be output)
-  - `mmseqs_tmp/pan_genome_db_<index>`: an MMseqs2 database containing representative sequences for each node (COG) in the graph
+  - `final_graph.gml`: the final merged pangenome gene graph
+  - `intermediate_graphs/merged_graph_<index>.gml`: checkpoint graphs from each merge iteration
+  - `pangenome_reference_aa/`: an MMseqs2 amino acid database containing representative protein sequences for each node (COG) in the final graph
   - `pangenome_metadata.sqlite`: an SQLite database containing all metadata for the final merged graph
 
 ## Generating output files
@@ -101,7 +102,7 @@ This will generate the following in your results directory:
 After a merge, use `pangenomerge-postprocess` to generate Panaroo-compatible output files from the SQLite database and merged graph:
 
 ```
-pangenomerge-postprocess --sqlite </path/to/pangenome_metadata.sqlite> --gml </path/to/merged_graph_N.gml> --component-graphs </path/to/paths.tsv> --outdir </path/to/outdir>
+pangenomerge-postprocess --sqlite </path/to/pangenome_metadata.sqlite> --gml </path/to/final_graph.gml> --component-graphs </path/to/paths.tsv> --outdir </path/to/outdir>
 ```
 
 This generates:
@@ -236,7 +237,7 @@ Generate Panaroo-format output files from pangenomerge output
 options:
   -h, --help            show this help message and exit
   --sqlite SQLITE       Path to pangenome_metadata.sqlite
-  --gml GML             Path to merged_graph_N.gml (required for gene presence-absence output)
+  --gml GML             Path to final_graph.gml (required for gene presence-absence output)
   --outdir OUTDIR       Output directory for generated files
   --output {all,presenceabsence,genedata,sequences}
                         Which outputs to generate: presenceabsence (gene
