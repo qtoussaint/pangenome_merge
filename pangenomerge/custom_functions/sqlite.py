@@ -12,17 +12,53 @@ def canon_uv(u, v):
     u, v = str(u), str(v)
     return (u, v) if u <= v else (v, u)
 
-def sqlite_connect(database: str, sqlite_cache: int) -> sqlite3.Connection:
+def _sqlite_open(database: str, sqlite_cache: int) -> sqlite3.Connection:
+    """Open an SQLite database with tuned PRAGMAs for bulk-insert workloads."""
     Path(database).parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(database)
     con.execute("PRAGMA journal_mode=WAL;")
     con.execute("PRAGMA synchronous=NORMAL;")
     con.execute("PRAGMA foreign_keys=OFF;")
     con.execute("PRAGMA temp_store=MEMORY;")
-    con.execute("PRAGMA busy_timeout=5000;") 
+    con.execute("PRAGMA busy_timeout=5000;")
     con.execute("PRAGMA wal_autocheckpoint=5000;")
     con.execute(f"PRAGMA cache_size=-{sqlite_cache};")
     return con
+
+def sqlite_connect(database: str, sqlite_cache: int) -> sqlite3.Connection:
+    """Connect to (or create) the metadata SQLite database."""
+    return _sqlite_open(database, sqlite_cache)
+
+def sqlite_connect_sequences(database: str, sqlite_cache: int) -> sqlite3.Connection:
+    """Connect to (or create) the dedicated sequence SQLite database."""
+    con = _sqlite_open(database, sqlite_cache)
+    con.executescript("""
+    CREATE TABLE IF NOT EXISTS unique_sequences (
+        seq_hash TEXT NOT NULL,
+        seq_type TEXT NOT NULL,
+        seq_data BLOB NOT NULL,
+        seq_len  INTEGER NOT NULL,
+        PRIMARY KEY (seq_hash, seq_type)
+    ) WITHOUT ROWID;
+
+    CREATE TABLE IF NOT EXISTS gene_sequences (
+        geneid   TEXT PRIMARY KEY,
+        nt_hash  TEXT,
+        aa_hash  TEXT
+    ) WITHOUT ROWID;
+    """)
+    con.commit()
+    return con
+
+
+def sqlite_create_sequence_indexes(con: sqlite3.Connection):
+    """Create indexes on the sequence database."""
+    con.executescript("""
+    CREATE INDEX IF NOT EXISTS idx_gene_sequences_nt ON gene_sequences(nt_hash);
+    CREATE INDEX IF NOT EXISTS idx_gene_sequences_aa ON gene_sequences(aa_hash);
+    """)
+    con.commit()
+
 
 def sqlite_init_schema(con: sqlite3.Connection):
     # cumulative tables keyed by node_id / (u,v)
@@ -120,19 +156,6 @@ def sqlite_init_schema(con: sqlite3.Connection):
         description TEXT
     ) WITHOUT ROWID;
 
-    CREATE TABLE IF NOT EXISTS unique_sequences (
-        seq_hash TEXT NOT NULL,
-        seq_type TEXT NOT NULL,
-        seq_data BLOB NOT NULL,
-        seq_len  INTEGER NOT NULL,
-        PRIMARY KEY (seq_hash, seq_type)
-    ) WITHOUT ROWID;
-
-    CREATE TABLE IF NOT EXISTS gene_sequences (
-        geneid   TEXT PRIMARY KEY,
-        nt_hash  TEXT,
-        aa_hash  TEXT
-    ) WITHOUT ROWID;
     """)
     con.commit()
 
@@ -144,8 +167,6 @@ def sqlite_create_indexes(con: sqlite3.Connection):
     CREATE INDEX IF NOT EXISTS idx_node_geneids_geneid ON node_geneids(geneid);
     CREATE INDEX IF NOT EXISTS idx_isolate_names_sample ON isolate_names(sample_name);
     CREATE INDEX IF NOT EXISTS idx_gene_annotations_annot ON gene_annotations(annotation_id);
-    CREATE INDEX IF NOT EXISTS idx_gene_sequences_nt ON gene_sequences(nt_hash);
-    CREATE INDEX IF NOT EXISTS idx_gene_sequences_aa ON gene_sequences(aa_hash);
     """)
     con.commit()
 
@@ -195,20 +216,27 @@ def _hash_seq(seq: str) -> str:
     return hashlib.md5(seq.encode()).hexdigest()
 
 
-def ingest_gene_sequences(con: sqlite3.Connection, component_graphs_tsv: str,
+def ingest_gene_sequences(seq_con: sqlite3.Connection, component_graphs_tsv: str,
                           batch_size: int = 50000):
     """Read per-gene DNA and protein sequences from all component graph
-    gene_data.csv files and store them in SQLite with deduplication.
+    gene_data.csv files and store them in the sequence SQLite database
+    with deduplication.
 
-    Identical sequences are stored once (keyed by xxhash); each gene maps
-    to its unique sequence hashes via the gene_sequences table.
+    Parameters
+    ----------
+    seq_con : sqlite3.Connection
+        Connection to the dedicated sequence database (pangenome_sequences.sqlite).
+    component_graphs_tsv : str
+        Path to component graphs TSV listing graph directories.
+    batch_size : int
+        Number of gene rows to buffer before flushing to SQLite.
     """
     import pandas as pd
 
     graph_files = pd.read_csv(component_graphs_tsv, sep='\t', header=None)
     n_graphs = len(graph_files)
 
-    cur = con.cursor()
+    cur = seq_con.cursor()
     cur.execute("BEGIN;")
 
     total_genes = 0
@@ -285,7 +313,7 @@ def ingest_gene_sequences(con: sqlite3.Connection, component_graphs_tsv: str,
         logging.info(f"Read {graph_genes} gene sequences from graph {graph_id}")
 
     _flush()
-    con.execute("COMMIT;")
+    seq_con.execute("COMMIT;")
     logging.info(f"Ingested {total_genes} total gene sequences into SQLite")
 
     # report deduplication stats

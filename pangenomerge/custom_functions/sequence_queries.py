@@ -3,6 +3,20 @@ import sqlite3
 from typing import Iterator
 
 
+def attach_sequences(meta_con: sqlite3.Connection, seq_db_path: str):
+    """Attach the sequence database to a metadata database connection.
+
+    After calling this, sequence tables are accessible as seq.unique_sequences
+    and seq.gene_sequences in queries run on meta_con.
+    """
+    meta_con.execute("ATTACH DATABASE ? AS seq", (seq_db_path,))
+
+
+def detach_sequences(meta_con: sqlite3.Connection):
+    """Detach the sequence database from a metadata connection."""
+    meta_con.execute("DETACH DATABASE seq")
+
+
 def get_sequences_for_node(con: sqlite3.Connection, node_id: str,
                            seq_type: str = "nt") -> list[tuple[str, str]]:
     """Return [(geneid, sequence), ...] for all genes in a node.
@@ -10,6 +24,7 @@ def get_sequences_for_node(con: sqlite3.Connection, node_id: str,
     Parameters
     ----------
     con : sqlite3.Connection
+        Metadata DB connection with sequence DB attached via attach_sequences().
     node_id : str
         The merged node/COG identifier.
     seq_type : str
@@ -19,8 +34,8 @@ def get_sequences_for_node(con: sqlite3.Connection, node_id: str,
     cur = con.execute(f"""
         SELECT ng.geneid, us.seq_data
         FROM node_geneids ng
-        JOIN gene_sequences gs ON gs.geneid = ng.geneid
-        JOIN unique_sequences us
+        JOIN seq.gene_sequences gs ON gs.geneid = ng.geneid
+        JOIN seq.unique_sequences us
           ON us.seq_hash = {hash_col}
           AND us.seq_type = ?
         WHERE ng.node_id = ?
@@ -36,8 +51,8 @@ def iter_sequences_for_node(con: sqlite3.Connection, node_id: str,
     cur = con.execute(f"""
         SELECT ng.geneid, us.seq_data
         FROM node_geneids ng
-        JOIN gene_sequences gs ON gs.geneid = ng.geneid
-        JOIN unique_sequences us
+        JOIN seq.gene_sequences gs ON gs.geneid = ng.geneid
+        JOIN seq.unique_sequences us
           ON us.seq_hash = {hash_col}
           AND us.seq_type = ?
         WHERE ng.node_id = ?
@@ -57,8 +72,8 @@ def get_unique_sequences_for_node(con: sqlite3.Connection, node_id: str,
     cur = con.execute(f"""
         SELECT us.seq_data, GROUP_CONCAT(ng.geneid, ';')
         FROM node_geneids ng
-        JOIN gene_sequences gs ON gs.geneid = ng.geneid
-        JOIN unique_sequences us
+        JOIN seq.gene_sequences gs ON gs.geneid = ng.geneid
+        JOIN seq.unique_sequences us
           ON us.seq_hash = {hash_col}
           AND us.seq_type = ?
         WHERE ng.node_id = ?
@@ -78,8 +93,8 @@ def get_sequence_counts_for_node(con: sqlite3.Connection, node_id: str,
     cur = con.execute(f"""
         SELECT us.seq_data, COUNT(*) as cnt
         FROM node_geneids ng
-        JOIN gene_sequences gs ON gs.geneid = ng.geneid
-        JOIN unique_sequences us
+        JOIN seq.gene_sequences gs ON gs.geneid = ng.geneid
+        JOIN seq.unique_sequences us
           ON us.seq_hash = {hash_col}
           AND us.seq_type = ?
         WHERE ng.node_id = ?
@@ -99,6 +114,7 @@ def export_node_fasta(con: sqlite3.Connection, node_id: str, output_path: str,
     Parameters
     ----------
     con : sqlite3.Connection
+        Metadata DB connection with sequence DB attached via attach_sequences().
     node_id : str
         The merged node/COG identifier.
     output_path : str

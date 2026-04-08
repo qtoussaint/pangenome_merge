@@ -96,6 +96,57 @@ This will generate the following in your results directory:
   - `mmseqs_tmp/pan_genome_db_<index>`: an MMseqs2 database containing representative sequences for each node (COG) in the graph
   - `pangenome_metadata.sqlite`: an SQLite database containing all metadata for the final merged graph
 
+## Generating output files
+
+After a merge, use `pangenomerge-output` to generate Panaroo-compatible output files from the SQLite database and merged graph:
+
+```
+pangenomerge-output --sqlite </path/to/pangenome_metadata.sqlite> --gml </path/to/merged_graph_N.gml> --component-graphs </path/to/paths.tsv> --outdir </path/to/outdir>
+```
+
+This generates:
+  - `gene_presence_absence_roary.csv`: Roary-format gene presence/absence matrix (14 metadata columns + one column per isolate)
+  - `gene_presence_absence.csv`: simplified gene presence/absence matrix (3 metadata columns + one column per isolate)
+  - `gene_presence_absence.Rtab`: binary presence/absence matrix (tab-delimited, suitable for R)
+  - `gene_data.csv`: per-gene annotation data (Panaroo format)
+  - `pangenome_sequences.sqlite`: deduplicated, compressed per-gene DNA and protein sequences, queryable by node/COG
+
+You can generate specific outputs using `--output`:
+```
+pangenomerge-output --sqlite db.sqlite --gml graph.gml --outdir out/ --output gpa
+pangenomerge-output --sqlite db.sqlite --outdir out/ --output genedata
+pangenomerge-output --sqlite db.sqlite --component-graphs paths.tsv --outdir out/ --output sequences
+```
+
+### Sequence storage
+
+Individual per-gene DNA and protein sequences are stored in a separate SQLite database (`pangenome_sequences.sqlite`) with hash-based deduplication and zlib compression. Within a COG, many isolates typically share identical alleles, so deduplication achieves 10-100x size reduction. Combined with compression, this typically results in 5-15 GB for datasets that would otherwise require 100+ GB of raw FASTA storage.
+
+Sequences can be queried programmatically using the `sequence_queries` module:
+
+```python
+from pangenomerge.custom_functions.sqlite import sqlite_connect
+from pangenomerge.custom_functions.sequence_queries import attach_sequences, get_sequences_for_node
+
+con = sqlite_connect("pangenome_metadata.sqlite", sqlite_cache=2000)
+attach_sequences(con, "pangenome_sequences.sqlite")
+
+# All sequences for a node
+seqs = get_sequences_for_node(con, "node_123", seq_type="nt")
+
+# Unique alleles with gene IDs
+from pangenomerge.custom_functions.sequence_queries import get_unique_sequences_for_node
+alleles = get_unique_sequences_for_node(con, "node_123", seq_type="aa")
+
+# Allele frequency spectrum
+from pangenomerge.custom_functions.sequence_queries import get_sequence_counts_for_node
+counts = get_sequence_counts_for_node(con, "node_123", seq_type="nt")
+
+# Export to FASTA
+from pangenomerge.custom_functions.sequence_queries import export_node_fasta
+export_node_fasta(con, "node_123", "output.fasta", seq_type="nt", unique_only=True)
+```
+
 # Running pangenomerge
 
 ### What is the difference between the 'run' and 'test' modes?
@@ -134,6 +185,8 @@ To run pangenomerge from Snakemake, follow the steps in `snakemake/example_slurm
 
 # Reference Library
 
+## pangenomerge
+
 ```
 usage: pangenomerge [-h] [--mode {run,test}] --outdir OUTDIR [--component-graphs COMPONENT_GRAPHS] [--iterative ITERATIVE] [--graph-all GRAPH_ALL] [--metadata-in-graph KEEP_METADATA_IN_GRAPH] [--family-threshold FAMILY_THRESHOLD] [--context-threshold CONTEXT_THRESHOLD] [--threads THREADS] [--sqlite-cache SQLITE_CACHE]
                     [--debug] [--version]
@@ -167,6 +220,34 @@ Other options:
                         Desired size of SQLite cache expressed in KB. Diminishing returns above 1 GB (1048576 KB). Defaults to 2000 KB.
   --debug               Set logging to 'debug' instead of 'info' (default)
   --version             show program's version number and exit
+```
+
+## pangenomerge-output
+
+```
+usage: pangenomerge-output [-h] --sqlite SQLITE [--gml GML] --outdir OUTDIR
+                           [--output {all,gpa,genedata,sequences}]
+                           [--component-graphs COMPONENT_GRAPHS]
+                           [--sequences-sqlite SEQUENCES_SQLITE]
+                           [--sqlite-cache SQLITE_CACHE]
+
+Generate Panaroo-format output files from pangenomerge output
+
+options:
+  -h, --help            show this help message and exit
+  --sqlite SQLITE       Path to pangenome_metadata.sqlite
+  --gml GML             Path to merged_graph_N.gml (required for GPA output)
+  --outdir OUTDIR       Output directory for generated files
+  --output {all,gpa,genedata,sequences}
+                        Which outputs to generate (default: all)
+  --component-graphs COMPONENT_GRAPHS
+                        Path to component graphs TSV (required for --output
+                        sequences or all)
+  --sequences-sqlite SEQUENCES_SQLITE
+                        Path to pangenome_sequences.sqlite (default:
+                        pangenome_sequences.sqlite in same dir as --sqlite)
+  --sqlite-cache SQLITE_CACHE
+                        SQLite cache size in KB (default: 2000)
 ```
 
 # Example Analysis

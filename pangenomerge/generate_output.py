@@ -4,12 +4,10 @@ import csv
 import re
 from pathlib import Path
 from collections import defaultdict
-from itertools import groupby
-from operator import itemgetter
 
 import networkx as nx
 
-from pangenomerge.custom_functions.sqlite import sqlite_connect, ingest_gene_sequences
+from pangenomerge.custom_functions.sqlite import sqlite_connect, sqlite_connect_sequences, sqlite_create_sequence_indexes, ingest_gene_sequences
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
@@ -205,17 +203,19 @@ def generate_gene_presence_absence(sqlite_path, gml_path, output_dir,
     simple_path = output_dir / "gene_presence_absence.csv"
     rtab_path = output_dir / "gene_presence_absence.Rtab"
 
-    with open(roary_path, "w") as roary_f, \
-         open(simple_path, "w") as simple_f, \
+    with open(roary_path, "w", newline="") as roary_f, \
+         open(simple_path, "w", newline="") as simple_f, \
          open(rtab_path, "w") as rtab_f:
 
-        roary_f.write(",".join(roary_header) + "\n")
-        simple_f.write(",".join(simple_header) + "\n")
+        roary_w = csv.writer(roary_f)
+        simple_w = csv.writer(simple_f)
+        roary_w.writerow(roary_header)
+        simple_w.writerow(simple_header)
         rtab_f.write("\t".join(rtab_header) + "\n")
 
         for entry_size, entry_roary, entry_simple, pres_abs, gene_name in entries:
-            roary_f.write(",".join(str(e) for e in entry_roary) + "\n")
-            simple_f.write(",".join(str(e) for e in entry_simple) + "\n")
+            roary_w.writerow(entry_roary)
+            simple_w.writerow(entry_simple)
             rtab_f.write(gene_name + "\t")
             rtab_f.write("\t".join("0" if e == "" else "1" for e in pres_abs) + "\n")
 
@@ -303,6 +303,8 @@ def cli_main():
                         help='Which outputs to generate (default: all)')
     parser.add_argument('--component-graphs', default=None, dest='component_graphs',
                         help='Path to component graphs TSV (required for --output sequences or all)')
+    parser.add_argument('--sequences-sqlite', default=None, dest='sequences_sqlite',
+                        help='Path to pangenome_sequences.sqlite (default: pangenome_sequences.sqlite in same dir as --sqlite)')
     parser.add_argument('--sqlite-cache', type=int, default=2000,
                         dest='sqlite_cache',
                         help='SQLite cache size in KB (default: 2000)')
@@ -330,10 +332,14 @@ def cli_main():
         )
 
     if args.output in ('all', 'sequences'):
-        con = sqlite_connect(database=args.sqlite, sqlite_cache=args.sqlite_cache)
-        ingest_gene_sequences(con, args.component_graphs)
-        con.close()
-        logging.info("Gene sequence ingestion complete")
+        seq_db_path = args.sequences_sqlite
+        if seq_db_path is None:
+            seq_db_path = str(Path(args.sqlite).parent / "pangenome_sequences.sqlite")
+        seq_con = sqlite_connect_sequences(database=seq_db_path, sqlite_cache=args.sqlite_cache)
+        ingest_gene_sequences(seq_con, args.component_graphs)
+        sqlite_create_sequence_indexes(seq_con)
+        seq_con.close()
+        logging.info(f"Gene sequence ingestion complete → {seq_db_path}")
 
 
 if __name__ == "__main__":
