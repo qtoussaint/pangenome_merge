@@ -20,6 +20,8 @@ from collections import defaultdict
 import gc
 import multiprocessing as mp
 import subprocess
+import shutil
+import glob as glob_module
 
 # import custom functions
 from pangenomerge.custom_functions.manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array
@@ -146,6 +148,9 @@ def main():
     mmseqs_dir = Path(options.outdir) / "mmseqs_tmp"
     mmseqs_dir.mkdir(parents=True, exist_ok=True)
 
+    intermediate_dir = Path(options.outdir) / "intermediate_graphs"
+    intermediate_dir.mkdir(parents=True, exist_ok=True)
+
     # this will always point to the current combined pangenome db
     base_db = None
 
@@ -173,7 +178,7 @@ def main():
             graph_file_1 = str(Path(graph_files.iloc[0][0]) / "final_graph.gml")
             graph_file_2 = str(Path(graph_files.iloc[1][0]) / "final_graph.gml")
         else:
-            graph_file_1 = str(Path(options.outdir) / f"merged_graph_{graph_count}.gml")
+            graph_file_1 = str(intermediate_dir / f"merged_graph_{graph_count}.gml")
             graph_file_2 = str(Path(graph_files.iloc[int(graph_count+1)][0]) / "final_graph.gml")
 
         logging.info(f"Beginning iteration {graph_count+1} of {n_graphs-1}...")
@@ -1127,8 +1132,12 @@ def main():
         # info statement...
         logging.info('Writing merged graph to outdir...')
 
-        # define new graph name 
-        output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}.gml"
+        # define new graph name
+        is_final_iteration = (graph_count == n_graphs - 2)
+        if is_final_iteration:
+            output_path = Path(options.outdir) / "final_graph.gml"
+        else:
+            output_path = intermediate_dir / f"merged_graph_{graph_count+1}.gml"
 
         if options.keep_metadata_in_graph is True:
             # write new graph to GML with all metadata
@@ -1169,8 +1178,8 @@ def main():
 
         if options.keep_metadata_in_graph is True:
             # write an additional version of the final graph that doesn't have metadata
-            if graph_count == (n_graphs-2):
-                output_path = Path(options.outdir) / f"merged_graph_{graph_count+1}_nometadata.gml"
+            if is_final_iteration:
+                output_path = Path(options.outdir) / "final_graph_nometadata.gml"
                 for n in merged_graph.nodes():
                     merged_graph.nodes[n].clear()
                 for u, v in merged_graph.edges():
@@ -1198,6 +1207,17 @@ def main():
 
     # close connection to sqlite db
     con.close()
+
+    # move final mmseqs AA database to outdir and clean up
+    logging.info('Moving final MMSeqs2 database and cleaning up...')
+    final_db_prefix = str(mmseqs_dir / f"pan_genome_db_{n_graphs}")
+    ref_dir = Path(options.outdir) / "pangenome_reference_aa"
+    ref_dir.mkdir(parents=True, exist_ok=True)
+    for src in glob_module.glob(f"{final_db_prefix}*"):
+        ext = src[len(final_db_prefix):]  # e.g. "", ".dbtype", ".index", "_h", "_h.dbtype", etc.
+        dst = ref_dir / f"pangenome_reference_aa{ext}"
+        shutil.move(src, dst)
+    shutil.rmtree(mmseqs_dir)
 
     # info statement...
     logging.info('Finished successfully.')
