@@ -8,43 +8,12 @@ from itertools import groupby
 from operator import itemgetter
 
 import networkx as nx
-import pandas as pd
-import numpy as np
 
 from pangenomerge.custom_functions.sqlite import sqlite_connect
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
 _GN_SUFFIX_RE = re.compile(r'^(.+)_g(\d+)$')
-
-
-def build_orig_ids(component_graphs_tsv):
-    """Read gene_data.csv from each component graph directory to build
-    a mapping from suffixed geneID -> Prokka annotation ID.
-
-    The component_graphs TSV lists Panaroo output directories.
-    Graph N (1-indexed) corresponds to the _gN suffix used by pangenomerge.
-    """
-    orig_ids = {}
-    graph_dirs = pd.read_csv(component_graphs_tsv, sep='\t', header=None)
-    for idx, row in graph_dirs.iterrows():
-        graph_id = idx + 1  # 1-indexed, matching _g1, _g2, ...
-        gene_data_path = Path(row[0]) / "gene_data.csv"
-        if not gene_data_path.exists():
-            logging.warning(f"gene_data.csv not found in {row[0]}, skipping")
-            continue
-        with open(gene_data_path, 'r') as f:
-            next(f)  # skip header
-            for line in f:
-                parts = line.split(",", 4)  # only need first 4 columns
-                if len(parts) < 4:
-                    continue
-                clustering_id = parts[2]   # original seqID/geneID
-                annotation_id = parts[3]   # Prokka locus tag
-                suffixed_id = f"{clustering_id}_g{graph_id}"
-                orig_ids[suffixed_id] = annotation_id
-    logging.info(f"Loaded {len(orig_ids)} gene ID -> annotation ID mappings from {len(graph_dirs)} component graphs")
-    return orig_ids
 
 
 def _derive_gene_name(annotation, used_gene_names, unique_id_counter):
@@ -68,16 +37,13 @@ def _derive_gene_name(annotation, used_gene_names, unique_id_counter):
 
 
 def generate_gene_presence_absence(sqlite_path, gml_path, output_dir,
-                                   component_graphs_tsv, sqlite_cache=2000):
+                                   sqlite_cache=2000):
     """Generate Panaroo-format gene presence/absence files from pangenomerge output."""
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # --- 1. Build orig_ids from component graphs ---
-    orig_ids = build_orig_ids(component_graphs_tsv)
-
-    # --- 2. Build isolate mapping from SQLite ---
+    # --- 1. Build isolate mapping and orig_ids from SQLite ---
     con = sqlite_connect(database=sqlite_path, sqlite_cache=sqlite_cache)
     cur = con.cursor()
 
@@ -92,6 +58,11 @@ def generate_gene_presence_absence(sqlite_path, gml_path, output_dir,
 
     n_isolates = len(isolates)
     logging.info(f"Loaded {n_isolates} isolates")
+
+    # --- 2. Build orig_ids from gene_annotations table ---
+    cur.execute("SELECT geneid, annotation_id FROM gene_annotations")
+    orig_ids = dict(cur.fetchall())
+    logging.info(f"Loaded {len(orig_ids)} gene ID -> annotation ID mappings from SQLite")
 
     # --- 3. Read GML for connected component numbering ---
     G = nx.read_gml(str(gml_path))
@@ -254,31 +225,104 @@ def generate_gene_presence_absence(sqlite_path, gml_path, output_dir,
     logging.info(f"  {rtab_path.name} ({len(rtab_header)} columns)")
 
 
+def generate_gene_data(sqlite_path, output_dir, sqlite_cache=2000):
+    """Generate Panaroo-format gene_data.csv from pangenomerge SQLite database."""
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    con = sqlite_connect(database=sqlite_path, sqlite_cache=sqlite_cache)
+    cur = con.cursor()
+
+    # Build member -> sample_name lookup from isolate_names
+    cur.execute("SELECT graph_id, member_index, sample_name FROM isolate_names")
+    member_to_sample = {}
+    for graph_id, member_index, sample_name in cur:
+        member_key = f"{member_index}_g{graph_id}"
+        member_to_sample[member_key] = sample_name
+
+    # Query per-gene data: join gene_annotations with node_geneids and node_sequences
+    cur.execute("""
+        SELECT ga.geneid, ga.annotation_id, ga.scaffold_name,
+               ga.gene_name, ga.description,
+               ng.member, ng.graph_id,
+               ns.dna, ns.protein
+        FROM gene_annotations ga
+        JOIN node_geneids ng ON ng.geneid = ga.geneid
+        LEFT JOIN node_sequences ns ON ns.node_id = ng.node_id
+    """)
+
+    gene_data_path = output_dir / "gene_data.csv"
+    n_rows = 0
+    with open(gene_data_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "gff_file", "scaffold_name", "clustering_id", "annotation_id",
+            "prot_sequence", "dna_sequence", "gene_name", "description"
+        ])
+
+        for row in cur:
+            geneid, annotation_id, scaffold_name, gene_name, description, \
+                member, graph_id, dna, protein = row
+
+            # Derive gff_file from sample_name
+            gff_file = member_to_sample.get(member, "")
+
+            # Strip _g{N} suffix to recover original clustering_id
+            m = _GN_SUFFIX_RE.match(geneid)
+            clustering_id = m.group(1) if m else geneid
+
+            writer.writerow([
+                gff_file,
+                scaffold_name or "",
+                clustering_id,
+                annotation_id or "",
+                protein or "",
+                dna or "",
+                gene_name or "",
+                description or "",
+            ])
+            n_rows += 1
+
+    con.close()
+    logging.info(f"Wrote {n_rows} gene entries to {gene_data_path}")
+
+
 def cli_main():
     parser = argparse.ArgumentParser(
-        description='Generate Panaroo-format gene presence/absence files from pangenomerge output'
+        description='Generate Panaroo-format output files from pangenomerge output'
     )
     parser.add_argument('--sqlite', required=True,
                         help='Path to pangenome_metadata.sqlite')
-    parser.add_argument('--gml', required=True,
-                        help='Path to merged_graph_N.gml')
+    parser.add_argument('--gml', default=None,
+                        help='Path to merged_graph_N.gml (required for GPA output)')
     parser.add_argument('--outdir', required=True,
-                        help='Output directory for presence/absence files')
-    parser.add_argument('--component-graphs', required=True,
-                        dest='component_graphs',
-                        help='TSV of component graph directories (same file used for pangenomerge --component-graphs)')
+                        help='Output directory for generated files')
+    parser.add_argument('--output', choices=['all', 'gpa', 'genedata'],
+                        default='all',
+                        help='Which outputs to generate (default: all)')
     parser.add_argument('--sqlite-cache', type=int, default=2000,
                         dest='sqlite_cache',
                         help='SQLite cache size in KB (default: 2000)')
     args = parser.parse_args()
 
-    generate_gene_presence_absence(
-        sqlite_path=args.sqlite,
-        gml_path=args.gml,
-        output_dir=args.outdir,
-        component_graphs_tsv=args.component_graphs,
-        sqlite_cache=args.sqlite_cache,
-    )
+    if args.output in ('all', 'gpa') and args.gml is None:
+        parser.error("--gml is required when --output is 'all' or 'gpa'")
+
+    if args.output in ('all', 'gpa'):
+        generate_gene_presence_absence(
+            sqlite_path=args.sqlite,
+            gml_path=args.gml,
+            output_dir=args.outdir,
+            sqlite_cache=args.sqlite_cache,
+        )
+
+    if args.output in ('all', 'genedata'):
+        generate_gene_data(
+            sqlite_path=args.sqlite,
+            output_dir=args.outdir,
+            sqlite_cache=args.sqlite_cache,
+        )
 
 
 if __name__ == "__main__":

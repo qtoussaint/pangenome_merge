@@ -31,7 +31,7 @@ from pangenomerge.panaroo_functions.merge_nodes import merge_node_cluster, gen_e
 from pangenomerge.custom_functions.relabel_nodes import relabel_nodes_preserve_attrs,sync_names
 from pangenomerge.custom_functions.context_similarity import context_similarity_seq
 from pangenomerge.custom_functions.context_similarity import build_ident_lookup, init_parallel, compute_scores_parallel
-from pangenomerge.custom_functions.sqlite import sqlite_connect, sqlite_init_schema, sqlite_create_indexes, add_metadata_to_sqlite, add_isolate_names_to_sqlite
+from pangenomerge.custom_functions.sqlite import sqlite_connect, sqlite_init_schema, sqlite_create_indexes, add_metadata_to_sqlite, add_isolate_names_to_sqlite, add_gene_annotations_to_sqlite
 
 from .__init__ import __version__
 
@@ -185,12 +185,14 @@ def main():
             graph_1, isolate_names, id_mapping = load_graphs([graph_file_1])
             graph_1 = graph_1[0]
             add_isolate_names_to_sqlite(con, graph_id=graph_count+1, isolate_names=isolate_names)
+            add_gene_annotations_to_sqlite(con, graph_id=graph_count+1, graph_dir=str(graph_files.iloc[0][0]))
         else:
             graph_1 = merged_graph
 
         graph_2, isolate_names, id_mapping = load_graphs([graph_file_2])
         graph_2 = graph_2[0]
         add_isolate_names_to_sqlite(con, graph_id=graph_count+2, isolate_names=isolate_names)
+        add_gene_annotations_to_sqlite(con, graph_id=graph_count+2, graph_dir=str(graph_files.iloc[graph_count+1][0]))
 
         if options.mode == 'test':
 

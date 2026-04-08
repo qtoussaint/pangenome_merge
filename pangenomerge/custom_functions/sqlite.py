@@ -1,5 +1,6 @@
 import sqlite3
 import re
+import logging
 from pathlib import Path
 from collections import Counter
 
@@ -108,6 +109,14 @@ def sqlite_init_schema(con: sqlite3.Connection):
         sample_name TEXT NOT NULL,
         PRIMARY KEY (graph_id, member_index)
     ) WITHOUT ROWID;
+
+    CREATE TABLE IF NOT EXISTS gene_annotations (
+        geneid TEXT PRIMARY KEY,
+        annotation_id TEXT,
+        scaffold_name TEXT,
+        gene_name TEXT,
+        description TEXT
+    ) WITHOUT ROWID;
     """)
     con.commit()
 
@@ -118,6 +127,7 @@ def sqlite_create_indexes(con: sqlite3.Connection):
     CREATE INDEX IF NOT EXISTS idx_node_seqids_seqid ON node_seqids(seqid);
     CREATE INDEX IF NOT EXISTS idx_node_geneids_geneid ON node_geneids(geneid);
     CREATE INDEX IF NOT EXISTS idx_isolate_names_sample ON isolate_names(sample_name);
+    CREATE INDEX IF NOT EXISTS idx_gene_annotations_annot ON gene_annotations(annotation_id);
     """)
     con.commit()
 
@@ -129,6 +139,37 @@ def add_isolate_names_to_sqlite(con: sqlite3.Connection, graph_id: int, isolate_
         rows
     )
     con.commit()
+
+def add_gene_annotations_to_sqlite(con: sqlite3.Connection, graph_id: int, graph_dir: str):
+    """Read gene_data.csv from a component graph directory and store
+    annotation_id, scaffold_name, gene_name, and description per gene in SQLite."""
+    gene_data_path = Path(graph_dir) / "gene_data.csv"
+    if not gene_data_path.exists():
+        logging.warning(f"gene_data.csv not found in {graph_dir}, skipping gene annotations")
+        return
+    rows = []
+    with open(gene_data_path, 'r') as f:
+        next(f)  # skip header
+        for line in f:
+            # columns: gff_file, scaffold_name, clustering_id, annotation_id,
+            #          prot_sequence, dna_sequence, gene_name, description
+            parts = line.rstrip('\n').split(",")
+            if len(parts) < 4:
+                continue
+            scaffold_name = parts[1]
+            clustering_id = parts[2]
+            annotation_id = parts[3]
+            gene_name = parts[6] if len(parts) > 6 else ""
+            description = ",".join(parts[7:]) if len(parts) > 7 else ""
+            suffixed_id = f"{clustering_id}_g{graph_id}"
+            rows.append((suffixed_id, annotation_id, scaffold_name, gene_name, description))
+    if rows:
+        con.executemany(
+            "INSERT OR IGNORE INTO gene_annotations(geneid, annotation_id, scaffold_name, gene_name, description) VALUES (?,?,?,?,?)",
+            rows
+        )
+        con.commit()
+    logging.info(f"Stored {len(rows)} gene annotations from graph {graph_id}")
 
 def _norm_text_or_none(x):
     # treat empty string/None as None
