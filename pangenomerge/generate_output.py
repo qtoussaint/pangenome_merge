@@ -300,7 +300,7 @@ def cli_main():
                         help='Output directory for generated files')
     parser.add_argument('--output', choices=['all', 'presenceabsence', 'genedata', 'sequences'],
                         default='all',
-                        help='Which outputs to generate: presenceabsence (gene presence-absence tables), genedata, sequences (default: all)')
+                        help='Which outputs to generate: presenceabsence (Panaroo-format gene presence-absence tables), Panaroo-format gene_data.csv, pangenome_sequences.sqlite (default: all)')
     parser.add_argument('--component-graphs', default=None, dest='component_graphs',
                         help='Path to component graphs TSV (required for --output sequences or all)')
     parser.add_argument('--sequences-sqlite', default=None, dest='sequences_sqlite',
