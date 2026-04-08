@@ -130,7 +130,7 @@ pangenomerge-postprocess --sqlite db.sqlite --component-graphs paths.tsv --outdi
 
 ### Complete gene sequence database
 
-Individual per-gene DNA and protein sequences are stored in a separate SQLite database (`pangenome_sequences.sqlite`) with hash-based deduplication and zlib compression. Within a COG, many isolates will share identical alleles, so deduplication in combination with compression typically results in 5-15 GB for datasets that would otherwise require 100+ GB of raw FASTA storage.
+Individual per-gene DNA and protein sequences are stored in a separate SQLite database (`pangenome_sequences.sqlite`) with hash-based deduplication and zlib compression. Within a COG, many isolates will share identical alleles, so deduplication in combination with compression typically results in 5-15 GB for datasets that would otherwise require 100+ GB of raw FASTA storage. This replaces Panaroo's `combined_DNA_CDS.fasta` and `combined_protein_CDS.fasta`. 
 
 Sequences can be queried programmatically using the `sequence_queries` module:
 
@@ -141,18 +141,18 @@ from pangenomerge.custom_functions.sequence_queries import attach_sequences, get
 con = sqlite_connect("pangenome_metadata.sqlite", sqlite_cache=2000)
 attach_sequences(con, "pangenome_sequences.sqlite")
 
-# All sequences for a node
+# get all gene sequences within a COG
 seqs = get_sequences_for_node(con, "node_123", seq_type="nt")
 
-# Unique alleles with gene IDs
+# get unique alleles within a COG (outputs geneIDs)
 from pangenomerge.custom_functions.sequence_queries import get_unique_sequences_for_node
 alleles = get_unique_sequences_for_node(con, "node_123", seq_type="aa")
 
-# Allele frequency spectrum
+# generate allele frequency spectrum
 from pangenomerge.custom_functions.sequence_queries import get_sequence_counts_for_node
 counts = get_sequence_counts_for_node(con, "node_123", seq_type="nt")
 
-# Export to FASTA
+# export gene sequences within a COG to FASTA (e.g. to create an mmseqs2 database for that node)
 from pangenomerge.custom_functions.sequence_queries import export_node_fasta
 export_node_fasta(con, "node_123", "output.fasta", seq_type="nt", unique_only=True)
 ```
@@ -249,8 +249,8 @@ options:
   --gml GML             Path to final_graph.gml (required for gene presence-absence output)
   --outdir OUTDIR       Output directory for generated files
   --output {all,presenceabsence,genedata,sequences}
-                        Which outputs to generate: presenceabsence (gene
-                        presence-absence tables), genedata, sequences (default: all)
+                        Which outputs to generate: presenceabsence (Panaroo-format gene
+                        presence-absence tables), Panaroo-format gene_data.csv, pangenome_sequences.sqlite (default: all)
   --component-graphs COMPONENT_GRAPHS
                         Path to component graphs TSV (required for --output
                         sequences or all)
