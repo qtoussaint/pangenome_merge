@@ -3,9 +3,12 @@ import logging
 import csv
 import re
 from pathlib import Path
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 import networkx as nx
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 import pandas as pd
 
@@ -301,6 +304,75 @@ def generate_gene_data(sqlite_path, output_dir, sqlite_cache=2000):
     logging.info(f"Wrote {n_rows} gene entries to {gene_data_path}")
 
 
+def generate_merge_figures(sqlite_path, output_dir, sqlite_cache=2000):
+    """Generate per-graph merge statistics CSV and pangenome growth curve plot."""
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    con = sqlite_connect(database=sqlite_path, sqlite_cache=sqlite_cache)
+    cur = con.cursor()
+
+    # Count new nodes per graph_id by parsing the _g{N} suffix from node_id
+    cur.execute("SELECT node_id FROM nodes")
+    nodes_per_graph = Counter()
+    for (node_id,) in cur:
+        m = _GN_SUFFIX_RE.match(node_id)
+        if m:
+            nodes_per_graph[int(m.group(2))] += 1
+
+    if not nodes_per_graph:
+        logging.warning("No nodes found in database; skipping figures")
+        con.close()
+        return
+
+    # Count samples per graph_id
+    cur.execute("SELECT graph_id, COUNT(*) FROM isolate_names GROUP BY graph_id")
+    samples_per_graph = dict(cur.fetchall())
+
+    con.close()
+
+    # Build dataframe sorted by graph_id
+    max_graph = max(nodes_per_graph.keys())
+    rows = []
+    cumulative_nodes = 0
+    cumulative_samples = 0
+    for gid in range(1, max_graph + 1):
+        n_new_nodes = nodes_per_graph.get(gid, 0)
+        n_samples = samples_per_graph.get(gid, 0)
+        cumulative_nodes += n_new_nodes
+        cumulative_samples += n_samples
+        rows.append({
+            'graph_id': gid,
+            'n_new_nodes': n_new_nodes,
+            'n_samples': n_samples,
+            'cumulative_nodes': cumulative_nodes,
+            'cumulative_samples': cumulative_samples,
+        })
+
+    df = pd.DataFrame(rows)
+
+    # Write CSV
+    csv_path = output_dir / "merge_statistics.csv"
+    df.to_csv(csv_path, index=False)
+    logging.info(f"Wrote merge statistics to {csv_path}")
+
+    # Plot pangenome growth curve
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.plot(df['cumulative_samples'], df['cumulative_nodes'],
+            marker='o', linewidth=1.5, markersize=4, color='#2171b5')
+    ax.set_xlabel('number of isolates')
+    ax.set_ylabel('clusters of orthologous genes (COGs)')
+    ax.set_title('Pangenome Growth Curve')
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+
+    plot_path = output_dir / "pangenome_growth_curve.png"
+    fig.savefig(plot_path, dpi=150)
+    plt.close(fig)
+    logging.info(f"Wrote pangenome growth curve to {plot_path}")
+
+
 def cli_main():
     parser = argparse.ArgumentParser(
         description='Generate Panaroo-format output files from pangenomerge output'
@@ -311,11 +383,14 @@ def cli_main():
                         help='Path to merged_graph_N.gml (required for gene presence-absence output)')
     parser.add_argument('--outdir', required=True,
                         help='Output directory for generated files')
-    parser.add_argument('--output', choices=['all', 'presenceabsence', 'genedata', 'sequences'],
+    parser.add_argument('--output', choices=['all', 'presenceabsence', 'genedata', 'sequences', 'figures'],
                         default='all',
-                        help='Which outputs to generate: presenceabsence (Panaroo-format gene presence-absence tables), Panaroo-format gene_data.csv, pangenome_sequences.sqlite (default: all)')
-    parser.add_argument('--component-graphs', required=True, dest='component_graphs',
-                        help='Path to component graphs TSV')
+                        help='Which outputs to generate: presenceabsence (Panaroo-format gene presence-absence tables), '
+                             'genedata (Panaroo-format gene_data.csv), sequences (pangenome_sequences.sqlite), '
+                             'figures (merge statistics CSV and pangenome growth curve plot) (default: all)')
+    parser.add_argument('--component-graphs', required=False, dest='component_graphs',
+                        default=None,
+                        help='Path to component graphs TSV (required for all outputs except figures)')
     parser.add_argument('--sequences-sqlite', default=None, dest='sequences_sqlite',
                         help='Path to pangenome_sequences.sqlite (default: pangenome_sequences.sqlite in same dir as --sqlite)')
     parser.add_argument('--sqlite-cache', type=int, default=2000,
@@ -326,13 +401,14 @@ def cli_main():
     if args.output in ('all', 'presenceabsence') and args.gml is None:
         parser.error("--gml is required when --output is 'all' or 'presenceabsence'")
 
-    if args.component_graphs is None:
-        parser.error("--component-graphs is required")
+    if args.output not in ('figures',) and args.component_graphs is None:
+        parser.error("--component-graphs is required when --output is not 'figures'")
 
     # Ingest gene annotations from component graphs (deferred from merge step)
-    meta_con = sqlite_connect(database=args.sqlite, sqlite_cache=args.sqlite_cache)
-    ingest_gene_annotations(meta_con, args.component_graphs)
-    meta_con.close()
+    if args.component_graphs is not None and args.output not in ('figures',):
+        meta_con = sqlite_connect(database=args.sqlite, sqlite_cache=args.sqlite_cache)
+        ingest_gene_annotations(meta_con, args.component_graphs)
+        meta_con.close()
 
     if args.output in ('all', 'presenceabsence'):
         generate_gene_presence_absence(
@@ -358,6 +434,13 @@ def cli_main():
         sqlite_create_sequence_indexes(seq_con)
         seq_con.close()
         logging.info(f"Gene sequence ingestion complete → {seq_db_path}")
+
+    if args.output in ('all', 'figures'):
+        generate_merge_figures(
+            sqlite_path=args.sqlite,
+            output_dir=args.outdir,
+            sqlite_cache=args.sqlite_cache,
+        )
 
 
 if __name__ == "__main__":
