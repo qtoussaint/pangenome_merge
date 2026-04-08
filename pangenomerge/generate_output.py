@@ -9,7 +9,7 @@ from operator import itemgetter
 
 import networkx as nx
 
-from pangenomerge.custom_functions.sqlite import sqlite_connect
+from pangenomerge.custom_functions.sqlite import sqlite_connect, ingest_gene_sequences
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
@@ -298,9 +298,11 @@ def cli_main():
                         help='Path to merged_graph_N.gml (required for GPA output)')
     parser.add_argument('--outdir', required=True,
                         help='Output directory for generated files')
-    parser.add_argument('--output', choices=['all', 'gpa', 'genedata'],
+    parser.add_argument('--output', choices=['all', 'gpa', 'genedata', 'sequences'],
                         default='all',
                         help='Which outputs to generate (default: all)')
+    parser.add_argument('--component-graphs', default=None, dest='component_graphs',
+                        help='Path to component graphs TSV (required for --output sequences or all)')
     parser.add_argument('--sqlite-cache', type=int, default=2000,
                         dest='sqlite_cache',
                         help='SQLite cache size in KB (default: 2000)')
@@ -308,6 +310,9 @@ def cli_main():
 
     if args.output in ('all', 'gpa') and args.gml is None:
         parser.error("--gml is required when --output is 'all' or 'gpa'")
+
+    if args.output in ('all', 'sequences') and args.component_graphs is None:
+        parser.error("--component-graphs is required when --output is 'all' or 'sequences'")
 
     if args.output in ('all', 'gpa'):
         generate_gene_presence_absence(
@@ -323,6 +328,12 @@ def cli_main():
             output_dir=args.outdir,
             sqlite_cache=args.sqlite_cache,
         )
+
+    if args.output in ('all', 'sequences'):
+        con = sqlite_connect(database=args.sqlite, sqlite_cache=args.sqlite_cache)
+        ingest_gene_sequences(con, args.component_graphs)
+        con.close()
+        logging.info("Gene sequence ingestion complete")
 
 
 if __name__ == "__main__":

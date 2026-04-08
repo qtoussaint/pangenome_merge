@@ -1,6 +1,8 @@
 import sqlite3
 import re
 import logging
+import zlib
+import hashlib
 from pathlib import Path
 from collections import Counter
 
@@ -117,6 +119,20 @@ def sqlite_init_schema(con: sqlite3.Connection):
         gene_name TEXT,
         description TEXT
     ) WITHOUT ROWID;
+
+    CREATE TABLE IF NOT EXISTS unique_sequences (
+        seq_hash TEXT NOT NULL,
+        seq_type TEXT NOT NULL,
+        seq_data BLOB NOT NULL,
+        seq_len  INTEGER NOT NULL,
+        PRIMARY KEY (seq_hash, seq_type)
+    ) WITHOUT ROWID;
+
+    CREATE TABLE IF NOT EXISTS gene_sequences (
+        geneid   TEXT PRIMARY KEY,
+        nt_hash  TEXT,
+        aa_hash  TEXT
+    ) WITHOUT ROWID;
     """)
     con.commit()
 
@@ -128,6 +144,8 @@ def sqlite_create_indexes(con: sqlite3.Connection):
     CREATE INDEX IF NOT EXISTS idx_node_geneids_geneid ON node_geneids(geneid);
     CREATE INDEX IF NOT EXISTS idx_isolate_names_sample ON isolate_names(sample_name);
     CREATE INDEX IF NOT EXISTS idx_gene_annotations_annot ON gene_annotations(annotation_id);
+    CREATE INDEX IF NOT EXISTS idx_gene_sequences_nt ON gene_sequences(nt_hash);
+    CREATE INDEX IF NOT EXISTS idx_gene_sequences_aa ON gene_sequences(aa_hash);
     """)
     con.commit()
 
@@ -170,6 +188,111 @@ def add_gene_annotations_to_sqlite(con: sqlite3.Connection, graph_id: int, graph
         )
         con.commit()
     logging.info(f"Stored {len(rows)} gene annotations from graph {graph_id}")
+
+
+def _hash_seq(seq: str) -> str:
+    """Return a 128-bit MD5 hex digest for a sequence string."""
+    return hashlib.md5(seq.encode()).hexdigest()
+
+
+def ingest_gene_sequences(con: sqlite3.Connection, component_graphs_tsv: str,
+                          batch_size: int = 50000):
+    """Read per-gene DNA and protein sequences from all component graph
+    gene_data.csv files and store them in SQLite with deduplication.
+
+    Identical sequences are stored once (keyed by xxhash); each gene maps
+    to its unique sequence hashes via the gene_sequences table.
+    """
+    import pandas as pd
+
+    graph_files = pd.read_csv(component_graphs_tsv, sep='\t', header=None)
+    n_graphs = len(graph_files)
+
+    cur = con.cursor()
+    cur.execute("BEGIN;")
+
+    total_genes = 0
+    unique_buf = []   # (seq_hash, seq_type, compressed_blob, seq_len)
+    gene_buf = []     # (geneid, nt_hash, aa_hash)
+
+    def _flush():
+        nonlocal unique_buf, gene_buf
+        if unique_buf:
+            cur.executemany(
+                "INSERT OR IGNORE INTO unique_sequences(seq_hash, seq_type, seq_data, seq_len) "
+                "VALUES (?,?,?,?)",
+                unique_buf,
+            )
+        if gene_buf:
+            cur.executemany(
+                "INSERT OR IGNORE INTO gene_sequences(geneid, nt_hash, aa_hash) "
+                "VALUES (?,?,?)",
+                gene_buf,
+            )
+        unique_buf = []
+        gene_buf = []
+
+    for idx in range(n_graphs):
+        graph_id = idx + 1
+        graph_dir = str(graph_files.iloc[idx][0])
+        gene_data_path = Path(graph_dir) / "gene_data.csv"
+
+        if not gene_data_path.exists():
+            logging.warning(f"gene_data.csv not found in {graph_dir}, skipping sequences")
+            continue
+
+        graph_genes = 0
+        with open(gene_data_path, 'r') as f:
+            next(f)  # skip header
+            for line in f:
+                # cols: gff_file(0), scaffold_name(1), clustering_id(2),
+                #       annotation_id(3), prot_sequence(4), dna_sequence(5), ...
+                parts = line.rstrip('\n').split(",")
+                if len(parts) < 6:
+                    continue
+
+                clustering_id = parts[2]
+                prot_seq = parts[4]
+                dna_seq = parts[5]
+                geneid = f"{clustering_id}_g{graph_id}"
+
+                nt_hash = None
+                aa_hash = None
+
+                if dna_seq:
+                    nt_hash = _hash_seq(dna_seq)
+                    unique_buf.append((
+                        nt_hash, 'nt',
+                        zlib.compress(dna_seq.encode()),
+                        len(dna_seq),
+                    ))
+
+                if prot_seq:
+                    aa_hash = _hash_seq(prot_seq)
+                    unique_buf.append((
+                        aa_hash, 'aa',
+                        zlib.compress(prot_seq.encode()),
+                        len(prot_seq),
+                    ))
+
+                gene_buf.append((geneid, nt_hash, aa_hash))
+                graph_genes += 1
+
+                if len(gene_buf) >= batch_size:
+                    _flush()
+
+        total_genes += graph_genes
+        logging.info(f"Read {graph_genes} gene sequences from graph {graph_id}")
+
+    _flush()
+    con.execute("COMMIT;")
+    logging.info(f"Ingested {total_genes} total gene sequences into SQLite")
+
+    # report deduplication stats
+    n_unique = cur.execute("SELECT COUNT(*) FROM unique_sequences").fetchone()[0]
+    n_genes = cur.execute("SELECT COUNT(*) FROM gene_sequences").fetchone()[0]
+    logging.info(f"  {n_genes} gene entries, {n_unique} unique sequences stored")
+
 
 def _norm_text_or_none(x):
     # treat empty string/None as None
