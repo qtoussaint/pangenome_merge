@@ -330,7 +330,48 @@ def generate_merge_figures(sqlite_path, output_dir, sqlite_cache=2000):
     cur.execute("SELECT graph_id, COUNT(*) FROM isolate_names GROUP BY graph_id")
     samples_per_graph = dict(cur.fetchall())
 
+    # --- Per-COG isolate prevalence for summary stats and histogram ---
+    cur.execute("SELECT COUNT(*) FROM isolate_names")
+    n_isolates = cur.fetchone()[0]
+
+    cur.execute("SELECT COUNT(*) FROM node_members GROUP BY node_id")
+    member_counts = [row[0] for row in cur.fetchall()]
+
     con.close()
+
+    # Compute percentage of isolates each COG is found in
+    pct_isolates = [100.0 * c / n_isolates for c in member_counts]
+
+    # Classify into Panaroo-style bins
+    core = sum(1 for p in pct_isolates if p >= 99)
+    soft_core = sum(1 for p in pct_isolates if 95 <= p < 99)
+    shell = sum(1 for p in pct_isolates if 15 <= p < 95)
+    cloud = sum(1 for p in pct_isolates if p < 15)
+    total = len(pct_isolates)
+
+    stats_path = output_dir / "summary_statistics.txt"
+    with open(stats_path, "w") as f:
+        f.write(f"Core genes\t(99% <= isolates <= 100%)\t{core}\n")
+        f.write(f"Soft core genes\t(95% <= isolates < 99%)\t{soft_core}\n")
+        f.write(f"Shell genes\t(15% <= isolates < 95%)\t{shell}\n")
+        f.write(f"Cloud genes\t(0% <= isolates < 15%)\t{cloud}\n")
+        f.write(f"Total genes\t(0% <= isolates <= 100%)\t{total}\n")
+    logging.info(f"Wrote summary statistics to {stats_path}")
+
+    # Plot U-shaped COG frequency histogram
+    fig_hist, ax_hist = plt.subplots(figsize=(8, 5))
+    ax_hist.hist(pct_isolates, bins=100, range=(0, 100),
+                 color='#2171b5', edgecolor='white', linewidth=0.3)
+    ax_hist.set_xlabel('percentage of isolates')
+    ax_hist.set_ylabel('number of COGs')
+    ax_hist.set_title('COG Frequency Distribution')
+    ax_hist.grid(True, alpha=0.3, axis='y')
+    fig_hist.tight_layout()
+
+    hist_path = output_dir / "cog_frequency_histogram.png"
+    fig_hist.savefig(hist_path, dpi=150)
+    plt.close(fig_hist)
+    logging.info(f"Wrote COG frequency histogram to {hist_path}")
 
     # Build dataframe sorted by graph_id
     max_graph = max(nodes_per_graph.keys())
