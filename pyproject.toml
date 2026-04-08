@@ -22,3 +22,4 @@ packages = ["pangenomerge"]
 
 [project.scripts]
 pangenomerge = "pangenomerge.__main__:main"
+pangenomerge-output = "pangenomerge.generate_output:cli_main"

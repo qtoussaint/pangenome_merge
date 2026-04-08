@@ -1,0 +1,285 @@
+import argparse
+import logging
+import csv
+import re
+from pathlib import Path
+from collections import defaultdict
+from itertools import groupby
+from operator import itemgetter
+
+import networkx as nx
+import pandas as pd
+import numpy as np
+
+from pangenomerge.custom_functions.sqlite import sqlite_connect
+
+logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
+
+_GN_SUFFIX_RE = re.compile(r'^(.+)_g(\d+)$')
+
+
+def build_orig_ids(component_graphs_tsv):
+    """Read gene_data.csv from each component graph directory to build
+    a mapping from suffixed geneID -> Prokka annotation ID.
+
+    The component_graphs TSV lists Panaroo output directories.
+    Graph N (1-indexed) corresponds to the _gN suffix used by pangenomerge.
+    """
+    orig_ids = {}
+    graph_dirs = pd.read_csv(component_graphs_tsv, sep='\t', header=None)
+    for idx, row in graph_dirs.iterrows():
+        graph_id = idx + 1  # 1-indexed, matching _g1, _g2, ...
+        gene_data_path = Path(row[0]) / "gene_data.csv"
+        if not gene_data_path.exists():
+            logging.warning(f"gene_data.csv not found in {row[0]}, skipping")
+            continue
+        with open(gene_data_path, 'r') as f:
+            next(f)  # skip header
+            for line in f:
+                parts = line.split(",", 4)  # only need first 4 columns
+                if len(parts) < 4:
+                    continue
+                clustering_id = parts[2]   # original seqID/geneID
+                annotation_id = parts[3]   # Prokka locus tag
+                suffixed_id = f"{clustering_id}_g{graph_id}"
+                orig_ids[suffixed_id] = annotation_id
+    logging.info(f"Loaded {len(orig_ids)} gene ID -> annotation ID mappings from {len(graph_dirs)} component graphs")
+    return orig_ids
+
+
+def _derive_gene_name(annotation, used_gene_names, unique_id_counter):
+    """Derive a unique gene name from annotation, matching Panaroo's logic."""
+    if annotation:
+        name = "~~~".join(
+            gn for gn in annotation.strip().strip(";").split(";") if gn != ""
+        )
+        name = "".join(e for e in name if e.isalnum() or e in ["_", "~"])
+    else:
+        name = ""
+
+    if name and name.lower() not in used_gene_names:
+        used_gene_names.add(name.lower())
+        return name, unique_id_counter
+
+    gen_name = f"group_{unique_id_counter}"
+    unique_id_counter += 1
+    used_gene_names.add(gen_name.lower())
+    return gen_name, unique_id_counter
+
+
+def generate_gene_presence_absence(sqlite_path, gml_path, output_dir,
+                                   component_graphs_tsv, sqlite_cache=2000):
+    """Generate Panaroo-format gene presence/absence files from pangenomerge output."""
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # --- 1. Build orig_ids from component graphs ---
+    orig_ids = build_orig_ids(component_graphs_tsv)
+
+    # --- 2. Build isolate mapping from SQLite ---
+    con = sqlite_connect(database=sqlite_path, sqlite_cache=sqlite_cache)
+    cur = con.cursor()
+
+    cur.execute("SELECT graph_id, member_index, sample_name FROM isolate_names ORDER BY graph_id, member_index")
+    isolates = []
+    member_to_col = {}
+    for graph_id, member_index, sample_name in cur:
+        col = len(isolates)
+        member_key = f"{member_index}_g{graph_id}"
+        member_to_col[member_key] = col
+        isolates.append(sample_name)
+
+    n_isolates = len(isolates)
+    logging.info(f"Loaded {n_isolates} isolates")
+
+    # --- 3. Read GML for connected component numbering ---
+    G = nx.read_gml(str(gml_path))
+    # Map node labels to their connected component and order within it
+    node_fragment = {}  # node_id -> (fragment_num, order_within_fragment)
+    frag = 0
+    for component in nx.connected_components(G):
+        frag += 1
+        for count, node in enumerate(component, 1):
+            node_fragment[str(node)] = (frag, count)
+    del G
+    logging.info(f"Identified {frag} genome fragments from GML")
+
+    # --- 4. Batch-load node metadata with aggregated lengths ---
+    cur.execute("""
+        SELECT n.node_id, n.name, n.size, n.annotation, n.description,
+               MIN(nl.length), MAX(nl.length),
+               CASE WHEN SUM(nl.count) > 0
+                    THEN SUM(nl.length * nl.count) * 1.0 / SUM(nl.count)
+                    ELSE 0 END
+        FROM nodes n
+        LEFT JOIN node_lengths nl ON n.node_id = nl.node_id
+        GROUP BY n.node_id
+    """)
+    node_meta = {}
+    for row in cur:
+        node_id = row[0]
+        node_meta[node_id] = {
+            'name': row[1],
+            'size': row[2] or 0,
+            'annotation': row[3],
+            'description': row[4],
+            'min_len': row[5] or 0,
+            'max_len': row[6] or 0,
+            'avg_len': row[7] or 0,
+        }
+    logging.info(f"Loaded metadata for {len(node_meta)} nodes")
+
+    # --- 5. Batch-load members and geneIDs grouped by node ---
+    # Members: node_id -> set of column indices
+    cur.execute("SELECT node_id, member FROM node_members ORDER BY node_id")
+    node_members_map = defaultdict(set)
+    for node_id, member in cur:
+        col = member_to_col.get(member)
+        if col is not None:
+            node_members_map[node_id].add(col)
+
+    # GeneIDs: node_id -> list of (geneid, col_index)
+    cur.execute("SELECT node_id, geneid, member FROM node_geneids ORDER BY node_id")
+    node_geneids_map = defaultdict(list)
+    for node_id, geneid, member in cur:
+        col = member_to_col.get(member)
+        if col is not None:
+            node_geneids_map[node_id].append((geneid, col))
+
+    # Count seqIDs per node
+    cur.execute("SELECT node_id, COUNT(*) FROM node_seqids GROUP BY node_id")
+    node_seqid_counts = dict(cur.fetchall())
+
+    con.close()
+
+    # --- 6. Build entries for each node ---
+    used_gene_names = set([""])
+    unique_id_counter = 0
+    entries = []  # list of (entry_size, entry_roary, entry_simple, pres_abs)
+
+    for node_id, meta in node_meta.items():
+        # Derive gene name
+        gene_name, unique_id_counter = _derive_gene_name(
+            meta['annotation'], used_gene_names, unique_id_counter
+        )
+
+        # Fragment info
+        frag_num, frag_order = node_fragment.get(node_id, (0, 0))
+
+        # Number of sequences
+        n_seqids = node_seqid_counts.get(node_id, 0)
+        size = meta['size']
+        avg_seqs = (1.0 * n_seqids / size) if size > 0 else 0
+
+        # Build presence/absence array
+        pres_abs = [""] * n_isolates
+        present_cols = node_members_map.get(node_id, set())
+
+        # Fill in Prokka annotation IDs from geneIDs
+        for geneid, col in node_geneids_map.get(node_id, []):
+            annot_id = orig_ids.get(geneid, geneid)
+            if pres_abs[col] == "":
+                pres_abs[col] = annot_id
+            else:
+                pres_abs[col] += ";" + annot_id
+
+        # For members with no geneID mapping, mark as present with gene name
+        for col in present_cols:
+            if pres_abs[col] == "":
+                pres_abs[col] = gene_name
+
+        entry_size = sum(1 for v in pres_abs if v != "")
+
+        # Roary CSV row: 14 metadata columns + isolate columns
+        entry_roary = [
+            gene_name,
+            meta['annotation'] or "",
+            meta['description'] or "",
+            str(size),
+            str(n_seqids),
+            str(avg_seqs),
+            str(frag_num),
+            str(frag_order),
+            "", "", "",  # Accessory Fragment, Accessory Order, QC
+            str(meta['min_len']),
+            str(meta['max_len']),
+            str(meta['avg_len']),
+        ] + pres_abs
+
+        # Simple CSV row: 3 metadata columns + isolate columns
+        entry_simple = [
+            gene_name,
+            meta['annotation'] or "",
+            meta['description'] or "",
+        ] + pres_abs
+
+        entries.append((entry_size, entry_roary, entry_simple, pres_abs, gene_name))
+
+    # --- 7. Sort by prevalence descending ---
+    entries.sort(key=lambda x: x[0], reverse=True)
+
+    # --- 8. Write output files ---
+    roary_header = [
+        "Gene", "Non-unique Gene name", "Annotation",
+        "No. isolates", "No. sequences", "Avg sequences per isolate",
+        "Genome Fragment", "Order within Fragment",
+        "Accessory Fragment", "Accessory Order with Fragment", "QC",
+        "Min group size nuc", "Max group size nuc", "Avg group size nuc",
+    ] + isolates
+    simple_header = ["Gene", "Non-unique Gene name", "Annotation"] + isolates
+    rtab_header = ["Gene"] + isolates
+
+    roary_path = output_dir / "gene_presence_absence_roary.csv"
+    simple_path = output_dir / "gene_presence_absence.csv"
+    rtab_path = output_dir / "gene_presence_absence.Rtab"
+
+    with open(roary_path, "w") as roary_f, \
+         open(simple_path, "w") as simple_f, \
+         open(rtab_path, "w") as rtab_f:
+
+        roary_f.write(",".join(roary_header) + "\n")
+        simple_f.write(",".join(simple_header) + "\n")
+        rtab_f.write("\t".join(rtab_header) + "\n")
+
+        for entry_size, entry_roary, entry_simple, pres_abs, gene_name in entries:
+            roary_f.write(",".join(str(e) for e in entry_roary) + "\n")
+            simple_f.write(",".join(str(e) for e in entry_simple) + "\n")
+            rtab_f.write(gene_name + "\t")
+            rtab_f.write("\t".join("0" if e == "" else "1" for e in pres_abs) + "\n")
+
+    logging.info(f"Wrote {len(entries)} gene clusters to {output_dir}")
+    logging.info(f"  {roary_path.name} ({len(roary_header)} columns)")
+    logging.info(f"  {simple_path.name} ({len(simple_header)} columns)")
+    logging.info(f"  {rtab_path.name} ({len(rtab_header)} columns)")
+
+
+def cli_main():
+    parser = argparse.ArgumentParser(
+        description='Generate Panaroo-format gene presence/absence files from pangenomerge output'
+    )
+    parser.add_argument('--sqlite', required=True,
+                        help='Path to pangenome_metadata.sqlite')
+    parser.add_argument('--gml', required=True,
+                        help='Path to merged_graph_N.gml')
+    parser.add_argument('--outdir', required=True,
+                        help='Output directory for presence/absence files')
+    parser.add_argument('--component-graphs', required=True,
+                        dest='component_graphs',
+                        help='TSV of component graph directories (same file used for pangenomerge --component-graphs)')
+    parser.add_argument('--sqlite-cache', type=int, default=2000,
+                        dest='sqlite_cache',
+                        help='SQLite cache size in KB (default: 2000)')
+    args = parser.parse_args()
+
+    generate_gene_presence_absence(
+        sqlite_path=args.sqlite,
+        gml_path=args.gml,
+        output_dir=args.outdir,
+        component_graphs_tsv=args.component_graphs,
+        sqlite_cache=args.sqlite_cache,
+    )
+
+
+if __name__ == "__main__":
+    cli_main()
