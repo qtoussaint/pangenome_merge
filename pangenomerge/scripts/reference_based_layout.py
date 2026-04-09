@@ -224,8 +224,6 @@ def layout(graph, ref_sample_name, metadata_db, cut_edges_out,
         G = remove_var_edges(G, ref_node_ids)         # CHANGED: pass ref_node_ids
     if add_reference_edges:
         G = add_ref_edges(G, mapping)
-        #write gml with reference edges to disk to be used in cytoscape instead of the original final_graph.gml
-        nx.write_gml(G, graph.replace(".gml", "_with_ref.gml"))
     name_dict = dict([(G.nodes[n]['name'], n) for n in G.nodes()])
     #set capacity for edges for the min cut algorithm as the weight of that edge
     for e in G.edges:
@@ -332,6 +330,9 @@ def layout(graph, ref_sample_name, metadata_db, cut_edges_out,
             #all nodes explored; move on
             i += 1
             sink["sink"] = None
+    #write gml with reference edges (and cut edges removed) to disk
+    if add_reference_edges:
+        nx.write_gml(G, graph.replace(".gml", "_with_ref.gml"))
     #write cut edges to disk
     with open(cut_edges_out, "w") as f:
         f.write("shared name\tis_cut_edge\n")
