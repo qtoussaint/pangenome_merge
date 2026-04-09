@@ -29,7 +29,7 @@ from pangenomerge.custom_functions.run_mmseqs import run_mmseqs_search, mmseqs_c
 from pangenomerge.panaroo_functions.load_graphs import load_graphs
 from pangenomerge.panaroo_functions.write_gml_metadata import format_metadata_for_gml
 from pangenomerge.panaroo_functions.context_search import collapse_families, single_linkage
-from pangenomerge.panaroo_functions.merge_nodes import merge_node_cluster, gen_edge_iterables, gen_node_iterables, iter_del_dups, del_dups
+from pangenomerge.panaroo_functions.merge_nodes import merge_node_cluster, gen_edge_iterables, gen_node_iterables, iter_del_dups
 from pangenomerge.custom_functions.relabel_nodes import relabel_nodes_preserve_attrs,sync_names
 from pangenomerge.custom_functions.context_similarity import context_similarity_seq
 from pangenomerge.custom_functions.context_similarity import build_ident_lookup, init_parallel, compute_scores_parallel
@@ -93,7 +93,7 @@ def get_options():
                     default=0.7,
                     type=float,
                     required=False,
-                    help='Sequence identity threshold for neighbors of putative spurious paralogs. Default: 0.9')
+                    help='Sequence identity threshold for neighbors of putative spurious paralogs. Default: 0.7')
     
     other = parser.add_argument_group('Other options')
     other.add_argument('--threads',

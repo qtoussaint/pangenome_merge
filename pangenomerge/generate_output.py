@@ -436,7 +436,7 @@ def cli_main():
     parser.add_argument('--sqlite', required=True,
                         help='Path to pangenome_metadata.sqlite')
     parser.add_argument('--gml', default=None,
-                        help='Path to merged_graph_N.gml (required for gene presence-absence output)')
+                        help='Path to final_graph.gml (required for gene presence-absence output)')
     parser.add_argument('--outdir', required=True,
                         help='Output directory for generated files')
     parser.add_argument('--output', choices=['all', 'presenceabsence', 'genedata', 'sequences', 'figures'],

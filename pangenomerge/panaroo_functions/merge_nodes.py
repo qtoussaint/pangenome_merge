@@ -18,21 +18,9 @@ def gen_edge_iterables(G, edges, feature):
         yield G[e[0]][e[1]][feature]
 
 
-def temp_iter(list_list):
-    for n in list_list:
-        yield n
-
-
 def iter_del_dups(iterable):
     seen = {}
     for f in itertools.chain.from_iterable(iterable):
-        seen[f] = None
-    return (list(seen.keys()))
-
-
-def del_dups(iterable):
-    seen = {}
-    for f in iterable:
         seen[f] = None
     return (list(seen.keys()))
 
@@ -116,60 +104,5 @@ def merge_node_cluster(G,
 
     # remove old nodes from Graph
     G.remove_nodes_from(nodes)
-
-    return G
-
-
-def delete_node(G, node):
-    # add in new edges
-    for mem in G.nodes[node]['members']:
-        mem_edges = list(
-            set([e[1] for e in G.edges(node) if mem in G.edges[e]['members']]))
-        if len(mem_edges) < 2: continue
-        for n1, n2 in itertools.combinations(mem_edges, 2):
-            if G.has_edge(n1, n2):
-                G[n1][n2]['members'] |= intbitset([mem])
-                G[n1][n2]['size'] = len(G[n1][n2]['members'])
-            else:
-                G.add_edge(n1, n2, size=1, members=intbitset([mem]))
-
-    # now remove node
-    G.remove_node(node)
-
-    return G
-
-
-def remove_member_from_node(G, node, member):
-
-    # add in replacement edges if required
-    mem_edges = list(
-        set([e[1] for e in G.edges(node) if member in G.edges[e]['members']]))
-    if len(mem_edges) > 1:
-        for n1, n2 in itertools.combinations(mem_edges, 2):
-            if G.has_edge(n1, n2):
-                G[n1][n2]['members'] |= intbitset([member])
-                G[n1][n2]['size'] = len(G[n1][n2]['members'])
-            else:
-                G.add_edge(n1, n2, size=1, members=intbitset([member]))
-
-    # remove member from node
-    G.nodes[node]['members'].discard(member)
-    G.nodes[node]['seqIDs'] = set([
-        sid for sid in G.nodes[node]['seqIDs']
-        if sid.split("_")[0] != str(member)
-    ])
-    G.nodes[node]['size'] -= 1
-
-    # remove member from edges of node
-    edges_to_remove = []
-    for e in G.edges(node):
-        if member in G.edges[e]['members']:
-            if len(G.edges[e]['members']) == 1:
-                edges_to_remove.append(e)
-            else:
-                G.edges[e]['members'].discard(member)
-                G.edges[e]['size'] = len(G.edges[e]['members'])
-    for e in edges_to_remove:
-        G.remove_edge(*e)
 
     return G

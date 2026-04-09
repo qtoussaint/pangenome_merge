@@ -120,12 +120,14 @@ This generates:
   - `gene_presence_absence.Rtab`: binary presence/absence matrix
   - `gene_data.csv`: per-gene annotation data (Panaroo format)
   - `pangenome_sequences.sqlite`: deduplicated, compressed per-gene DNA and protein sequences, queryable by node/COG
+  - merge statistics CSV and pangenome growth curve plot (via `--output figures`)
 
 You can generate specific outputs using `--output`:
 ```
 pangenomerge-postprocess --sqlite db.sqlite --gml graph.gml --outdir out/ --output presenceabsence
 pangenomerge-postprocess --sqlite db.sqlite --component-graphs paths.tsv --outdir out/ --output genedata
 pangenomerge-postprocess --sqlite db.sqlite --component-graphs paths.tsv --outdir out/ --output sequences
+pangenomerge-postprocess --sqlite db.sqlite --outdir out/ --output figures
 ```
 
 ### Complete gene sequence database
@@ -222,7 +224,7 @@ Parameters:
   --family-threshold FAMILY_THRESHOLD
                         Sequence identity threshold for putative spurious paralogs. Default: 0.7
   --context-threshold CONTEXT_THRESHOLD
-                        Sequence identity threshold for neighbors of putative spurious paralogs. Default: 0.9
+                        Sequence identity threshold for neighbors of putative spurious paralogs. Default: 0.7
 
 Other options:
   --threads THREADS     Number of threads
@@ -236,7 +238,7 @@ Other options:
 
 ```
 usage: pangenomerge-postprocess [-h] --sqlite SQLITE [--gml GML] --outdir OUTDIR
-                           [--output {all,presenceabsence,genedata,sequences}]
+                           [--output {all,presenceabsence,genedata,sequences,figures}]
                            [--component-graphs COMPONENT_GRAPHS]
                            [--sequences-sqlite SEQUENCES_SQLITE]
                            [--sqlite-cache SQLITE_CACHE]
@@ -248,11 +250,13 @@ options:
   --sqlite SQLITE       Path to pangenome_metadata.sqlite
   --gml GML             Path to final_graph.gml (required for gene presence-absence output)
   --outdir OUTDIR       Output directory for generated files
-  --output {all,presenceabsence,genedata,sequences}
+  --output {all,presenceabsence,genedata,sequences,figures}
                         Which outputs to generate: presenceabsence (Panaroo-format gene
-                        presence-absence tables), Panaroo-format gene_data.csv, pangenome_sequences.sqlite (default: all)
+                        presence-absence tables), genedata (Panaroo-format gene_data.csv),
+                        sequences (pangenome_sequences.sqlite), figures (merge statistics CSV
+                        and pangenome growth curve plot) (default: all)
   --component-graphs COMPONENT_GRAPHS
-                        Path to component graphs TSV (required)
+                        Path to component graphs TSV (required for all outputs except figures)
   --sequences-sqlite SEQUENCES_SQLITE
                         Path to pangenome_sequences.sqlite (default:
                         pangenome_sequences.sqlite in same dir as --sqlite)

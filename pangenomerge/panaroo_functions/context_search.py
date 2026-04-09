@@ -29,11 +29,6 @@ def gen_edge_iterables(G, edges, feature):
         yield G[e[0]][e[1]][feature]
 
 
-def temp_iter(list_list):
-    for n in list_list:
-        yield n
-
-
 def iter_del_dups(iterable):
     seen = {}
     for f in itertools.chain.from_iterable(iterable):

@@ -1,9 +1,6 @@
 import os
 import networkx as nx
-import re
 import itertools
-import pandas as pd
-import numpy as npx
 
 # define functions to read in graphs with metadata (from panaroo)
 
