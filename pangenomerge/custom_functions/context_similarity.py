@@ -17,6 +17,15 @@ def build_ident_lookup(mmseqs: pd.DataFrame) -> dict:
 # define context similarity function
 def context_similarity_seq(G: nx.Graph, nA, nB, ident_lookup: dict, depth: int = 1) -> float:
 
+    # MMSeqs pairs can reference nodes absent after relabel/merge steps.
+    # Return no contextual similarity for those pairs instead of failing.
+    # Hacky but safe guard: if either MMSeqs pair node is absent from the current graph
+    # during context similarity scoring, return 0.0 and continue.
+    # This avoids rare crashes from missing-node references and lets the pipeline finish.
+    # Added as a resilience workaround pending root-cause investigation.
+    if nA not in G or nB not in G:
+        return 0.0
+
     if depth == 1:
         neighA = set(G.neighbors(nA))
         neighB = set(G.neighbors(nB))
