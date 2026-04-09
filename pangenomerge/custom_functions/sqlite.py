@@ -32,6 +32,7 @@ def sqlite_connect(database: str, sqlite_cache: int) -> sqlite3.Connection:
 def sqlite_connect_sequences(database: str, sqlite_cache: int) -> sqlite3.Connection:
     """Connect to (or create) the dedicated sequence SQLite database."""
     con = _sqlite_open(database, sqlite_cache)
+    con.execute("PRAGMA page_size=16384;")  # larger pages for BLOB-heavy tables
     con.executescript("""
     CREATE TABLE IF NOT EXISTS unique_sequences (
         seq_hash TEXT NOT NULL,
@@ -186,7 +187,9 @@ def add_gene_annotations_to_sqlite(con: sqlite3.Connection, graph_id: int, graph
     if not gene_data_path.exists():
         logging.warning(f"gene_data.csv not found in {graph_dir}, skipping gene annotations")
         return
+    BATCH = 50000
     rows = []
+    total = 0
     with open(gene_data_path, 'r') as f:
         next(f)  # skip header
         for line in f:
@@ -202,13 +205,21 @@ def add_gene_annotations_to_sqlite(con: sqlite3.Connection, graph_id: int, graph
             description = ",".join(parts[7:]) if len(parts) > 7 else ""
             suffixed_id = f"{clustering_id}_g{graph_id}"
             rows.append((suffixed_id, annotation_id, scaffold_name, gene_name, description))
+            if len(rows) >= BATCH:
+                con.executemany(
+                    "INSERT OR IGNORE INTO gene_annotations(geneid, annotation_id, scaffold_name, gene_name, description) VALUES (?,?,?,?,?)",
+                    rows
+                )
+                total += len(rows)
+                rows = []
     if rows:
         con.executemany(
             "INSERT OR IGNORE INTO gene_annotations(geneid, annotation_id, scaffold_name, gene_name, description) VALUES (?,?,?,?,?)",
             rows
         )
-        con.commit()
-    logging.info(f"Stored {len(rows)} gene annotations from graph {graph_id}")
+        total += len(rows)
+    con.commit()
+    logging.info(f"Stored {total} gene annotations from graph {graph_id}")
 
 
 def _hash_seq(seq: str) -> str:
@@ -242,6 +253,7 @@ def ingest_gene_sequences(seq_con: sqlite3.Connection, component_graphs_tsv: str
     total_genes = 0
     unique_buf = []   # (seq_hash, seq_type, compressed_blob, seq_len)
     gene_buf = []     # (geneid, nt_hash, aa_hash)
+    seen_hashes = set()  # skip redundant zlib.compress for duplicate sequences
 
     def _flush():
         nonlocal unique_buf, gene_buf
@@ -289,19 +301,23 @@ def ingest_gene_sequences(seq_con: sqlite3.Connection, component_graphs_tsv: str
 
                 if dna_seq:
                     nt_hash = _hash_seq(dna_seq)
-                    unique_buf.append((
-                        nt_hash, 'nt',
-                        zlib.compress(dna_seq.encode()),
-                        len(dna_seq),
-                    ))
+                    if nt_hash not in seen_hashes:
+                        seen_hashes.add(nt_hash)
+                        unique_buf.append((
+                            nt_hash, 'nt',
+                            zlib.compress(dna_seq.encode()),
+                            len(dna_seq),
+                        ))
 
                 if prot_seq:
                     aa_hash = _hash_seq(prot_seq)
-                    unique_buf.append((
-                        aa_hash, 'aa',
-                        zlib.compress(prot_seq.encode()),
-                        len(prot_seq),
-                    ))
+                    if aa_hash not in seen_hashes:
+                        seen_hashes.add(aa_hash)
+                        unique_buf.append((
+                            aa_hash, 'aa',
+                            zlib.compress(prot_seq.encode()),
+                            len(prot_seq),
+                        ))
 
                 gene_buf.append((geneid, nt_hash, aa_hash))
                 graph_genes += 1

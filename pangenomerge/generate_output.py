@@ -50,15 +50,18 @@ def _derive_gene_name(annotation, used_gene_names, unique_id_counter):
     return gen_name, unique_id_counter
 
 
-def generate_gene_presence_absence(sqlite_path, gml_path, output_dir,
-                                   sqlite_cache=2000):
+def generate_gene_presence_absence(sqlite_path=None, gml_path=None, output_dir=None,
+                                   sqlite_cache=2000, con=None):
     """Generate Panaroo-format gene presence/absence files from pangenomerge output."""
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # --- 1. Build isolate mapping and orig_ids from SQLite ---
-    con = sqlite_connect(database=sqlite_path, sqlite_cache=sqlite_cache)
+    owns_con = con is None
+    if owns_con:
+        con = sqlite_connect(database=sqlite_path, sqlite_cache=sqlite_cache)
+        con.execute("PRAGMA query_only=ON;")
     cur = con.cursor()
 
     cur.execute("SELECT graph_id, member_index, sample_name FROM isolate_names ORDER BY graph_id, member_index")
@@ -136,7 +139,8 @@ def generate_gene_presence_absence(sqlite_path, gml_path, output_dir,
     cur.execute("SELECT node_id, COUNT(*) FROM node_seqids GROUP BY node_id")
     node_seqid_counts = dict(cur.fetchall())
 
-    con.close()
+    if owns_con:
+        con.close()
 
     # --- 6. Build entries for each node ---
     used_gene_names = set([""])
@@ -241,13 +245,16 @@ def generate_gene_presence_absence(sqlite_path, gml_path, output_dir,
     logging.info(f"  {rtab_path.name} ({len(rtab_header)} columns)")
 
 
-def generate_gene_data(sqlite_path, output_dir, sqlite_cache=2000):
+def generate_gene_data(sqlite_path=None, output_dir=None, sqlite_cache=2000, con=None):
     """Generate Panaroo-format gene_data.csv from pangenomerge SQLite database."""
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    con = sqlite_connect(database=sqlite_path, sqlite_cache=sqlite_cache)
+    owns_con = con is None
+    if owns_con:
+        con = sqlite_connect(database=sqlite_path, sqlite_cache=sqlite_cache)
+        con.execute("PRAGMA query_only=ON;")
     cur = con.cursor()
 
     # Build member -> sample_name lookup from isolate_names
@@ -300,30 +307,37 @@ def generate_gene_data(sqlite_path, output_dir, sqlite_cache=2000):
             ])
             n_rows += 1
 
-    con.close()
+    if owns_con:
+        con.close()
     logging.info(f"Wrote {n_rows} gene entries to {gene_data_path}")
 
 
-def generate_merge_figures(sqlite_path, output_dir, sqlite_cache=2000):
+def generate_merge_figures(sqlite_path=None, output_dir=None, sqlite_cache=2000, con=None):
     """Generate per-graph merge statistics CSV and pangenome growth curve plot."""
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    con = sqlite_connect(database=sqlite_path, sqlite_cache=sqlite_cache)
+    owns_con = con is None
+    if owns_con:
+        con = sqlite_connect(database=sqlite_path, sqlite_cache=sqlite_cache)
+        con.execute("PRAGMA query_only=ON;")
     cur = con.cursor()
 
-    # Count new nodes per graph_id by parsing the _g{N} suffix from node_id
-    cur.execute("SELECT node_id FROM nodes")
-    nodes_per_graph = Counter()
-    for (node_id,) in cur:
-        m = _GN_SUFFIX_RE.match(node_id)
-        if m:
-            nodes_per_graph[int(m.group(2))] += 1
+    # Count new nodes per graph_id using SQL-side suffix extraction
+    cur.execute("""
+        SELECT CAST(SUBSTR(node_id, INSTR(node_id, '_g') + 2) AS INTEGER) AS graph_id,
+               COUNT(*)
+        FROM nodes
+        WHERE INSTR(node_id, '_g') > 0
+        GROUP BY 1
+    """)
+    nodes_per_graph = dict(cur.fetchall())
 
     if not nodes_per_graph:
         logging.warning("No nodes found in database; skipping figures")
-        con.close()
+        if owns_con:
+            con.close()
         return
 
     # Count samples per graph_id
@@ -337,7 +351,8 @@ def generate_merge_figures(sqlite_path, output_dir, sqlite_cache=2000):
     cur.execute("SELECT COUNT(*) FROM node_members GROUP BY node_id")
     member_counts = [row[0] for row in cur.fetchall()]
 
-    con.close()
+    if owns_con:
+        con.close()
 
     # Compute percentage of isolates each COG is found in
     pct_isolates = [100.0 * c / n_isolates for c in member_counts]
@@ -451,19 +466,25 @@ def cli_main():
         ingest_gene_annotations(meta_con, args.component_graphs)
         meta_con.close()
 
+    # Share a single read-only connection across output functions
+    needs_meta_con = args.output in ('all', 'presenceabsence', 'genedata', 'figures')
+    if needs_meta_con:
+        meta_con = sqlite_connect(database=args.sqlite, sqlite_cache=args.sqlite_cache)
+        meta_con.execute("PRAGMA query_only=ON;")
+    else:
+        meta_con = None
+
     if args.output in ('all', 'presenceabsence'):
         generate_gene_presence_absence(
-            sqlite_path=args.sqlite,
             gml_path=args.gml,
             output_dir=args.outdir,
-            sqlite_cache=args.sqlite_cache,
+            con=meta_con,
         )
 
     if args.output in ('all', 'genedata'):
         generate_gene_data(
-            sqlite_path=args.sqlite,
             output_dir=args.outdir,
-            sqlite_cache=args.sqlite_cache,
+            con=meta_con,
         )
 
     if args.output in ('all', 'sequences'):
@@ -478,10 +499,12 @@ def cli_main():
 
     if args.output in ('all', 'figures'):
         generate_merge_figures(
-            sqlite_path=args.sqlite,
             output_dir=args.outdir,
-            sqlite_cache=args.sqlite_cache,
+            con=meta_con,
         )
+
+    if meta_con is not None:
+        meta_con.close()
 
 
 if __name__ == "__main__":
