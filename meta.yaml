@@ -1,5 +1,5 @@
 {% set name = "pangenomerge" %}
-{% set version = "1.0.0" %}
+{% set version = "0.9.1" %}
 
 package:
   name: {{ name|lower }}
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://github.com/qtoussaint/pangenome_merge/archive/refs/tags/v{{ version }}.tar.gz
-  sha256: f231f26c1586c268e856d8d210fc8e6919b256da57550c52a0e82936697a8820 
+  sha256: 0587012af9d05727fe7b720300c6b122d7633acb869c5fe0aebe8c4c23ef8134
 
 build:
   noarch: python
