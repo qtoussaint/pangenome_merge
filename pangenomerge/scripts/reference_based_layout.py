@@ -9,8 +9,6 @@ geneIDs fields.
 """
 
 import networkx as nxvisited
-import re
-import math
 import sqlite3
 import sys
 import logging
@@ -97,6 +95,11 @@ def load_reference_data(db_path, ref_sample_name):
             node_to_ref_geneid[node_id] = geneid
             node_to_order_key[node_id] = key
 
+    # Load edge sizes from SQLite (edges stored canonically with u <= v)
+    edge_sizes = {}
+    for u, v, size in con.execute("SELECT u, v, size FROM edges"):
+        edge_sizes[(u, v)] = size if size is not None else 1
+
     con.close()
 
     scaffolds = set(k[0] for k in node_to_order_key.values())
@@ -111,7 +114,7 @@ def load_reference_data(db_path, ref_sample_name):
         f"{len(node_to_ref_geneid)} mapped (non-refound), "
         f"{len(scaffolds)} scaffold(s)"
     )
-    return ref_member_id, node_to_ref_geneid, node_to_order_key, ref_node_ids
+    return ref_member_id, node_to_ref_geneid, node_to_order_key, ref_node_ids, edge_sizes
 
 
 # ---- end new helpers -------------------------------------------------------
@@ -186,21 +189,11 @@ def add_ref_edges(G, mapping):
     return G
 
 
-def remove_var_edges(G, ref_node_ids):               # CHANGED: signature
-    var_nodes = []
-    for n in G:
-        if G.nodes[n].get("highVar", 0) == 1 \
-                and G.nodes[n]['name'] not in ref_node_ids:  # CHANGED: was genomeIDs check
-            var_nodes.append(n)
-    G.remove_nodes_from(var_nodes)
-    return G
-
-
 def layout(graph, ref_sample_name, metadata_db, cut_edges_out,
-           ignore_high_var, add_reference_edges, distance_threshold=100):
+           add_reference_edges, distance_threshold=100):
 
     # CHANGED: load reference data from SQLite instead of parsing GML attributes
-    ref_member_id, node_to_ref_geneid, node_to_order_key, ref_node_ids = \
+    ref_member_id, node_to_ref_geneid, node_to_order_key, ref_node_ids, edge_sizes = \
         load_reference_data(metadata_db, ref_sample_name)
 
     G = nx.read_gml(graph)
@@ -220,17 +213,16 @@ def layout(graph, ref_sample_name, metadata_db, cut_edges_out,
         if scaff not in max_positions_per_scaffold or pos > max_positions_per_scaffold[scaff]:
             max_positions_per_scaffold[scaff] = pos
 
-    if ignore_high_var:
-        G = remove_var_edges(G, ref_node_ids)         # CHANGED: pass ref_node_ids
     if add_reference_edges:
         G = add_ref_edges(G, mapping)
     name_dict = dict([(G.nodes[n]['name'], n) for n in G.nodes()])
     #set capacity for edges for the min cut algorithm as the weight of that edge
     for e in G.edges:
-        try:
-            G.edges[e]["capacity"] = G.edges[e]["size"]
-        except:
-            G.edges[e]["capacity"] = 1
+        name_u = G.nodes[e[0]]['name']
+        name_v = G.nodes[e[1]]['name']
+        # edges table stores canonical order (u <= v)
+        key = (name_u, name_v) if name_u <= name_v else (name_v, name_u)
+        G.edges[e]["capacity"] = edge_sizes.get(key, 1)
     #store edges to be taken out of the graph
     cut_edges = []
     i = 0
@@ -269,21 +261,16 @@ def layout(graph, ref_sample_name, metadata_db, cut_edges_out,
             s_t_graph = function.induced_subgraph(G, visited)
             s_t_graph = nx.Graph(s_t_graph)
 
-            # CHANGED: sanitise capacity values (from MODIFIED version)
+            # Ensure capacity values are valid floats for min-cut
             for u, v in list(s_t_graph.edges()):
                 d = s_t_graph[u][v]
-                cap = d.get("capacity", d.get("size", 1.0))
+                cap = d.get("capacity", 1)
                 try:
                     d["capacity"] = float(cap)
                     if not (d["capacity"] > 0):
                         d["capacity"] = 1.0
                 except (TypeError, ValueError):
-                    m = re.search(
-                        r'[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?',
-                        str(cap))
-                    d["capacity"] = float(m.group(0)) if m else 1.0
-                    if not math.isfinite(d["capacity"]) or d["capacity"] <= 0:
-                        d["capacity"] = 1.0
+                    d["capacity"] = 1.0
 
             #the induced graph could contain reference edges which need to be removed
             remove = []
@@ -369,9 +356,6 @@ if __name__ == "__main__":
         help=
         'add edges between consecutive genes in the reference genome even if they have been removed by panaroo'
     )
-    parser.add_argument("--ignore_high_var",
-                        action="store_true",
-                        help='ignore highly variable genes')
     # CHANGED: configurable distance threshold (was hardcoded 100 in original)
     parser.add_argument("--distance_threshold",
                         type=int, default=100,
@@ -381,6 +365,5 @@ if __name__ == "__main__":
            ref_sample_name=args.ref_sample_name,
            metadata_db=args.metadata_db,
            cut_edges_out=args.cut_edges_out,
-           ignore_high_var=args.ignore_high_var,
            add_reference_edges=args.add_reference_edges,
            distance_threshold=args.distance_threshold)
