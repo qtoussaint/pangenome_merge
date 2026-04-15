@@ -744,20 +744,20 @@ def main():
             with open(query_fa, "w") as ft:
                 for node, data in G.nodes(data=True):
                     name = node
-                    if name.endswith("_target") or "_target" in name:
+                    #if name.endswith("_target") or "_target" in name:
                         # pre-existing nodes -- already in target db
-                        continue
-                    else:
-                        # new nodes
-                        seqs = data["protein"]
-                        if isinstance(seqs, (list, tuple)):
-                            seqs = max(seqs, key=len) # if list, pick longest sequence
-                        if isinstance(seqs, str):
-                            parts = seqs.split(";") # if string split on semicolon and pick longest
-                            seqs = max(parts, key=len)
-                        seqs = seqs.rstrip('*') # remove trailing stop
-                        name = node
-                        ft.write(f">{name}\n{seqs}\n")
+                    #    continue
+                    #else:
+                    # new nodes
+                    seqs = data["protein"]
+                    if isinstance(seqs, (list, tuple)):
+                        seqs = max(seqs, key=len) # if list, pick longest sequence
+                    if isinstance(seqs, str):
+                        parts = seqs.split(";") # if string split on semicolon and pick longest
+                        seqs = max(parts, key=len)
+                    seqs = seqs.rstrip('*') # remove trailing stop
+                    name = node
+                    ft.write(f">{name}\n{seqs}\n")
 
         query_fa = Path(options.outdir) / "mmseqs_tmp" / "centroids_query.fa"
         write_centroids_to_fasta(merged_graph, query_fa)
