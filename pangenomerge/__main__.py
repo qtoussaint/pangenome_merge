@@ -33,7 +33,7 @@ from pangenomerge.panaroo_functions.merge_nodes import merge_node_cluster, gen_e
 from pangenomerge.custom_functions.relabel_nodes import relabel_nodes_preserve_attrs,sync_names
 from pangenomerge.custom_functions.context_similarity import context_similarity_seq
 from pangenomerge.custom_functions.context_similarity import build_ident_lookup, init_parallel, compute_scores_parallel
-from pangenomerge.custom_functions.sqlite import sqlite_connect, sqlite_init_schema, sqlite_create_indexes, add_metadata_to_sqlite, add_isolate_names_to_sqlite
+from pangenomerge.custom_functions.sqlite import sqlite_connect, sqlite_init_schema, sqlite_create_indexes, add_metadata_to_sqlite, add_isolate_names_to_sqlite, load_metadata_from_sqlite
 
 from .__init__ import __version__
 
@@ -1137,52 +1137,49 @@ def main():
         else:
             output_path = intermediate_dir / f"merged_graph_{graph_count+1}.gml"
 
-        if options.keep_metadata_in_graph is True:
-            # write new graph to GML with all metadata
-            nx.write_gml(merged_graph, str(output_path))
+        # always strip metadata from the in-memory graph so add_metadata_to_sqlite
+        # stays idempotent across iterations. With --metadata-in-graph the final
+        # graph's metadata is rebuilt from SQLite below.
+        for n in merged_graph.nodes():
+            degrees = merged_graph.nodes[n]["degrees"]
+            merged_graph.nodes[n].clear()
+            merged_graph.nodes[n]["name"] = n
+            merged_graph.nodes[n]["seqIDs"] = []
+            merged_graph.nodes[n]["geneIDs"] = ''
+            merged_graph.nodes[n]["members"] = []
+            merged_graph.nodes[n]["genomeIDs"] = ''
+            merged_graph.nodes[n]["size"] = 1
+            merged_graph.nodes[n]["lengths"] = []
+            merged_graph.nodes[n]['longCentroidID'] = []
+            merged_graph.nodes[n]['maxLenId'] = ''
+            merged_graph.nodes[n]['centroid'] = []
+            merged_graph.nodes[n]['dna'] = [""]
+            merged_graph.nodes[n]['protein'] = [""]
+            merged_graph.nodes[n]["hasEnd"] = 0
+            merged_graph.nodes[n]["annotation"] = ''
+            merged_graph.nodes[n]["description"] = ''
+            merged_graph.nodes[n]["paralog"] = 0
+            merged_graph.nodes[n]["mergedDNA"] = ''
+            merged_graph.nodes[n]["degrees"] = degrees
 
-        if options.keep_metadata_in_graph is not True:
-            # write new graph to GML without metadata (to allow for slow nx write speed)
-            for n in merged_graph.nodes():
-                degrees = merged_graph.nodes[n]["degrees"]
-                merged_graph.nodes[n].clear()
-                merged_graph.nodes[n]["name"] = n
-                merged_graph.nodes[n]["seqIDs"] = []
-                merged_graph.nodes[n]["geneIDs"] = ''
-                merged_graph.nodes[n]["members"] = []
-                merged_graph.nodes[n]["genomeIDs"] = ''
-                merged_graph.nodes[n]["size"] = 1
-                merged_graph.nodes[n]["lengths"] = []
-                merged_graph.nodes[n]['longCentroidID'] = [] 
-                merged_graph.nodes[n]['maxLenId'] = ''
-                merged_graph.nodes[n]['centroid'] = []
-                merged_graph.nodes[n]['dna'] = [""]
-                merged_graph.nodes[n]['protein'] = [""]
-                merged_graph.nodes[n]["hasEnd"] = 0
-                merged_graph.nodes[n]["annotation"] = ''
-                merged_graph.nodes[n]["description"] = ''
-                merged_graph.nodes[n]["paralog"] = 0
-                merged_graph.nodes[n]["mergedDNA"] = ''
-                merged_graph.nodes[n]["degrees"] = degrees
-                
-            for u, v in merged_graph.edges():
-                merged_graph[u][v].clear()
-                merged_graph[u][v]["name"] = n
-                merged_graph[u][v]["size"] = 1
-                merged_graph[u][v]["members"] = []
-                merged_graph[u][v]['genomeIDs'] = ''
-            
-            nx.write_gml(merged_graph, str(output_path))
+        for u, v in merged_graph.edges():
+            merged_graph[u][v].clear()
+            merged_graph[u][v]["name"] = n
+            merged_graph[u][v]["size"] = 1
+            merged_graph[u][v]["members"] = []
+            merged_graph[u][v]['genomeIDs'] = ''
 
-        if options.keep_metadata_in_graph is True:
-            # write an additional version of the final graph that doesn't have metadata
-            if is_final_iteration:
-                output_path = Path(options.outdir) / "final_graph_nometadata.gml"
-                for n in merged_graph.nodes():
-                    merged_graph.nodes[n].clear()
-                for u, v in merged_graph.edges():
-                    merged_graph[u][v].clear()
-                nx.write_gml(merged_graph, str(output_path))
+        if is_final_iteration and options.keep_metadata_in_graph is True:
+            # write the stripped version first, then rebuild metadata from
+            # SQLite and write the final graph WITH metadata
+            nx.write_gml(
+                merged_graph,
+                str(Path(options.outdir) / "final_graph_nometadata.gml"),
+            )
+            load_metadata_from_sqlite(merged_graph, con)
+            nx.write_gml(merged_graph, str(output_path))
+        else:
+            nx.write_gml(merged_graph, str(output_path))
 
         # reduce memory by removing intermediate files
         for name in [

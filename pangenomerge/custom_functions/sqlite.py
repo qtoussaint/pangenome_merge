@@ -586,3 +586,115 @@ def add_metadata_to_sqlite(G, iteration: int, con: sqlite3.Connection):
     cur.executemany("INSERT OR IGNORE INTO edge_members(u,v,member) VALUES (?,?,?)", edge_member_rows)
 
     cur.execute("COMMIT;")
+
+
+def load_metadata_from_sqlite(G, con):
+    """Populate node/edge metadata on G from the cumulative SQLite tables.
+
+    Used when --metadata-in-graph is set to rebuild the final graph's
+    metadata after iteration-level stripping. Only nodes/edges already
+    present in G are updated.
+    """
+    cur = con.cursor()
+
+    node_ids = set(G.nodes())
+    edge_ids = set((u, v) for u, v in G.edges())
+
+    for nid in node_ids:
+        d = G.nodes[nid]
+        d["members"] = []
+        d["seqIDs"] = []
+        d["geneIDs"] = ''
+        d["centroid"] = []
+        d["lengths"] = []
+        d["longCentroidID"] = []
+        d["dna"] = [""]
+        d["protein"] = [""]
+
+    for row in cur.execute(
+        "SELECT node_id,name,size,degrees,genomeIDs,maxLenId,hasEnd,"
+        "annotation,description,paralog,mergedDNA FROM nodes"
+    ):
+        nid = row[0]
+        if nid not in node_ids:
+            continue
+        d = G.nodes[nid]
+        if row[1]  is not None: d["name"]        = row[1]
+        if row[2]  is not None: d["size"]        = row[2]
+        if row[3]  is not None: d["degrees"]     = row[3]
+        if row[4]  is not None: d["genomeIDs"]   = row[4]
+        if row[5]  is not None: d["maxLenId"]    = row[5]
+        if row[6]  is not None: d["hasEnd"]      = row[6]
+        if row[7]  is not None: d["annotation"]  = row[7]
+        if row[8]  is not None: d["description"] = row[8]
+        if row[9]  is not None: d["paralog"]     = row[9]
+        if row[10] is not None: d["mergedDNA"]   = row[10]
+
+    tmp = {}
+    for nid, m in cur.execute("SELECT node_id,member FROM node_members"):
+        if nid in node_ids:
+            tmp.setdefault(nid, []).append(m)
+    for nid, vals in tmp.items():
+        G.nodes[nid]["members"] = vals
+
+    tmp = {}
+    for nid, s in cur.execute("SELECT node_id,seqid FROM node_seqids"):
+        if nid in node_ids:
+            tmp.setdefault(nid, []).append(s)
+    for nid, vals in tmp.items():
+        G.nodes[nid]["seqIDs"] = vals
+
+    tmp = {}
+    for nid, g in cur.execute("SELECT node_id,geneid FROM node_geneids"):
+        if nid in node_ids:
+            tmp.setdefault(nid, []).append(g)
+    for nid, vals in tmp.items():
+        G.nodes[nid]["geneIDs"] = ";".join(vals)
+
+    tmp = {}
+    for nid, c in cur.execute("SELECT node_id,centroid FROM node_centroids"):
+        if nid in node_ids:
+            tmp.setdefault(nid, []).append(c)
+    for nid, vals in tmp.items():
+        G.nodes[nid]["centroid"] = vals
+
+    tmp = {}
+    for nid, L, c in cur.execute("SELECT node_id,length,count FROM node_lengths"):
+        if nid in node_ids:
+            tmp.setdefault(nid, []).extend([int(L)] * int(c))
+    for nid, vals in tmp.items():
+        G.nodes[nid]["lengths"] = vals
+
+    tmp = {}
+    for nid, t in cur.execute("SELECT node_id,tag FROM node_longCentroidID"):
+        if nid in node_ids:
+            tmp.setdefault(nid, []).append(t)
+    for nid, vals in tmp.items():
+        G.nodes[nid]["longCentroidID"] = vals
+
+    for nid, dna, prot in cur.execute(
+        "SELECT node_id,dna,protein FROM node_sequences"
+    ):
+        if nid not in node_ids:
+            continue
+        d = G.nodes[nid]
+        if dna  is not None: d["dna"]     = dna.split(";")
+        if prot is not None: d["protein"] = prot.split(";")
+
+    for u, v, size, gIDs in cur.execute(
+        "SELECT u,v,size,genomeIDs FROM edges"
+    ):
+        if (u, v) not in edge_ids:
+            continue
+        e = G[u][v]
+        if size is not None: e["size"]      = size
+        if gIDs is not None: e["genomeIDs"] = gIDs
+
+    tmp = {}
+    for u, v, m in cur.execute("SELECT u,v,member FROM edge_members"):
+        if (u, v) in edge_ids:
+            tmp.setdefault((u, v), []).append(m)
+    for (u, v), vals in tmp.items():
+        G[u][v]["members"] = vals
+
+    return G
