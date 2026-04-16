@@ -281,39 +281,37 @@ def main():
             raw_gml_g1 = str(Path(graph_files.iloc[0][0]) / "final_graph.gml")
             raw_g1 = nx.read_gml(raw_gml_g1)
             present_g1 = {rec.id for rec in SeqIO.parse(pangenome_reference_g1, "fasta")}
-            missing_g1 = [n for n in raw_g1.nodes() if n not in present_g1]
-            logging.info(f"graph_1: {len(missing_g1)} nodes in GML absent from pan_genome_reference.fa; appending.")
             augmented_g1 = str(Path(options.outdir) / "mmseqs_tmp" / "pan_genome_reference_g1_augmented.fa")
             with open(pangenome_reference_g1) as src, open(augmented_g1, "w") as dst:
                 shutil.copyfileobj(src, dst)
-                if missing_g1:
-                    dst.write("\n")
-                for n in missing_g1:
+                for n in raw_g1.nodes():
+                    name = raw_g1.nodes[n]['name']
+                    if name in present_g1:
+                        continue
                     seqs = raw_g1.nodes[n]["dna"]
                     if isinstance(seqs, str):
                         seq = max(seqs.split(";"), key=len)
                     else:
                         seq = max(seqs, key=len)
-                    dst.write(f">{n}\n{seq}\n")
+                    dst.write(f">{name}\n{seq}\n")
             pangenome_reference_g1 = augmented_g1
 
         raw_gml_g2 = str(Path(graph_files.iloc[int(graph_count+1)][0]) / "final_graph.gml")
         raw_g2 = nx.read_gml(raw_gml_g2)
         present_g2 = {rec.id for rec in SeqIO.parse(pangenome_reference_g2, "fasta")}
-        missing_g2 = [n for n in raw_g2.nodes() if n not in present_g2]
-        logging.info(f"graph_2: {len(missing_g2)} nodes in GML absent from pan_genome_reference.fa; appending.")
         augmented_g2 = str(Path(options.outdir) / "mmseqs_tmp" / f"pan_genome_reference_g2_augmented_{graph_count+1}.fa")
         with open(pangenome_reference_g2) as src, open(augmented_g2, "w") as dst:
             shutil.copyfileobj(src, dst)
-            if missing_g2:
-                dst.write("\n")
-            for n in missing_g2:
+            for n in raw_g2.nodes():
+                name = raw_g2.nodes[n]['name']
+                if name in present_g2:
+                    continue
                 seqs = raw_g2.nodes[n]["dna"]
                 if isinstance(seqs, str):
                     seq = max(seqs.split(";"), key=len)
                 else:
                     seq = max(seqs, key=len)
-                dst.write(f">{n}\n{seq}\n")
+                dst.write(f">{name}\n{seq}\n")
         pangenome_reference_g2 = augmented_g2
 
         # debug statement...
