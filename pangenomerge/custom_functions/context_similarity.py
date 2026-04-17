@@ -34,15 +34,15 @@ def context_similarity_seq(G: nx.Graph, nA, nB, ident_lookup: dict, depth: int =
         neighA.discard(nA)
         neighB.discard(nB)
 
+    # if any neighbor node name is shared between neighborhoods, identity is trivially 1.0
+    if not neighA.isdisjoint(neighB):
+        return 1.0
+
     best = 0.0
     for ca, cb in product(neighA, neighB):
-        if ca==cb:
-            best = 1.0 # same node, give score of 1.0
-            break
-        else:
-            best = max(best, ident_lookup.get(frozenset((ca, cb)), 0.0))
-            if best == 1.0:
-                break  # early exit if perfect
+        best = max(best, ident_lookup.get(frozenset((ca, cb)), 0.0))
+        if best == 1.0:
+            break  # early exit if perfect
     return best
 
 # define scores per pair function previously implemented in main to allow for parallelization
