@@ -1011,11 +1011,120 @@ def main():
         # debug statement...
         logging.debug(f"After family pass: {len(merged_graph.nodes())} nodes")
 
+        ### third graph merge: repeat family-style context merge on the updated graph
+        ###                    (reuses in-memory mmseqs; no MMseqs2 re-run)
+
+        # filter reused mmseqs: drop rows whose query or target was removed by the family pass.
+        # context_similarity_seq calls G.neighbors(nA/nB), which raises if a node is gone.
+        # Targets here are already in post-line-884 form (graph-node names); no suffix strip needed
+        # (the family pass feeds this mmseqs straight into compute_scores_parallel without stripping).
+        # Copy into a new frame so the original mmseqs stays intact for the frameshift concat below.
+        current_nodes_third = set(merged_graph.nodes())
+        mask_third = mmseqs["query"].isin(current_nodes_third) & mmseqs["target"].isin(current_nodes_third)
+        mmseqs_third = mmseqs[mask_third].copy()
+
+        logging.info(f"Third merge: {len(mmseqs_third)} hits survive staleness filter (from {len(mmseqs)} pre-filter).")
+
+        reordered_pairs_third = []
+        if len(mmseqs_third) > 0:
+
+            # reuse existing ident_lookup (removed-node keys are simply never queried);
+            # re-init parallel so fork-pool workers snapshot the post-family-pass graph.
+            init_parallel(merged_graph, ident_lookup, context_threshold)
+            scores_third = compute_scores_parallel(mmseqs_third, options.threads)
+
+            logging.debug(f"scores_third: {scores_third[:5]}")
+
+            scores_sorted_third = sorted(
+                scores_third,
+                key=lambda x: (x[2], x[3][0], x[3][1], x[3][2]),
+                reverse=True
+            )
+
+            # filter accepted pairs by identity + context thresholds (same as family pass)
+            accepted_pairs_third = []
+            for nA, nB, ident, sims in scores_sorted_third:
+                if (
+                    ident >= family_threshold
+                    and sims[0] >= context_threshold
+                    and (sims[1] >= context_threshold or sims[2] >= context_threshold)
+                    and set(merged_graph.nodes[nA]['members']).isdisjoint(set(merged_graph.nodes[nB]['members']))
+                ):
+                    accepted_pairs_third.append((nA, nB, ident, sims))
+
+            logging.debug(f"accepted pairs (third): {accepted_pairs_third[:10]}")
+
+            # dedupe
+            unique_pairs_third = []
+            seen_nodes_third = set()
+            for nA, nB, ident, sims in accepted_pairs_third:
+                if nA not in seen_nodes_third and nB not in seen_nodes_third:
+                    unique_pairs_third.append((nA, nB, ident, sims))
+                    seen_nodes_third.add(nA)
+                    seen_nodes_third.add(nB)
+
+            # reorder so 'a' is always the _target node
+            for a, b, ident, sims in unique_pairs_third:
+                if "_target" in b and "_target" not in a:
+                    a, b = b, a
+                reordered_pairs_third.append((a, b))
+
+            logging.info(f"Third merge: merging {len(reordered_pairs_third)} pairs.")
+
+            # apply the same per-pair merge body used by the family pass
+            for a, b in reordered_pairs_third:
+
+                # seqIDs
+                merged_set = list(set(merged_graph.nodes[a]["seqIDs"]) | set(merged_graph.nodes[b]["seqIDs"]))
+                merged_graph.nodes[a]["seqIDs"] = merged_set
+
+                # geneIDs
+                merged_set = ";".join([merged_graph.nodes[a]["geneIDs"], merged_graph.nodes[b]["geneIDs"]])
+                merged_graph.nodes[a]["geneIDs"] = merged_set
+
+                # members
+                merged_set = list(set(merged_graph.nodes[a]["members"]) | set(merged_graph.nodes[b]["members"]))
+                merged_graph.nodes[a]["members"] = merged_set
+
+                # genome IDs
+                merged_graph.nodes[a]["genomeIDs"] = ";".join([merged_graph.nodes[a]["genomeIDs"], merged_graph.nodes[b]["genomeIDs"]])
+
+                # size
+                size = len(merged_graph.nodes[a]["members"])
+
+                # lengths
+                merged_set = merged_graph.nodes[a]["lengths"] + merged_graph.nodes[b]["lengths"]
+                merged_graph.nodes[a]["lengths"] = merged_set
+
+                # move edges from b onto a before removing b
+                for neighbor in list(merged_graph.neighbors(b)):
+
+                    edge_attrs = dict(merged_graph.get_edge_data(b, neighbor))
+
+                    if not merged_graph.has_edge(b, neighbor):
+                        logging.critical("neighbor not connected by edge -- this shouldn't happen!")
+
+                    if merged_graph.has_edge(a, neighbor):
+                        merged_edge = merged_graph.edges[a, neighbor]
+                        merged_members = set(merged_edge.get("members", [])) | set(edge_attrs.get("members", []))
+                        merged_edge["members"] = list(merged_members)
+                        merged_edge["size"] = len(merged_members)
+                    else:
+                        merged_graph.add_edge(a, neighbor, **edge_attrs)
+
+                # remove second node
+                merged_graph.remove_node(b)
+
+        logging.debug(f"After third merge: {len(merged_graph.nodes())} nodes")
+
         ### frameshift pass (pass 2): lower coverage, higher identity, orphans only
 
-        # identify orphans: nodes that were neither the kept 'a' nor the removed 'b' of any pass-1 pair
+        # identify orphans: nodes that were neither the kept 'a' nor the removed 'b' of any pass-1 or third-merge pair
         merged_in_pass1 = set()
         for a, b in reordered_pairs:
+            merged_in_pass1.add(a)
+            merged_in_pass1.add(b)
+        for a, b in reordered_pairs_third:
             merged_in_pass1.add(a)
             merged_in_pass1.add(b)
         unmerged_nodes = set(merged_graph.nodes()) - merged_in_pass1
@@ -1024,9 +1133,9 @@ def main():
 
         if unmerged_nodes and len(mmseqs_frameshift) > 0:
 
-            # restrict frameshift hits to orphan-orphan pairs (target has _target suffix from earlier)
-            target_base_frameshift = mmseqs_frameshift["target"].str.removesuffix("_target")
-            mask_frameshift = mmseqs_frameshift["query"].isin(unmerged_nodes) & target_base_frameshift.isin(unmerged_nodes)
+            # restrict frameshift hits to orphan-orphan pairs.
+            # target is already in post-line-876 form (graph-node name), matching query — no suffix strip.
+            mask_frameshift = mmseqs_frameshift["query"].isin(unmerged_nodes) & mmseqs_frameshift["target"].isin(unmerged_nodes)
             mmseqs_frameshift = mmseqs_frameshift[mask_frameshift].copy()
 
             logging.debug(f"Frameshift pass: {len(mmseqs_frameshift)} orphan-orphan hits after filtering.")
@@ -1122,8 +1231,10 @@ def main():
                     merged_graph.remove_node(b)
 
         # reduce memory by removing intermediate frames/objects from both passes
-        for name in ["mmseqs", "mmseqs_frameshift",
+        for name in ["mmseqs", "mmseqs_frameshift", "mmseqs_third",
                      "scores", "scores_sorted", "accepted_pairs", "unique_pairs",
+                     "scores_third", "scores_sorted_third",
+                     "accepted_pairs_third", "unique_pairs_third",
                      "scores_frameshift", "scores_sorted_frameshift",
                      "accepted_pairs_frameshift", "unique_pairs_frameshift",
                      "ident_lookup", "ident_lookup_frameshift"]:
