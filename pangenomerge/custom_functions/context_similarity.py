@@ -57,8 +57,6 @@ def score_pair_context(row: dict):
     s3 = s2 if s2 >= 0.9 else context_similarity_seq(G, nA, nB, ident_lookup, depth=3)
     sims = [s1, s2, s3]
 
-    print(f" all s1: {s1}")
-    
     return (nA, nB, ident, sims)
 
 # initialize global graph object, ident lookup for // computation without pickling

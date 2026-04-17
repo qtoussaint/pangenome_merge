@@ -94,7 +94,19 @@ def get_options():
                     type=float,
                     required=False,
                     help='Sequence identity threshold for neighbors of putative spurious paralogs. Default: 0.7')
-    
+    parameters.add_argument('--frameshift-coverage',
+                    dest='frameshift_coverage',
+                    default=0.5,
+                    type=float,
+                    required=False,
+                    help='Coverage threshold for frameshift second-pass merge (catches truncated/frameshifted variants). Default: 0.5')
+    parameters.add_argument('--frameshift-identity',
+                    dest='frameshift_identity',
+                    default=0.95,
+                    type=float,
+                    required=False,
+                    help='Sequence identity threshold for frameshift second-pass merge. Default: 0.95')
+
     other = parser.add_argument_group('Other options')
     other.add_argument('--threads',
                     dest="threads",
@@ -124,6 +136,9 @@ def main():
         logging.critical("Specifying either --component-graphs or --iterative is required!")
     if options.mode == 'test' and options.graph_all is None:
         logging.critical("Specifying --graph-all is required for test mode!")
+    if options.frameshift_identity < options.family_threshold:
+        logging.warning(f"--frameshift-identity ({options.frameshift_identity}) is below --family-threshold ({options.family_threshold}); "
+                        f"frameshift pass would accept weaker hits than the family pass.")
 
     # check whether metadata should be left in merged graph and provide warning
     if options.keep_metadata_in_graph is True:
@@ -779,7 +794,9 @@ def main():
 
         # set context search parameters
         family_threshold = float(options.family_threshold)  # sequence identity threshold
-        context_threshold = float(options.context_threshold)  # contextual similarity threshold 
+        context_threshold = float(options.context_threshold)  # contextual similarity threshold
+        frameshift_coverage = float(options.frameshift_coverage)  # pass-2 coverage threshold
+        frameshift_identity = float(options.frameshift_identity)  # pass-2 identity threshold
 
         # write query centroid fasta (stream to reduce memory)
         def write_centroids_to_fasta(G, query_fa):
@@ -826,7 +843,7 @@ def main():
             tmpdir=str(Path(options.outdir) / "mmseqs_tmp"),
             threads=options.threads,
             fident=options.family_threshold,
-            coverage=float(round((options.family_threshold * 0.95), 3))
+            coverage=float(round(min(options.family_threshold * 0.95, frameshift_coverage), 3))
         )
 
         # info statement...
@@ -847,11 +864,20 @@ def main():
         max_len = np.maximum(mmseqs["tlen"], mmseqs["qlen"])
         mmseqs["len_dif"] = 1 - (np.abs(mmseqs["tlen"] - mmseqs["qlen"]) / max_len)
 
-        # filter for identity ≥ 70% and length difference ≥ 70%
-        mmseqs = mmseqs[(mmseqs["fident"] >= family_threshold) & (mmseqs["len_dif"] >= family_threshold*0.95)].copy()
+        # per-row bidirectional coverage (cov-mode 0 style): min of query-cov and target-cov
+        mmseqs["cov"] = np.minimum(mmseqs["alnlen"] / mmseqs["qlen"], mmseqs["alnlen"] / mmseqs["tlen"])
 
-        # remove self-matches (target == query)
-        mmseqs = mmseqs[mmseqs["target"] != mmseqs["query"]]
+        # remove self-matches (target == query) once, up front so both pass-1 and frameshift frames inherit it
+        mmseqs = mmseqs[mmseqs["target"] != mmseqs["query"]].copy()
+
+        # carve out frameshift (pass-2) hits BEFORE pass-1 filter narrows mmseqs:
+        # higher identity, lower coverage, no len_dif requirement (frameshifts create length differences by design)
+        mmseqs_frameshift = mmseqs[(mmseqs["fident"] >= frameshift_identity) & (mmseqs["cov"] >= frameshift_coverage)].copy()
+        mmseqs_frameshift["target"] += "_target"
+
+        # filter for identity ≥ family_threshold, length difference ≥ family_threshold*0.95, and coverage ≥ family_threshold*0.95
+        # (cov clause re-imposes what MMSeqs -c used to enforce before we lowered the search floor for the frameshift pass)
+        mmseqs = mmseqs[(mmseqs["fident"] >= family_threshold) & (mmseqs["len_dif"] >= family_threshold*0.95) & (mmseqs["cov"] >= family_threshold*0.95)].copy()
 
         # add _target to target node names
         # possibly pretty memory/time intensive for big dataframes, see if can make this more efficient later
@@ -922,11 +948,7 @@ def main():
         # debug statement...
         logging.debug(f"accepted pairs (reordered): {reordered_pairs[:10]}")
 
-        # reduce memory by removing intermediate files
-        for name in ["mmseqs", "scores", "scores_sorted", "accepted_pairs", "unique_pairs"]:
-            if name in locals():
-                del locals()[name]
-        gc.collect()
+        # note: memory cleanup deferred until after the frameshift pass 2 (mmseqs is reused to build ident_lookup_frameshift)
 
         # info statement...
         logging.info("Merging nodes and edges...")
@@ -986,7 +1008,130 @@ def main():
 
             # (don't add centroid/longCentroidID/annotation/dna/protein/hasEnd/mergedDNA/paralog/maxLenId -- keep as original for now)
 
-        # update degrees across graph
+        # debug statement...
+        logging.debug(f"After family pass: {len(merged_graph.nodes())} nodes")
+
+        ### frameshift pass (pass 2): lower coverage, higher identity, orphans only
+
+        # identify orphans: nodes that were neither the kept 'a' nor the removed 'b' of any pass-1 pair
+        merged_in_pass1 = set()
+        for a, b in reordered_pairs:
+            merged_in_pass1.add(a)
+            merged_in_pass1.add(b)
+        unmerged_nodes = set(merged_graph.nodes()) - merged_in_pass1
+
+        logging.info(f"Frameshift pass: {len(unmerged_nodes)} orphan nodes eligible.")
+
+        if unmerged_nodes and len(mmseqs_frameshift) > 0:
+
+            # restrict frameshift hits to orphan-orphan pairs (target has _target suffix from earlier)
+            target_base_frameshift = mmseqs_frameshift["target"].str.removesuffix("_target")
+            mask_frameshift = mmseqs_frameshift["query"].isin(unmerged_nodes) & target_base_frameshift.isin(unmerged_nodes)
+            mmseqs_frameshift = mmseqs_frameshift[mask_frameshift].copy()
+
+            logging.debug(f"Frameshift pass: {len(mmseqs_frameshift)} orphan-orphan hits after filtering.")
+
+            if len(mmseqs_frameshift) > 0:
+
+                # build ident_lookup from the UNION of pass-1 and frameshift hits so neighborhood lookups have richer signal
+                ident_lookup_frameshift = build_ident_lookup(pd.concat([mmseqs, mmseqs_frameshift], ignore_index=True))
+                init_parallel(merged_graph, ident_lookup_frameshift, context_threshold)
+                scores_frameshift = compute_scores_parallel(mmseqs_frameshift, options.threads)
+
+                logging.debug(f"frameshift scores: {scores_frameshift[:5]}")
+
+                scores_sorted_frameshift = sorted(
+                    scores_frameshift,
+                    key=lambda x: (x[2], x[3][0], x[3][1], x[3][2]),
+                    reverse=True
+                )
+
+                # filter accepted pairs by frameshift-identity + context thresholds
+                accepted_pairs_frameshift = []
+                for nA, nB, ident, sims in scores_sorted_frameshift:
+                    if (
+                        ident >= frameshift_identity
+                        and sims[0] >= context_threshold
+                        and (sims[1] >= context_threshold or sims[2] >= context_threshold)
+                        and set(merged_graph.nodes[nA]['members']).isdisjoint(set(merged_graph.nodes[nB]['members']))
+                    ):
+                        accepted_pairs_frameshift.append((nA, nB, ident, sims))
+
+                logging.debug(f"frameshift accepted pairs: {accepted_pairs_frameshift[:10]}")
+
+                # filter out duplicates (in order, so best match kept)
+                unique_pairs_frameshift = []
+                seen_nodes_frameshift = set()
+                for nA, nB, ident, sims in accepted_pairs_frameshift:
+                    if nA not in seen_nodes_frameshift and nB not in seen_nodes_frameshift:
+                        unique_pairs_frameshift.append((nA, nB, ident, sims))
+                        seen_nodes_frameshift.add(nA)
+                        seen_nodes_frameshift.add(nB)
+
+                # reorder to ensure 'a' is always the node with '_target'
+                reordered_pairs_frameshift = []
+                for a, b, ident, sims in unique_pairs_frameshift:
+                    if "_target" in b and "_target" not in a:
+                        a, b = b, a
+                    reordered_pairs_frameshift.append((a, b))
+
+                logging.info(f"Frameshift pass: merging {len(reordered_pairs_frameshift)} pairs.")
+
+                # apply the same per-pair merge body used by the family pass
+                for a, b in reordered_pairs_frameshift:
+
+                    # seqIDs
+                    merged_set = list(set(merged_graph.nodes[a]["seqIDs"]) | set(merged_graph.nodes[b]["seqIDs"]))
+                    merged_graph.nodes[a]["seqIDs"] = merged_set
+
+                    # geneIDs
+                    merged_set = ";".join([merged_graph.nodes[a]["geneIDs"], merged_graph.nodes[b]["geneIDs"]])
+                    merged_graph.nodes[a]["geneIDs"] = merged_set
+
+                    # members
+                    merged_set = list(set(merged_graph.nodes[a]["members"]) | set(merged_graph.nodes[b]["members"]))
+                    merged_graph.nodes[a]["members"] = merged_set
+
+                    # genome IDs
+                    merged_graph.nodes[a]["genomeIDs"] = ";".join([merged_graph.nodes[a]["genomeIDs"], merged_graph.nodes[b]["genomeIDs"]])
+
+                    # size
+                    size = len(merged_graph.nodes[a]["members"])
+
+                    # lengths
+                    merged_set = merged_graph.nodes[a]["lengths"] + merged_graph.nodes[b]["lengths"]
+                    merged_graph.nodes[a]["lengths"] = merged_set
+
+                    # move edges from b onto a before removing b
+                    for neighbor in list(merged_graph.neighbors(b)):
+
+                        edge_attrs = dict(merged_graph.get_edge_data(b, neighbor))
+
+                        if not merged_graph.has_edge(b, neighbor):
+                            logging.critical("neighbor not connected by edge -- this shouldn't happen!")
+
+                        if merged_graph.has_edge(a, neighbor):
+                            merged_edge = merged_graph.edges[a, neighbor]
+                            merged_members = set(merged_edge.get("members", [])) | set(edge_attrs.get("members", []))
+                            merged_edge["members"] = list(merged_members)
+                            merged_edge["size"] = len(merged_members)
+                        else:
+                            merged_graph.add_edge(a, neighbor, **edge_attrs)
+
+                    # remove second node
+                    merged_graph.remove_node(b)
+
+        # reduce memory by removing intermediate frames/objects from both passes
+        for name in ["mmseqs", "mmseqs_frameshift",
+                     "scores", "scores_sorted", "accepted_pairs", "unique_pairs",
+                     "scores_frameshift", "scores_sorted_frameshift",
+                     "accepted_pairs_frameshift", "unique_pairs_frameshift",
+                     "ident_lookup", "ident_lookup_frameshift"]:
+            if name in locals():
+                del locals()[name]
+        gc.collect()
+
+        # update degrees across graph (single pass, after both family + frameshift merges)
         for node in merged_graph:
             merged_graph.nodes[node]["degrees"] = int(merged_graph.degree[node])
 
