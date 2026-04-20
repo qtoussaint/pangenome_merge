@@ -506,41 +506,12 @@ def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
     # debug statement...
     logging.debug(f"After family pass: {len(merged_graph.nodes())} nodes")
 
-    ### third graph merge: iterate family-style context merge on the updated graph
-    ###                    until fixed point (reuses in-memory mmseqs; no MMseqs2 re-run).
-    # Staleness filter runs per-iteration since each round removes nodes.
-    # Caps at context_search_iterations (-1 = unlimited).
-    reordered_pairs_third = []
-    iteration = 0
-    while context_search_iterations < 0 or iteration < context_search_iterations:
-        iteration += 1
-        mmseqs_third = filter_mmseqs_to_current_nodes(mmseqs, merged_graph)
-        if len(mmseqs_third) == 0:
-            logging.info(f"Third merge iteration {iteration}: no hits survive staleness filter; stopping.")
-            break
-        pairs_iter = find_mergeable_pairs(
-            merged_graph, mmseqs_third, ident_lookup,
-            context_threshold, family_threshold, options.threads
-        )
-        if len(pairs_iter) == 0:
-            logging.info(f"Third merge iteration {iteration}: no new mergeable pairs; stopping.")
-            break
-        logging.info(f"Third merge iteration {iteration}: merging {len(pairs_iter)} pairs.")
-        apply_merges(merged_graph, pairs_iter)
-        reordered_pairs_third.extend(pairs_iter)
-    else:
-        logging.info(f"Third merge: reached max iterations ({context_search_iterations}); stopping.")
-
-    logging.debug(f"After third merge: {len(merged_graph.nodes())} nodes")
-
     ### frameshift pass (pass 2): lower coverage, higher identity, orphans only
+    #  runs before the third merge so frameshift-salvaged nodes can participate in the fixed-point loop
 
-    # identify orphans: nodes that were neither the kept 'a' nor the removed 'b' of any pass-1 or third-merge pair
+    # identify orphans: nodes that were neither the kept 'a' nor the removed 'b' of any family-pass pair
     merged_in_pass1 = set()
     for a, b in reordered_pairs:
-        merged_in_pass1.add(a)
-        merged_in_pass1.add(b)
-    for a, b in reordered_pairs_third:
         merged_in_pass1.add(a)
         merged_in_pass1.add(b)
     unmerged_nodes = set(merged_graph.nodes()) - merged_in_pass1
@@ -567,6 +538,34 @@ def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
             )
             logging.info(f"Frameshift pass: merging {len(reordered_pairs_frameshift)} pairs.")
             apply_merges(merged_graph, reordered_pairs_frameshift)
+
+    logging.debug(f"After frameshift pass: {len(merged_graph.nodes())} nodes")
+
+    ### third graph merge: iterate family-style context merge on the updated graph
+    ###                    until fixed point (reuses in-memory mmseqs; no MMseqs2 re-run).
+    # Staleness filter runs per-iteration since each round removes nodes
+    # (including any removed by the frameshift pass above).
+    # Caps at context_search_iterations (-1 = unlimited).
+    iteration = 0
+    while context_search_iterations < 0 or iteration < context_search_iterations:
+        iteration += 1
+        mmseqs_third = filter_mmseqs_to_current_nodes(mmseqs, merged_graph)
+        if len(mmseqs_third) == 0:
+            logging.info(f"Third merge iteration {iteration}: no hits survive staleness filter; stopping.")
+            break
+        pairs_iter = find_mergeable_pairs(
+            merged_graph, mmseqs_third, ident_lookup,
+            context_threshold, family_threshold, options.threads
+        )
+        if len(pairs_iter) == 0:
+            logging.info(f"Third merge iteration {iteration}: no new mergeable pairs; stopping.")
+            break
+        logging.info(f"Third merge iteration {iteration}: merging {len(pairs_iter)} pairs.")
+        apply_merges(merged_graph, pairs_iter)
+    else:
+        logging.info(f"Third merge: reached max iterations ({context_search_iterations}); stopping.")
+
+    logging.debug(f"After third merge: {len(merged_graph.nodes())} nodes")
 
     # update degrees across graph (single pass, after both family + frameshift merges)
     for node in merged_graph:
