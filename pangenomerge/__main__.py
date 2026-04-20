@@ -31,8 +31,6 @@ from pangenomerge.panaroo_functions.write_gml_metadata import format_metadata_fo
 from pangenomerge.panaroo_functions.context_search import collapse_families, single_linkage, collapse_spurious_paralogs
 from pangenomerge.panaroo_functions.merge_nodes import merge_node_cluster, gen_edge_iterables, gen_node_iterables, iter_del_dups, initial_graph_merge
 from pangenomerge.custom_functions.relabel_nodes import relabel_nodes_preserve_attrs,sync_names
-from pangenomerge.custom_functions.context_similarity import context_similarity_seq
-from pangenomerge.custom_functions.context_similarity import build_ident_lookup, init_parallel, compute_scores_parallel
 from pangenomerge.custom_functions.sqlite import sqlite_connect, sqlite_init_schema, sqlite_create_indexes, add_metadata_to_sqlite, add_isolate_names_to_sqlite, load_metadata_from_sqlite
 
 from .__init__ import __version__
@@ -106,6 +104,12 @@ def get_options():
                     type=float,
                     required=False,
                     help='Sequence identity threshold for frameshift second-pass merge. Default: 0.95')
+    parameters.add_argument('--context-search-iterations',
+                    dest='context_search_iterations',
+                    default=-1,
+                    type=int,
+                    required=False,
+                    help='Max rounds of the third-pass context-similarity merge. -1 = run until no new pairs merge (fixed point). Default: -1')
 
     other = parser.add_argument_group('Other options')
     other.add_argument('--threads',
@@ -642,6 +646,7 @@ def main():
             context_threshold=float(options.context_threshold),
             frameshift_identity=float(options.frameshift_identity),
             frameshift_coverage=float(options.frameshift_coverage),
+            context_search_iterations=int(options.context_search_iterations),
         )
         
         # calculate clustering performance (if test mode)

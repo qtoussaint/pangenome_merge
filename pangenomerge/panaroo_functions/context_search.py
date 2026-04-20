@@ -410,7 +410,8 @@ def find_mergeable_pairs(G, mmseqs_frame, ident_lookup, context_threshold, ident
 
 def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
                                family_threshold, context_threshold,
-                               frameshift_identity, frameshift_coverage):
+                               frameshift_identity, frameshift_coverage,
+                               context_search_iterations=-1):
 
     # write query centroid fasta (stream to reduce memory)
     query_fa = Path(outdir) / "mmseqs_tmp" / "centroids_query.fa"
@@ -505,25 +506,30 @@ def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
     # debug statement...
     logging.debug(f"After family pass: {len(merged_graph.nodes())} nodes")
 
-    ### third graph merge: repeat family-style context merge on the updated graph
-    ###                    (reuses in-memory mmseqs; no MMseqs2 re-run)
-
-    # filter reused mmseqs: drop rows whose query or target was removed by the family pass.
-    # context_similarity_seq calls G.neighbors(nA/nB), which raises if a node is gone.
-    # Structured with a single-round `if` today; swap to `while` to iterate until fixed point.
+    ### third graph merge: iterate family-style context merge on the updated graph
+    ###                    until fixed point (reuses in-memory mmseqs; no MMseqs2 re-run).
+    # Staleness filter runs per-iteration since each round removes nodes.
+    # Caps at context_search_iterations (-1 = unlimited).
     reordered_pairs_third = []
-    mmseqs_third = filter_mmseqs_to_current_nodes(mmseqs, merged_graph)
-
-    logging.info(f"Third merge: {len(mmseqs_third)} hits survive staleness filter (from {len(mmseqs)} pre-filter).")
-
-    if len(mmseqs_third) > 0:
+    iteration = 0
+    while context_search_iterations < 0 or iteration < context_search_iterations:
+        iteration += 1
+        mmseqs_third = filter_mmseqs_to_current_nodes(mmseqs, merged_graph)
+        if len(mmseqs_third) == 0:
+            logging.info(f"Third merge iteration {iteration}: no hits survive staleness filter; stopping.")
+            break
         pairs_iter = find_mergeable_pairs(
             merged_graph, mmseqs_third, ident_lookup,
             context_threshold, family_threshold, options.threads
         )
-        logging.info(f"Third merge: merging {len(pairs_iter)} pairs.")
+        if len(pairs_iter) == 0:
+            logging.info(f"Third merge iteration {iteration}: no new mergeable pairs; stopping.")
+            break
+        logging.info(f"Third merge iteration {iteration}: merging {len(pairs_iter)} pairs.")
         apply_merges(merged_graph, pairs_iter)
         reordered_pairs_third.extend(pairs_iter)
+    else:
+        logging.info(f"Third merge: reached max iterations ({context_search_iterations}); stopping.")
 
     logging.debug(f"After third merge: {len(merged_graph.nodes())} nodes")
 
