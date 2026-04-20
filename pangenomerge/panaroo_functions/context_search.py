@@ -493,79 +493,75 @@ def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
 
     ident_lookup = build_ident_lookup(mmseqs)
 
+    # build frameshift ident lookup ONCE — depends only on hit tables, not graph state
+    if len(mmseqs_frameshift) > 0:
+        ident_lookup_frameshift = build_ident_lookup(pd.concat([mmseqs, mmseqs_frameshift], ignore_index=True))
+    else:
+        ident_lookup_frameshift = None
+
     # info statement...
     logging.info("Merging nodes and edges...")
 
-    # family pass
-    reordered_pairs = find_mergeable_pairs(
-        merged_graph, mmseqs, ident_lookup,
-        context_threshold, family_threshold, options.threads
-    )
-    apply_merges(merged_graph, reordered_pairs)
+    ### alternating fixed-point: family-style inner loop to convergence, then one frameshift round on current orphans.
+    ###   exits when a frameshift round produces 0 merges (⇒ graph is stable under both passes).
+    ###   context_search_iterations caps outer iterations (-1 = unlimited).
+    # family_merged_all: nodes ever touched by a family-style merge pair — gates frameshift to orphans.
+    # mmseqs_frameshift: persistently shrunk each outer iteration as orphans decrease, avoiding redundant isin work.
+    family_merged_all = set()
+    outer_iteration = 0
+    while context_search_iterations < 0 or outer_iteration < context_search_iterations:
+        outer_iteration += 1
 
-    # debug statement...
-    logging.debug(f"After family pass: {len(merged_graph.nodes())} nodes")
-
-    ### frameshift pass (pass 2): lower coverage, higher identity, orphans only
-    #  runs before the third merge so frameshift-salvaged nodes can participate in the fixed-point loop
-
-    # identify orphans: nodes that were neither the kept 'a' nor the removed 'b' of any family-pass pair
-    merged_in_pass1 = set()
-    for a, b in reordered_pairs:
-        merged_in_pass1.add(a)
-        merged_in_pass1.add(b)
-    unmerged_nodes = set(merged_graph.nodes()) - merged_in_pass1
-
-    logging.info(f"Frameshift pass: {len(unmerged_nodes)} orphan nodes eligible.")
-
-    if unmerged_nodes and len(mmseqs_frameshift) > 0:
-
-        # restrict frameshift hits to orphan-orphan pairs.
-        # target is already in post-frameshift-filter form (graph-node name), matching query — no suffix strip.
-        mask_frameshift = mmseqs_frameshift["query"].isin(unmerged_nodes) & mmseqs_frameshift["target"].isin(unmerged_nodes)
-        mmseqs_frameshift = mmseqs_frameshift[mask_frameshift].copy()
-
-        logging.debug(f"Frameshift pass: {len(mmseqs_frameshift)} orphan-orphan hits after filtering.")
-
-        if len(mmseqs_frameshift) > 0:
-
-            # build ident_lookup from the UNION of pass-1 and frameshift hits so neighborhood lookups have richer signal
-            ident_lookup_frameshift = build_ident_lookup(pd.concat([mmseqs, mmseqs_frameshift], ignore_index=True))
-
-            reordered_pairs_frameshift = find_mergeable_pairs(
-                merged_graph, mmseqs_frameshift, ident_lookup_frameshift,
-                context_threshold, frameshift_identity, options.threads
+        # --- family-style inner fixed-point on current graph ---
+        family_inner = 0
+        while True:
+            family_inner += 1
+            mmseqs_cur = filter_mmseqs_to_current_nodes(mmseqs, merged_graph)
+            if len(mmseqs_cur) == 0:
+                logging.info(f"Outer {outer_iteration} family iter {family_inner}: no hits survive staleness filter; stopping inner.")
+                break
+            pairs_iter = find_mergeable_pairs(
+                merged_graph, mmseqs_cur, ident_lookup,
+                context_threshold, family_threshold, options.threads
             )
-            logging.info(f"Frameshift pass: merging {len(reordered_pairs_frameshift)} pairs.")
-            apply_merges(merged_graph, reordered_pairs_frameshift)
+            if len(pairs_iter) == 0:
+                logging.info(f"Outer {outer_iteration} family iter {family_inner}: no new mergeable pairs; stopping inner.")
+                break
+            logging.info(f"Outer {outer_iteration} family iter {family_inner}: merging {len(pairs_iter)} pairs.")
+            apply_merges(merged_graph, pairs_iter)
+            for a, b in pairs_iter:
+                family_merged_all.add(a)
+                family_merged_all.add(b)
 
-    logging.debug(f"After frameshift pass: {len(merged_graph.nodes())} nodes")
+        logging.debug(f"After outer {outer_iteration} family: {len(merged_graph.nodes())} nodes")
 
-    ### third graph merge: iterate family-style context merge on the updated graph
-    ###                    until fixed point (reuses in-memory mmseqs; no MMseqs2 re-run).
-    # Staleness filter runs per-iteration since each round removes nodes
-    # (including any removed by the frameshift pass above).
-    # Caps at context_search_iterations (-1 = unlimited).
-    iteration = 0
-    while context_search_iterations < 0 or iteration < context_search_iterations:
-        iteration += 1
-        mmseqs_third = filter_mmseqs_to_current_nodes(mmseqs, merged_graph)
-        if len(mmseqs_third) == 0:
-            logging.info(f"Third merge iteration {iteration}: no hits survive staleness filter; stopping.")
+        # --- frameshift round on current orphans ---
+        frameshift_merged = False
+        if ident_lookup_frameshift is not None and len(mmseqs_frameshift) > 0:
+            orphans = set(merged_graph.nodes()) - family_merged_all
+            if orphans:
+                # orphan set shrinks monotonically across outer iterations, so persistently narrow mmseqs_frameshift
+                mask_fs = mmseqs_frameshift["query"].isin(orphans) & mmseqs_frameshift["target"].isin(orphans)
+                mmseqs_frameshift = mmseqs_frameshift[mask_fs]
+                logging.info(f"Outer {outer_iteration} frameshift: {len(orphans)} orphans, {len(mmseqs_frameshift)} orphan-orphan hits.")
+                if len(mmseqs_frameshift) > 0:
+                    pairs_fs = find_mergeable_pairs(
+                        merged_graph, mmseqs_frameshift, ident_lookup_frameshift,
+                        context_threshold, frameshift_identity, options.threads
+                    )
+                    if len(pairs_fs) > 0:
+                        logging.info(f"Outer {outer_iteration} frameshift: merging {len(pairs_fs)} pairs.")
+                        apply_merges(merged_graph, pairs_fs)
+                        frameshift_merged = True
+
+        logging.debug(f"After outer {outer_iteration}: {len(merged_graph.nodes())} nodes")
+
+        # Family inner already converged; if frameshift also produced no merges the graph is stable ⇒ fixed point.
+        if not frameshift_merged:
+            logging.info(f"Outer loop: fixed point reached after {outer_iteration} iteration(s).")
             break
-        pairs_iter = find_mergeable_pairs(
-            merged_graph, mmseqs_third, ident_lookup,
-            context_threshold, family_threshold, options.threads
-        )
-        if len(pairs_iter) == 0:
-            logging.info(f"Third merge iteration {iteration}: no new mergeable pairs; stopping.")
-            break
-        logging.info(f"Third merge iteration {iteration}: merging {len(pairs_iter)} pairs.")
-        apply_merges(merged_graph, pairs_iter)
     else:
-        logging.info(f"Third merge: reached max iterations ({context_search_iterations}); stopping.")
-
-    logging.debug(f"After third merge: {len(merged_graph.nodes())} nodes")
+        logging.info(f"Outer loop: reached max iterations ({context_search_iterations}); stopping.")
 
     # update degrees across graph (single pass, after both family + frameshift merges)
     for node in merged_graph:

@@ -109,7 +109,7 @@ def get_options():
                     default=-1,
                     type=int,
                     required=False,
-                    help='Max rounds of the third-pass context-similarity merge. -1 = run until no new pairs merge (fixed point). Default: -1')
+                    help='Max outer rounds of the alternating context/frameshift merge loop (family inner loop always runs to its own fixed point). -1 = run until no new pairs merge. Default: -1')
 
     other = parser.add_argument_group('Other options')
     other.add_argument('--threads',
