@@ -275,6 +275,7 @@ rule ggcaller_cluster:
         mkdir -p {output.outdir}
         ggcaller --refs {input.cluster_list} \
             --save --gene-finding-only \
+            --annotation none \
             --out {output.outdir} \
             --threads {threads}
         echo "ok" > {output.done}
