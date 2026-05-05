@@ -23,7 +23,7 @@ max_concurrent_array=1
 slurm_acct=myaccount
 
 # with snakemake env activated:
-snakemake --executor slurm -j $max_concurrent --group-components job_array=$max_concurrent_array --default-resources slurm_account=$slurm_acct --use-conda --latency-wait 1600 --verbose --snakefile $snake --configfile $config
+snakemake --executor slurm -j $max_concurrent --group-components job_array=$max_concurrent_array --default-resources slurm_account=$slurm_acct --use-conda --latency-wait 1600 --keep-going --verbose --snakefile $snake --configfile $config
 
 # once you've created a config.yaml for your project added your desired options to this script, run snakemake using:
 sbatch example_slurm_run.sh

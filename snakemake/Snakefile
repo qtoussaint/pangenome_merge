@@ -398,6 +398,7 @@ rule list_panaroo_graphs:
 rule merge_pangenomes:
     input:
         graphs=RESULTS / "pangenomes" / "pangenomes.tsv",
+        combined_clusters=RESULTS / "clusters" / "combined_clusters.csv",
     output:
         outdir=directory(RESULTS / "pangenomerge"),
         done=RESULTS / "pangenomerge" / "done.txt",
@@ -431,6 +432,7 @@ rule merge_pangenomes:
             --mode run \
             --outdir {output.outdir} \
             --component-graphs {input.graphs} \
+            --include-clusters {input.combined_clusters} \
             --threads {threads} \
             --sqlite-cache {params.sqlite_cache}
         
