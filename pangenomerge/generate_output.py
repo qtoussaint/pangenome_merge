@@ -312,6 +312,83 @@ def generate_gene_data(sqlite_path=None, output_dir=None, sqlite_cache=2000, con
     logging.info(f"Wrote {n_rows} gene entries to {gene_data_path}")
 
 
+def generate_summary_statistics(sqlite_path=None, output_dir=None, sqlite_cache=2000, con=None):
+    """Write summary_statistics.txt: core / soft-core / shell / cloud gene counts.
+
+    Appends a strain-level (PopPUNK cluster) section when clusters are present.
+    """
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    owns_con = con is None
+    if owns_con:
+        con = sqlite_connect(database=sqlite_path, sqlite_cache=sqlite_cache)
+        con.execute("PRAGMA query_only=ON;")
+    cur = con.cursor()
+
+    cur.execute("SELECT COUNT(*) FROM isolate_names")
+    n_isolates = cur.fetchone()[0]
+
+    cur.execute("SELECT COUNT(*) FROM node_members GROUP BY node_id")
+    member_counts = [row[0] for row in cur.fetchall()]
+
+    if not member_counts:
+        logging.warning("No nodes found in database; skipping summary statistics")
+        if owns_con:
+            con.close()
+        return
+
+    pct_isolates = [100.0 * c / n_isolates for c in member_counts]
+
+    core = sum(1 for p in pct_isolates if p >= 99)
+    soft_core = sum(1 for p in pct_isolates if 95 <= p < 99)
+    shell = sum(1 for p in pct_isolates if 15 <= p < 95)
+    cloud = sum(1 for p in pct_isolates if p < 15)
+    total = len(pct_isolates)
+
+    stats_path = output_dir / "summary_statistics.txt"
+    with open(stats_path, "w") as f:
+        f.write(f"Core genes\t(99% <= isolates <= 100%)\t{core}\n")
+        f.write(f"Soft core genes\t(95% <= isolates < 99%)\t{soft_core}\n")
+        f.write(f"Shell genes\t(15% <= isolates < 95%)\t{shell}\n")
+        f.write(f"Cloud genes\t(0% <= isolates < 15%)\t{cloud}\n")
+        f.write(f"Total genes\t(0% <= isolates <= 100%)\t{total}\n")
+    logging.info(f"Wrote summary statistics to {stats_path}")
+
+    cur.execute("""
+        SELECT graph_id, member_index, poppunk_cluster
+        FROM isolate_names
+        WHERE poppunk_cluster IS NOT NULL
+    """)
+    member_to_cluster = {f"{mi}_g{gid}": cl for (gid, mi, cl) in cur.fetchall()}
+    n_strains = len(set(member_to_cluster.values()))
+
+    if n_strains > 0:
+        node_to_strains = defaultdict(set)
+        for node_id, member in cur.execute("SELECT node_id, member FROM node_members"):
+            cl = member_to_cluster.get(member)
+            if cl is not None:
+                node_to_strains[node_id].add(cl)
+
+        strain_counts = [len(s) for s in node_to_strains.values()]
+        pct_strains = [100.0 * c / n_strains for c in strain_counts]
+
+        s_core = sum(1 for p in pct_strains if p >= 99)
+        s_soft = sum(1 for p in pct_strains if 95 <= p < 99)
+        s_shell = sum(1 for p in pct_strains if 15 <= p < 95)
+        s_cloud = sum(1 for p in pct_strains if p < 15)
+        with open(stats_path, "a") as f:
+            f.write(f"\n# Strain-level (PopPUNK cluster, n={n_strains})\n")
+            f.write(f"Core genes\t(99% <= strains <= 100%)\t{s_core}\n")
+            f.write(f"Soft core genes\t(95% <= strains < 99%)\t{s_soft}\n")
+            f.write(f"Shell genes\t(15% <= strains < 95%)\t{s_shell}\n")
+            f.write(f"Cloud genes\t(0% <= strains < 15%)\t{s_cloud}\n")
+
+    if owns_con:
+        con.close()
+
+
 def generate_merge_figures(sqlite_path=None, output_dir=None, sqlite_cache=2000, con=None):
     """Generate per-graph merge statistics CSV and pangenome growth curve plot."""
 
@@ -323,6 +400,8 @@ def generate_merge_figures(sqlite_path=None, output_dir=None, sqlite_cache=2000,
         con = sqlite_connect(database=sqlite_path, sqlite_cache=sqlite_cache)
         con.execute("PRAGMA query_only=ON;")
     cur = con.cursor()
+
+    generate_summary_statistics(output_dir=output_dir, con=con)
 
     # Count new nodes per graph_id using SQL-side suffix extraction
     cur.execute("""
@@ -344,7 +423,7 @@ def generate_merge_figures(sqlite_path=None, output_dir=None, sqlite_cache=2000,
     cur.execute("SELECT graph_id, COUNT(*) FROM isolate_names GROUP BY graph_id")
     samples_per_graph = dict(cur.fetchall())
 
-    # --- Per-COG isolate prevalence for summary stats and histogram ---
+    # --- Per-COG isolate prevalence for histogram ---
     cur.execute("SELECT COUNT(*) FROM isolate_names")
     n_isolates = cur.fetchone()[0]
 
@@ -353,22 +432,6 @@ def generate_merge_figures(sqlite_path=None, output_dir=None, sqlite_cache=2000,
 
     # Compute percentage of isolates each COG is found in
     pct_isolates = [100.0 * c / n_isolates for c in member_counts]
-
-    # Classify into Panaroo-style bins
-    core = sum(1 for p in pct_isolates if p >= 99)
-    soft_core = sum(1 for p in pct_isolates if 95 <= p < 99)
-    shell = sum(1 for p in pct_isolates if 15 <= p < 95)
-    cloud = sum(1 for p in pct_isolates if p < 15)
-    total = len(pct_isolates)
-
-    stats_path = output_dir / "summary_statistics.txt"
-    with open(stats_path, "w") as f:
-        f.write(f"Core genes\t(99% <= isolates <= 100%)\t{core}\n")
-        f.write(f"Soft core genes\t(95% <= isolates < 99%)\t{soft_core}\n")
-        f.write(f"Shell genes\t(15% <= isolates < 95%)\t{shell}\n")
-        f.write(f"Cloud genes\t(0% <= isolates < 15%)\t{cloud}\n")
-        f.write(f"Total genes\t(0% <= isolates <= 100%)\t{total}\n")
-    logging.info(f"Wrote summary statistics to {stats_path}")
 
     # Plot U-shaped COG frequency histogram
     fig_hist, ax_hist = plt.subplots(figsize=(8, 5))
@@ -405,17 +468,6 @@ def generate_merge_figures(sqlite_path=None, output_dir=None, sqlite_cache=2000,
 
         strain_counts = [len(s) for s in node_to_strains.values()]
         pct_strains = [100.0 * c / n_strains for c in strain_counts]
-
-        s_core = sum(1 for p in pct_strains if p >= 99)
-        s_soft = sum(1 for p in pct_strains if 95 <= p < 99)
-        s_shell = sum(1 for p in pct_strains if 15 <= p < 95)
-        s_cloud = sum(1 for p in pct_strains if p < 15)
-        with open(stats_path, "a") as f:
-            f.write(f"\n# Strain-level (PopPUNK cluster, n={n_strains})\n")
-            f.write(f"Core genes\t(99% <= strains <= 100%)\t{s_core}\n")
-            f.write(f"Soft core genes\t(95% <= strains < 99%)\t{s_soft}\n")
-            f.write(f"Shell genes\t(15% <= strains < 95%)\t{s_shell}\n")
-            f.write(f"Cloud genes\t(0% <= strains < 15%)\t{s_cloud}\n")
 
         fig_sc, ax_sc = plt.subplots(figsize=(8, 5))
         ax_sc.hist(strain_counts, bins=range(1, n_strains + 2),

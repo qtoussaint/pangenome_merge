@@ -32,6 +32,7 @@ from pangenomerge.panaroo_functions.context_search import collapse_families, sin
 from pangenomerge.panaroo_functions.merge_nodes import merge_node_cluster, gen_edge_iterables, gen_node_iterables, iter_del_dups, initial_graph_merge
 from pangenomerge.custom_functions.relabel_nodes import relabel_nodes_preserve_attrs,sync_names
 from pangenomerge.custom_functions.sqlite import sqlite_connect, sqlite_init_schema, sqlite_create_indexes, add_metadata_to_sqlite, add_isolate_names_to_sqlite, add_clusters_to_sqlite, load_metadata_from_sqlite
+from pangenomerge.generate_output import generate_summary_statistics
 
 from .__init__ import __version__
 
@@ -925,6 +926,12 @@ def main():
         dst = ref_dir / f"pangenome_reference_aa{ext}"
         shutil.move(src, dst)
     shutil.rmtree(mmseqs_dir)
+
+    generate_summary_statistics(
+        sqlite_path=sqlite_path,
+        output_dir=options.outdir,
+        sqlite_cache=options.sqlite_cache,
+    )
 
     # info statement...
     logging.info('Finished successfully.')
