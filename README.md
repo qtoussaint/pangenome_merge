@@ -96,6 +96,7 @@ This will generate the following in your results directory:
   - `intermediate_graphs/merged_graph_<index>.gml`: checkpoint graphs from each merge iteration
   - `pangenome_reference_aa/`: an MMseqs2 amino acid database containing representative protein sequences for each node (COG) in the final graph
   - `pangenome_metadata.sqlite`: an SQLite database containing all metadata for the final merged graph
+  - `summary_statistics.txt`: core / soft-core / shell / cloud gene counts (with a strain-level breakdown if PopPUNK clusters were provided via `--include-clusters`)
 
 ## Generating additional outputs
 
@@ -120,7 +121,7 @@ This generates:
   - `gene_presence_absence.Rtab`: binary presence/absence matrix
   - `gene_data.csv`: per-gene annotation data (Panaroo format)
   - `pangenome_sequences.sqlite`: deduplicated, compressed per-gene DNA and protein sequences, queryable by node/COG
-  - merge statistics CSV and pangenome growth curve plot (via `--output figures`)
+  - COG frequency histograms, multi-copy genes scatter, merge statistics CSV, and pangenome growth curve plot (via `--output figures`)
 
 You can generate specific outputs using `--output`:
 ```

@@ -401,8 +401,6 @@ def generate_merge_figures(sqlite_path=None, output_dir=None, sqlite_cache=2000,
         con.execute("PRAGMA query_only=ON;")
     cur = con.cursor()
 
-    generate_summary_statistics(output_dir=output_dir, con=con)
-
     # Count new nodes per graph_id using SQL-side suffix extraction
     cur.execute("""
         SELECT CAST(SUBSTR(node_id, INSTR(node_id, '_g') + 2) AS INTEGER) AS graph_id,

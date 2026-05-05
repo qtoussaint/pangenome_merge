@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pangenomerge"
-version = "0.9.1"
+version = "0.9.2"
 description = "Create pangenome graphs for hundreds of thousands of bacterial genomes"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -18,8 +18,11 @@ dependencies = [
   "matplotlib>=3.5",
 ]
 
-[tool.setuptools]
-packages = ["pangenomerge"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pangenomerge*"]
+exclude = ["snakemake*"]
+namespaces = true
 
 [project.scripts]
 pangenomerge = "pangenomerge.__main__:main"
