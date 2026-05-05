@@ -347,6 +347,10 @@ def generate_summary_statistics(sqlite_path=None, output_dir=None, sqlite_cache=
     cloud = sum(1 for p in pct_isolates if p < 15)
     total = len(pct_isolates)
 
+    core_coarse = sum(1 for p in pct_isolates if p >= 95)
+    intermediate = sum(1 for p in pct_isolates if 15 <= p < 95)
+    rare = sum(1 for p in pct_isolates if p < 15)
+
     stats_path = output_dir / "summary_statistics.txt"
     with open(stats_path, "w") as f:
         f.write(f"Core genes\t(99% <= isolates <= 100%)\t{core}\n")
@@ -354,6 +358,10 @@ def generate_summary_statistics(sqlite_path=None, output_dir=None, sqlite_cache=
         f.write(f"Shell genes\t(15% <= isolates < 95%)\t{shell}\n")
         f.write(f"Cloud genes\t(0% <= isolates < 15%)\t{cloud}\n")
         f.write(f"Total genes\t(0% <= isolates <= 100%)\t{total}\n")
+        f.write(f"\n# Coarse categories (rare / intermediate / core)\n")
+        f.write(f"Core genes\t(95% <= isolates <= 100%)\t{core_coarse}\n")
+        f.write(f"Intermediate genes\t(15% <= isolates < 95%)\t{intermediate}\n")
+        f.write(f"Rare genes\t(0% <= isolates < 15%)\t{rare}\n")
     logging.info(f"Wrote summary statistics to {stats_path}")
 
     cur.execute("""
@@ -378,12 +386,19 @@ def generate_summary_statistics(sqlite_path=None, output_dir=None, sqlite_cache=
         s_soft = sum(1 for p in pct_strains if 95 <= p < 99)
         s_shell = sum(1 for p in pct_strains if 15 <= p < 95)
         s_cloud = sum(1 for p in pct_strains if p < 15)
+        s_core_coarse = sum(1 for p in pct_strains if p >= 95)
+        s_intermediate = sum(1 for p in pct_strains if 15 <= p < 95)
+        s_rare = sum(1 for p in pct_strains if p < 15)
         with open(stats_path, "a") as f:
             f.write(f"\n# Strain-level (PopPUNK cluster, n={n_strains})\n")
             f.write(f"Core genes\t(99% <= strains <= 100%)\t{s_core}\n")
             f.write(f"Soft core genes\t(95% <= strains < 99%)\t{s_soft}\n")
             f.write(f"Shell genes\t(15% <= strains < 95%)\t{s_shell}\n")
             f.write(f"Cloud genes\t(0% <= strains < 15%)\t{s_cloud}\n")
+            f.write(f"\n# Coarse categories (rare / intermediate / core)\n")
+            f.write(f"Core genes\t(95% <= strains <= 100%)\t{s_core_coarse}\n")
+            f.write(f"Intermediate genes\t(15% <= strains < 95%)\t{s_intermediate}\n")
+            f.write(f"Rare genes\t(0% <= strains < 15%)\t{s_rare}\n")
 
     if owns_con:
         con.close()
@@ -446,6 +461,19 @@ def generate_merge_figures(sqlite_path=None, output_dir=None, sqlite_cache=2000,
     plt.close(fig_hist)
     logging.info(f"Wrote COG frequency histogram to {hist_path}")
 
+    fig_ric, ax_ric = plt.subplots(figsize=(8, 5))
+    ax_ric.hist(pct_isolates, bins=[0, 15, 95, 100],
+                color='#2171b5', edgecolor='white', linewidth=0.3)
+    ax_ric.set_xlabel('percentage of isolates')
+    ax_ric.set_ylabel('number of COGs')
+    ax_ric.set_title('COG Frequency Distribution (rare / intermediate / core)')
+    ax_ric.grid(True, alpha=0.3, axis='y')
+    fig_ric.tight_layout()
+    ric_path = output_dir / "cog_frequency_ric_histogram.png"
+    fig_ric.savefig(ric_path, dpi=150)
+    plt.close(fig_ric)
+    logging.info(f"Wrote rare/intermediate/core COG frequency histogram to {ric_path}")
+
     # --- Per-COG strain (PopPUNK cluster) prevalence ---
     cur.execute("""
         SELECT graph_id, member_index, poppunk_cluster
@@ -492,6 +520,19 @@ def generate_merge_figures(sqlite_path=None, output_dir=None, sqlite_cache=2000,
         fig_sp.savefig(sp_path, dpi=150)
         plt.close(fig_sp)
         logging.info(f"Wrote COG strain frequency histogram to {sp_path}")
+
+        fig_ric_s, ax_ric_s = plt.subplots(figsize=(8, 5))
+        ax_ric_s.hist(pct_strains, bins=[0, 15, 95, 100],
+                      color='#2171b5', edgecolor='white', linewidth=0.3)
+        ax_ric_s.set_xlabel('percentage of strains')
+        ax_ric_s.set_ylabel('number of COGs')
+        ax_ric_s.set_title('COG Strain Frequency Distribution (rare / intermediate / core)')
+        ax_ric_s.grid(True, alpha=0.3, axis='y')
+        fig_ric_s.tight_layout()
+        ric_s_path = output_dir / "cog_strain_frequency_ric_histogram.png"
+        fig_ric_s.savefig(ric_s_path, dpi=150)
+        plt.close(fig_ric_s)
+        logging.info(f"Wrote rare/intermediate/core COG strain frequency histogram to {ric_s_path}")
 
     # --- Multi-copy genes diagnostic: n_geneids vs. n_members per COG ---
     cur.execute("SELECT node_id, COUNT(*) FROM node_geneids GROUP BY node_id")
