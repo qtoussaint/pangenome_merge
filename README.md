@@ -86,7 +86,7 @@ pangenomerge --version
 To merge two or more Panaroo pangenome graphs, create a `.txt` file with one Panaroo output directory path per line, for example `paths.txt`. Then run:
 
 ```
-pangenomerge --component-graphs paths.tsv --outdir </path/to/outdir> --threads 16
+pangenomerge --component-graphs paths.txt --outdir </path/to/outdir> --threads 16
 ```
 > [!TIP]
 > Make sure to provide paths to the Panaroo _directories_, not the `final_graph.gml` files they contain.
@@ -112,7 +112,13 @@ This will generate the following in your results directory:
 After a merge, use `pangenomerge-postprocess` to generate Panaroo-format output files:
 
 ```
-pangenomerge-postprocess --sqlite </path/to/pangenome_metadata.sqlite> --gml </path/to/final_graph.gml> --component-graphs </path/to/paths.tsv> --outdir </path/to/outdir>
+pangenomerge-postprocess --pangenomerge-results </path/to/pangenomerge_outdir> --component-graphs </path/to/paths.txt>
+```
+
+To specify pangenomerge files individually, such as for results with nonstandard filenames or locations, you can use individual flags instead:
+
+```
+pangenomerge-postprocess --sqlite </path/to/pangenome_metadata.sqlite> --gml </path/to/final_graph.gml> --component-graphs </path/to/paths.txt> --outdir </path/to/outdir>
 ```
 
 This generates:
@@ -126,8 +132,8 @@ This generates:
 You can generate specific outputs using `--output`:
 ```
 pangenomerge-postprocess --sqlite db.sqlite --gml graph.gml --outdir out/ --output presenceabsence
-pangenomerge-postprocess --sqlite db.sqlite --component-graphs paths.tsv --outdir out/ --output genedata
-pangenomerge-postprocess --sqlite db.sqlite --component-graphs paths.tsv --outdir out/ --output sequences
+pangenomerge-postprocess --sqlite db.sqlite --component-graphs paths.txt --outdir out/ --output genedata
+pangenomerge-postprocess --sqlite db.sqlite --component-graphs paths.txt --outdir out/ --output sequences
 pangenomerge-postprocess --sqlite db.sqlite --outdir out/ --output figures
 ```
 
@@ -238,7 +244,8 @@ Other options:
 ## pangenomerge-postprocess
 
 ```
-usage: pangenomerge-postprocess [-h] --sqlite SQLITE [--gml GML] --outdir OUTDIR
+usage: pangenomerge-postprocess [-h] [--pangenomerge-results PANGENOMERGE_RESULTS]
+                           [--sqlite SQLITE] [--gml GML] [--outdir OUTDIR]
                            [--output {all,presenceabsence,genedata,sequences,figures}]
                            [--component-graphs COMPONENT_GRAPHS]
                            [--sequences-sqlite SEQUENCES_SQLITE]
@@ -248,9 +255,15 @@ Generate Panaroo-format output files from pangenomerge output
 
 options:
   -h, --help            show this help message and exit
+  --pangenomerge-results PANGENOMERGE_RESULTS
+                        Path to a pangenomerge output directory containing the --sqlite,
+                        --gml, and --sequences-sqlite inputs. Mutually exclusive with those
+                        flags. When set, --outdir defaults to
+                        <pangenomerge-results>/postprocessing.
   --sqlite SQLITE       Path to pangenome_metadata.sqlite
   --gml GML             Path to final_graph.gml (required for gene presence-absence output)
-  --outdir OUTDIR       Output directory for generated files
+  --outdir OUTDIR       Output directory for generated files (default:
+                        <pangenomerge-results>/postprocessing when --pangenomerge-results is set)
   --output {all,presenceabsence,genedata,sequences,figures}
                         Which outputs to generate: presenceabsence (Panaroo-format gene
                         presence-absence tables), genedata (Panaroo-format gene_data.csv),

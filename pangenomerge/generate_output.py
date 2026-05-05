@@ -614,12 +614,17 @@ def cli_main():
     parser = argparse.ArgumentParser(
         description='Generate Panaroo-format output files from pangenomerge output'
     )
-    parser.add_argument('--sqlite', required=True,
+    parser.add_argument('--pangenomerge-results', default=None, dest='pangenomerge_results',
+                        help='Path to a pangenomerge output directory containing the --sqlite, '
+                             '--gml, and --sequences-sqlite inputs. Mutually exclusive with those '
+                             'flags. When set, --outdir defaults to <pangenomerge-results>/postprocessing.')
+    parser.add_argument('--sqlite', default=None,
                         help='Path to pangenome_metadata.sqlite')
     parser.add_argument('--gml', default=None,
                         help='Path to final_graph.gml (required for gene presence-absence output)')
-    parser.add_argument('--outdir', required=True,
-                        help='Output directory for generated files')
+    parser.add_argument('--outdir', default=None,
+                        help='Output directory for generated files '
+                             '(default: <pangenomerge-results>/postprocessing when --pangenomerge-results is set)')
     parser.add_argument('--output', choices=['all', 'presenceabsence', 'genedata', 'sequences', 'figures'],
                         default='all',
                         help='Which outputs to generate: presenceabsence (Panaroo-format gene presence-absence tables), '
@@ -634,6 +639,27 @@ def cli_main():
                         dest='sqlite_cache',
                         help='SQLite cache size in KB (default: 2000)')
     args = parser.parse_args()
+
+    if args.pangenomerge_results is not None:
+        conflicting = [name for name, val in
+                       (('--sqlite', args.sqlite),
+                        ('--gml', args.gml),
+                        ('--sequences-sqlite', args.sequences_sqlite))
+                       if val is not None]
+        if conflicting:
+            parser.error(
+                "--pangenomerge-results is mutually exclusive with "
+                + " / ".join(conflicting))
+        results_dir = Path(args.pangenomerge_results)
+        args.sqlite = str(results_dir / "pangenome_metadata.sqlite")
+        args.gml = str(results_dir / "final_graph.gml")
+        if args.outdir is None:
+            args.outdir = str(results_dir / "postprocessing")
+    elif args.sqlite is None:
+        parser.error("must specify either --pangenomerge-results or --sqlite")
+
+    if args.outdir is None:
+        parser.error("--outdir is required when --pangenomerge-results is not set")
 
     if args.output in ('all', 'presenceabsence') and args.gml is None:
         parser.error("--gml is required when --output is 'all' or 'presenceabsence'")
