@@ -7,6 +7,7 @@ from pathlib import Path
 from collections import Counter
 
 _GN_SUFFIX_RE = re.compile(r'^(.+)_g(\d+)$')
+_SPLIT_CLUSTER_RE = re.compile(r'^(\d+)[a-z]$')
 
 def canon_uv(u, v):
     u, v = str(u), str(v)
@@ -146,6 +147,7 @@ def sqlite_init_schema(con: sqlite3.Connection):
         graph_id INTEGER NOT NULL,
         member_index INTEGER NOT NULL,
         sample_name TEXT NOT NULL,
+        poppunk_cluster TEXT,
         PRIMARY KEY (graph_id, member_index)
     ) WITHOUT ROWID;
 
@@ -167,6 +169,7 @@ def sqlite_create_indexes(con: sqlite3.Connection):
     CREATE INDEX IF NOT EXISTS idx_node_seqids_seqid ON node_seqids(seqid);
     CREATE INDEX IF NOT EXISTS idx_node_geneids_geneid ON node_geneids(geneid);
     CREATE INDEX IF NOT EXISTS idx_isolate_names_sample ON isolate_names(sample_name);
+    CREATE INDEX IF NOT EXISTS idx_isolate_names_cluster ON isolate_names(poppunk_cluster);
     CREATE INDEX IF NOT EXISTS idx_gene_annotations_annot ON gene_annotations(annotation_id);
     """)
     con.commit()
@@ -179,6 +182,57 @@ def add_isolate_names_to_sqlite(con: sqlite3.Connection, graph_id: int, isolate_
         rows
     )
     con.commit()
+
+def add_clusters_to_sqlite(con: sqlite3.Connection, clusters_path: str):
+    """Read a PopPUNK cluster CSV (header: Taxon,Cluster) and populate
+    isolate_names.poppunk_cluster by sample_name. Warns about isolates
+    in isolate_names with no matching Taxon."""
+    path = Path(clusters_path)
+    if not path.exists():
+        logging.warning(f"clusters file not found: {clusters_path}; skipping")
+        return
+
+    rows = []  # (cluster, sample)
+    with open(path, 'r') as f:
+        header = next(f, None)
+        if header is None or 'Taxon' not in header:
+            logging.warning(f"clusters file {clusters_path} missing 'Taxon,Cluster' header; skipping")
+            return
+        for line in f:
+            parts = line.rstrip('\n').split(',')
+            if len(parts) < 2:
+                continue
+            sample, cluster = parts[0].strip(), parts[1].strip()
+            if sample and cluster:
+                # Collapse size-rebalanced split labels (e.g. "10a","10b" -> "10")
+                # back to the original PopPUNK cluster ID. The R splitter in
+                # adjust_cluster_sizes.R uses paste0(cl, letters[pieces]),
+                # i.e. always <digits><single lowercase letter>.
+                m = _SPLIT_CLUSTER_RE.match(cluster)
+                if m:
+                    cluster = m.group(1)
+                rows.append((cluster, sample))
+
+    cur = con.cursor()
+    cur.executemany(
+        "UPDATE isolate_names SET poppunk_cluster = ? WHERE sample_name = ?",
+        rows,
+    )
+    con.commit()
+
+    missing = [s for (s,) in cur.execute(
+        "SELECT sample_name FROM isolate_names WHERE poppunk_cluster IS NULL"
+    )]
+    if missing:
+        preview = ", ".join(missing[:10])
+        more = f" (+{len(missing)-10} more)" if len(missing) > 10 else ""
+        logging.warning(
+            f"{len(missing)} isolate(s) have no PopPUNK cluster in {clusters_path}: {preview}{more}"
+        )
+    matched = cur.execute(
+        "SELECT COUNT(*) FROM isolate_names WHERE poppunk_cluster IS NOT NULL"
+    ).fetchone()[0]
+    logging.info(f"Stored PopPUNK clusters for {matched} isolate row(s) from {len(rows)} cluster-file entries")
 
 def add_gene_annotations_to_sqlite(con: sqlite3.Connection, graph_id: int, graph_dir: str):
     """Read gene_data.csv from a component graph directory and store

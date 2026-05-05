@@ -83,7 +83,7 @@ pangenomerge --version
 
 # Quickstart
 
-To merge two or more Panaroo pangenome graphs, create a TSV containing the paths to each Panaroo output directory, for example `paths.tsv`. Then run:
+To merge two or more Panaroo pangenome graphs, create a `.txt` file with one Panaroo output directory path per line, for example `paths.txt`. Then run:
 
 ```
 pangenomerge --component-graphs paths.tsv --outdir </path/to/outdir> --threads 16

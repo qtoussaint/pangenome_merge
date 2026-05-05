@@ -31,7 +31,7 @@ from pangenomerge.panaroo_functions.write_gml_metadata import format_metadata_fo
 from pangenomerge.panaroo_functions.context_search import collapse_families, single_linkage, collapse_spurious_paralogs
 from pangenomerge.panaroo_functions.merge_nodes import merge_node_cluster, gen_edge_iterables, gen_node_iterables, iter_del_dups, initial_graph_merge
 from pangenomerge.custom_functions.relabel_nodes import relabel_nodes_preserve_attrs,sync_names
-from pangenomerge.custom_functions.sqlite import sqlite_connect, sqlite_init_schema, sqlite_create_indexes, add_metadata_to_sqlite, add_isolate_names_to_sqlite, load_metadata_from_sqlite
+from pangenomerge.custom_functions.sqlite import sqlite_connect, sqlite_init_schema, sqlite_create_indexes, add_metadata_to_sqlite, add_isolate_names_to_sqlite, add_clusters_to_sqlite, load_metadata_from_sqlite
 
 from .__init__ import __version__
 
@@ -56,7 +56,7 @@ def get_options():
                     dest='component_graphs',
                     default=None,
                     required=False,
-                    help='Tab-separated list of paths to Panaroo output directories of component subgraphs. \
+                    help='Path to a text file with one Panaroo output directory path per line. \
                     Each directory must contain final_graph.gml and pan_genome_reference.fa. If running in test mode, \
                     must also contain gene_data.csv. Graphs will be merged in the order presented in the file.')
     IO.add_argument('--iterative',
@@ -78,6 +78,14 @@ def get_options():
                     required=False,
                     help='Retains metadata in the final graph GML (in addition to the SQLite database). Dramatically increases \
                     runtime and memory consumption. Not recommended with >10k isolates.')
+    IO.add_argument('--include-clusters',
+                    dest='include_clusters',
+                    default=None,
+                    required=False,
+                    help='Path to a PopPUNK clusters CSV (header: Taxon,Cluster). \
+                    If provided, populates isolate_names.poppunk_cluster in the SQLite. \
+                    Sample names in the CSV must match those in the input graphs; isolates \
+                    without a match are warned and stored as NULL.')
 
     parameters = parser.add_argument_group('Parameters')
     parameters.add_argument('--family-threshold',
@@ -143,6 +151,8 @@ def main():
     if options.frameshift_identity < options.family_threshold:
         logging.warning(f"--frameshift-identity ({options.frameshift_identity}) is below --family-threshold ({options.family_threshold}); "
                         f"frameshift pass would accept weaker hits than the family pass.")
+    if options.include_clusters is not None and not Path(options.include_clusters).exists():
+        logging.critical(f"--include-clusters file does not exist: {options.include_clusters}")
 
     # check whether metadata should be left in merged graph and provide warning
     if options.keep_metadata_in_graph is True:
@@ -895,6 +905,10 @@ def main():
         # print progress statement...
         logging.info(f"Iteration {graph_count} of {n_graphs-1} complete.")
     
+    # populate poppunk_cluster column from external clusters CSV if provided
+    if options.include_clusters is not None:
+        add_clusters_to_sqlite(con, options.include_clusters)
+
     # create indexes for SQLite database
     sqlite_create_indexes(con)
 

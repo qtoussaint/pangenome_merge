@@ -351,9 +351,6 @@ def generate_merge_figures(sqlite_path=None, output_dir=None, sqlite_cache=2000,
     cur.execute("SELECT COUNT(*) FROM node_members GROUP BY node_id")
     member_counts = [row[0] for row in cur.fetchall()]
 
-    if owns_con:
-        con.close()
-
     # Compute percentage of isolates each COG is found in
     pct_isolates = [100.0 * c / n_isolates for c in member_counts]
 
@@ -387,6 +384,99 @@ def generate_merge_figures(sqlite_path=None, output_dir=None, sqlite_cache=2000,
     fig_hist.savefig(hist_path, dpi=150)
     plt.close(fig_hist)
     logging.info(f"Wrote COG frequency histogram to {hist_path}")
+
+    # --- Per-COG strain (PopPUNK cluster) prevalence ---
+    cur.execute("""
+        SELECT graph_id, member_index, poppunk_cluster
+        FROM isolate_names
+        WHERE poppunk_cluster IS NOT NULL
+    """)
+    member_to_cluster = {f"{mi}_g{gid}": cl for (gid, mi, cl) in cur.fetchall()}
+    n_strains = len(set(member_to_cluster.values()))
+
+    if n_strains == 0:
+        logging.info("No PopPUNK clusters found in isolate_names; skipping strain-level histograms")
+    else:
+        node_to_strains = defaultdict(set)
+        for node_id, member in cur.execute("SELECT node_id, member FROM node_members"):
+            cl = member_to_cluster.get(member)
+            if cl is not None:
+                node_to_strains[node_id].add(cl)
+
+        strain_counts = [len(s) for s in node_to_strains.values()]
+        pct_strains = [100.0 * c / n_strains for c in strain_counts]
+
+        s_core = sum(1 for p in pct_strains if p >= 99)
+        s_soft = sum(1 for p in pct_strains if 95 <= p < 99)
+        s_shell = sum(1 for p in pct_strains if 15 <= p < 95)
+        s_cloud = sum(1 for p in pct_strains if p < 15)
+        with open(stats_path, "a") as f:
+            f.write(f"\n# Strain-level (PopPUNK cluster, n={n_strains})\n")
+            f.write(f"Core genes\t(99% <= strains <= 100%)\t{s_core}\n")
+            f.write(f"Soft core genes\t(95% <= strains < 99%)\t{s_soft}\n")
+            f.write(f"Shell genes\t(15% <= strains < 95%)\t{s_shell}\n")
+            f.write(f"Cloud genes\t(0% <= strains < 15%)\t{s_cloud}\n")
+
+        fig_sc, ax_sc = plt.subplots(figsize=(8, 5))
+        ax_sc.hist(strain_counts, bins=range(1, n_strains + 2),
+                   color='#2171b5', edgecolor='white', linewidth=0.3, align='left')
+        ax_sc.set_xlabel('number of strains')
+        ax_sc.set_ylabel('number of COGs')
+        ax_sc.set_title(f'COG Strain-Count Distribution (n_strains={n_strains})')
+        ax_sc.grid(True, alpha=0.3, axis='y')
+        fig_sc.tight_layout()
+        sc_path = output_dir / "cog_strain_count_histogram.png"
+        fig_sc.savefig(sc_path, dpi=150)
+        plt.close(fig_sc)
+        logging.info(f"Wrote COG strain-count histogram to {sc_path}")
+
+        fig_sp, ax_sp = plt.subplots(figsize=(8, 5))
+        ax_sp.hist(pct_strains, bins=100, range=(0, 100),
+                   color='#2171b5', edgecolor='white', linewidth=0.3)
+        ax_sp.set_xlabel('percentage of strains')
+        ax_sp.set_ylabel('number of COGs')
+        ax_sp.set_title('COG Strain Frequency Distribution')
+        ax_sp.grid(True, alpha=0.3, axis='y')
+        fig_sp.tight_layout()
+        sp_path = output_dir / "cog_strain_frequency_histogram.png"
+        fig_sp.savefig(sp_path, dpi=150)
+        plt.close(fig_sp)
+        logging.info(f"Wrote COG strain frequency histogram to {sp_path}")
+
+    # --- Multi-copy genes diagnostic: n_geneids vs. n_members per COG ---
+    cur.execute("SELECT node_id, COUNT(*) FROM node_geneids GROUP BY node_id")
+    geneids_per_node = dict(cur.fetchall())
+    cur.execute("SELECT node_id, COUNT(*) FROM node_members GROUP BY node_id")
+    members_per_node = dict(cur.fetchall())
+
+    mc_x = []
+    mc_y = []
+    for node_id, n_g in geneids_per_node.items():
+        n_m = members_per_node.get(node_id, 0)
+        if n_m > 0:
+            mc_x.append(n_m)
+            mc_y.append(n_g)
+
+    if mc_x:
+        fig_mc, ax_mc = plt.subplots(figsize=(8, 5))
+        ax_mc.scatter(mc_x, mc_y, alpha=0.3, color='#2171b5',
+                      s=12, edgecolor='none')
+        max_v = max(max(mc_x), max(mc_y))
+        ax_mc.plot([0, max_v], [0, max_v], color='red', linewidth=1)
+        ax_mc.set_xlim(0, max_v)
+        ax_mc.set_ylim(0, max_v)
+        ax_mc.set_xlabel('number of members (COG size)')
+        ax_mc.set_ylabel('number of geneids')
+        ax_mc.set_title('multi-copy genes')
+        ax_mc.grid(True, alpha=0.3)
+        fig_mc.tight_layout()
+        mc_path = output_dir / "multi_copy_genes.png"
+        fig_mc.savefig(mc_path, dpi=150)
+        plt.close(fig_mc)
+        logging.info(f"Wrote multi-copy genes plot to {mc_path}")
+
+    if owns_con:
+        con.close()
 
     # Build dataframe sorted by graph_id
     max_graph = max(nodes_per_graph.keys())

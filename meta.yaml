@@ -33,6 +33,7 @@ requirements:
     - scikit-learn
     - python-edlib
     - tqdm
+    - matplotlib-base
 
 test:
   imports:
