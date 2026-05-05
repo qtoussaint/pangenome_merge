@@ -1,4 +1,7 @@
 __pycache__*
 .ipynb_checkpoints
 
+.claude
+.claude/
+
 snakemake/.snakemake/
