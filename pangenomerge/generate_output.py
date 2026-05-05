@@ -629,7 +629,10 @@ def cli_main():
                         default='all',
                         help='Which outputs to generate: presenceabsence (Panaroo-format gene presence-absence tables), '
                              'genedata (Panaroo-format gene_data.csv), sequences (pangenome_sequences.sqlite), '
-                             'figures (merge statistics CSV and pangenome growth curve plot) (default: all)')
+                             'figures (merge statistics CSV and pangenome growth curve plot). '
+                             "'all' generates everything except gene_data.csv; pass --gene-data to include it (default: all)")
+    parser.add_argument('--gene-data', action='store_true', dest='gene_data',
+                        help='Also generate gene_data.csv alongside the outputs selected by --output.')
     parser.add_argument('--component-graphs', required=False, dest='component_graphs',
                         default=None,
                         help='Path to component graphs TSV (required for all outputs except figures)')
@@ -664,17 +667,19 @@ def cli_main():
     if args.output in ('all', 'presenceabsence') and args.gml is None:
         parser.error("--gml is required when --output is 'all' or 'presenceabsence'")
 
-    if args.output not in ('figures',) and args.component_graphs is None:
-        parser.error("--component-graphs is required when --output is not 'figures'")
+    needs_component_graphs = args.output != 'figures' or args.gene_data
+    if needs_component_graphs and args.component_graphs is None:
+        parser.error("--component-graphs is required unless --output is 'figures' without --gene-data")
 
     # Ingest gene annotations from component graphs (deferred from merge step)
-    if args.component_graphs is not None and args.output not in ('figures',):
+    if args.component_graphs is not None and (args.output != 'figures' or args.gene_data):
         meta_con = sqlite_connect(database=args.sqlite, sqlite_cache=args.sqlite_cache)
         ingest_gene_annotations(meta_con, args.component_graphs)
         meta_con.close()
 
     # Share a single read-only connection across output functions
-    needs_meta_con = args.output in ('all', 'presenceabsence', 'genedata', 'figures')
+    needs_meta_con = (args.output in ('all', 'presenceabsence', 'genedata', 'figures')
+                     or args.gene_data)
     if needs_meta_con:
         meta_con = sqlite_connect(database=args.sqlite, sqlite_cache=args.sqlite_cache)
         meta_con.execute("PRAGMA query_only=ON;")
@@ -688,7 +693,7 @@ def cli_main():
             con=meta_con,
         )
 
-    if args.output in ('all', 'genedata'):
+    if args.gene_data or args.output == 'genedata':
         generate_gene_data(
             output_dir=args.outdir,
             con=meta_con,
