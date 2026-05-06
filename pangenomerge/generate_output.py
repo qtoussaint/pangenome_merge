@@ -554,8 +554,8 @@ def generate_merge_figures(sqlite_path=None, output_dir=None, sqlite_cache=2000,
                       s=12, edgecolor='none')
         max_v = max(max(mc_x), max(mc_y))
         ax_mc.plot([0, max_v], [0, max_v], color='red', linewidth=1)
-        ax_mc.set_xlim(0, max_v)
-        ax_mc.set_ylim(0, max_v)
+        ax_mc.set_xlim(0, max_v * 1.05)
+        ax_mc.set_ylim(0, max_v * 1.05)
         ax_mc.set_xlabel('number of members (COG size)')
         ax_mc.set_ylabel('number of geneids')
         ax_mc.set_title('multi-copy genes')
@@ -565,6 +565,66 @@ def generate_merge_figures(sqlite_path=None, output_dir=None, sqlite_cache=2000,
         fig_mc.savefig(mc_path, dpi=150)
         plt.close(fig_mc)
         logging.info(f"Wrote multi-copy genes plot to {mc_path}")
+
+    # --- Multi-copy ratio diagnostic: (n_geneids / n_members) vs. n_members ---
+    mcr_x = []
+    mcr_y = []
+    mcr_nodes = []
+    for node_id, n_g in geneids_per_node.items():
+        n_m = members_per_node.get(node_id, 0)
+        if n_m > 0:
+            mcr_x.append(n_m)
+            mcr_y.append(n_g / n_m)
+            mcr_nodes.append(node_id)
+
+    if mcr_x:
+        max_y = max(mcr_y)
+        max_x = max(mcr_x)
+
+        fig_mcr, ax_mcr = plt.subplots(figsize=(8, 5))
+        ax_mcr.scatter(mcr_x, mcr_y, alpha=0.3, color='#2171b5',
+                       s=12, edgecolor='none')
+        ax_mcr.set_xlim(0, max_x * 1.05)
+        ax_mcr.set_ylim(top=max_y * 1.05)
+        ax_mcr.set_xlabel('number of members (COG size)')
+        ax_mcr.set_ylabel('number of geneids per member')
+        ax_mcr.set_title('multi-copy ratio')
+        ax_mcr.grid(True, alpha=0.3)
+        fig_mcr.tight_layout()
+        mcr_path = output_dir / "multi_copy_ratio.png"
+        fig_mcr.savefig(mcr_path, dpi=150)
+        plt.close(fig_mcr)
+        logging.info(f"Wrote multi-copy ratio plot to {mcr_path}")
+
+        # Labeled variant: annotate COGs significantly above ratio 1, capped at 50
+        ratio_threshold = 1.5
+        to_label = sorted(
+            (
+                (nid, x, y)
+                for nid, x, y in zip(mcr_nodes, mcr_x, mcr_y)
+                if y > ratio_threshold
+            ),
+            key=lambda t: t[2],
+            reverse=True,
+        )[:50]
+
+        fig_lbl, ax_lbl = plt.subplots(figsize=(8, 5))
+        ax_lbl.scatter(mcr_x, mcr_y, alpha=0.3, color='#2171b5',
+                       s=12, edgecolor='none')
+        for nid, x, y in to_label:
+            ax_lbl.annotate(str(nid), (x, y), fontsize=6,
+                            xytext=(3, 3), textcoords='offset points')
+        ax_lbl.set_xlim(0, max_x * 1.05)
+        ax_lbl.set_ylim(top=max_y * 1.05)
+        ax_lbl.set_xlabel('number of members (COG size)')
+        ax_lbl.set_ylabel('number of geneids per member')
+        ax_lbl.set_title(f'multi-copy ratio (top {len(to_label)} COGs labeled)')
+        ax_lbl.grid(True, alpha=0.3)
+        fig_lbl.tight_layout()
+        lbl_path = output_dir / "multi_copy_ratio_labeled.png"
+        fig_lbl.savefig(lbl_path, dpi=150)
+        plt.close(fig_lbl)
+        logging.info(f"Wrote labeled multi-copy ratio plot to {lbl_path}")
 
     if owns_con:
         con.close()
