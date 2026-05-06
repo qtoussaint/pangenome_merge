@@ -20,6 +20,10 @@ def context_similarity_seq(G: nx.Graph, nA, nB, ident_lookup: dict, depth: int =
     if depth == 1:
         neighA = set(G.neighbors(nA))
         neighB = set(G.neighbors(nB))
+
+        #print(f"depth 1 neighA - should be node names! {neighA}")
+        #print(f"depth 1 neighB - should be node names! {neighB}")
+
     else:
 
         # use BFS expansion for larger depth
@@ -29,6 +33,10 @@ def context_similarity_seq(G: nx.Graph, nA, nB, ident_lookup: dict, depth: int =
         # need to discard nA/nB since BFS includes self nodes
         neighA.discard(nA)
         neighB.discard(nB)
+
+    # if any neighbor node name is shared between neighborhoods, identity is trivially 1.0
+    if not neighA.isdisjoint(neighB):
+        return 1.0
 
     best = 0.0
     for ca, cb in product(neighA, neighB):
@@ -52,7 +60,7 @@ def score_pair_context(row: dict):
     s2 = s1 if s1 >= 0.9 else context_similarity_seq(G, nA, nB, ident_lookup, depth=2)
     s3 = s2 if s2 >= 0.9 else context_similarity_seq(G, nA, nB, ident_lookup, depth=3)
     sims = [s1, s2, s3]
-    
+
     return (nA, nB, ident, sims)
 
 # initialize global graph object, ident lookup for // computation without pickling

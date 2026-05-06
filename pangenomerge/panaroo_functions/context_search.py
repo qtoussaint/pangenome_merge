@@ -1,6 +1,14 @@
+import logging
+from pathlib import Path
+
 import networkx as nx
+import numpy as np
+import pandas as pd
+
 from pangenomerge.panaroo_functions.cdhit import *
 from pangenomerge.panaroo_functions.merge_nodes import *
+from pangenomerge.custom_functions.run_mmseqs import mmseqs_createdb, run_mmseqs_search
+from pangenomerge.custom_functions.context_similarity import build_ident_lookup, init_parallel, compute_scores_parallel
 
 
 # add collapse families from Panaroo
@@ -316,3 +324,237 @@ def collapse_families(G,
                     search_space.remove(node)
 
     return G, distances_bwtn_centroids, centroid_to_index
+
+
+def write_centroids_to_fasta(G, query_fa):
+    with open(query_fa, "w") as ft:
+        for node, data in G.nodes(data=True):
+            name = node
+            #if name.endswith("_target") or "_target" in name:
+                # pre-existing nodes -- already in target db
+            #    continue
+            #else:
+            # new nodes
+            seqs = data["protein"]
+            if isinstance(seqs, (list, tuple)):
+                seqs = max(seqs, key=len) # if list, pick longest sequence
+            if isinstance(seqs, str):
+                parts = seqs.split(";") # if string split on semicolon and pick longest
+                seqs = max(parts, key=len)
+            seqs = seqs.rstrip('*') # remove trailing stop
+            name = node
+            ft.write(f">{name}\n{seqs}\n")
+
+
+def filter_mmseqs_to_current_nodes(mmseqs_frame, G):
+    current_nodes = set(G.nodes())
+    mask = mmseqs_frame["query"].isin(current_nodes) & mmseqs_frame["target"].isin(current_nodes)
+    return mmseqs_frame[mask].copy()
+
+
+def find_mergeable_pairs(G, mmseqs_frame, ident_lookup, context_threshold, identity_threshold, threads):
+    init_parallel(G, ident_lookup, context_threshold)
+    scores = compute_scores_parallel(mmseqs_frame, threads)
+
+    # debug statement...
+    logging.debug(f"scores: {scores[:5]}")
+
+    # sort dataframe by scores
+    scores_sorted = sorted(
+        scores,
+        key=lambda x: (x[2], x[3][0], x[3][1], x[3][2]),
+        reverse=True
+    )
+
+    # debug statement...
+    logging.debug(f"scores_sorted: {scores_sorted[:5]}")
+
+    # filter accepted pairs by identity + context thresholds
+    accepted_pairs = []
+    for nA, nB, ident, sims in scores_sorted:
+        if (
+            ident >= identity_threshold
+            and sims[0] >= context_threshold
+            and (sims[1] >= context_threshold or sims[2] >= context_threshold)
+            and set(G.nodes[nA]['members']).isdisjoint(set(G.nodes[nB]['members'])) # check they do not share any members (genes within same genome will not be merged)
+        ):
+            accepted_pairs.append((nA, nB, ident, sims))
+
+    # debug statement...
+    logging.debug(f"accepted pairs (by context): {accepted_pairs[:10]}")
+
+    # filter out any duplicates (in order, so best match kept)
+    unique_pairs = []
+    seen_nodes = set()
+    for nA, nB, ident, sims in accepted_pairs:
+        if nA not in seen_nodes and nB not in seen_nodes:
+            unique_pairs.append((nA, nB, ident, sims))
+            seen_nodes.add(nA)
+            seen_nodes.add(nB)
+
+    # debug statement...
+    logging.debug(f"accepted pairs (duplicates removed): {accepted_pairs[:10]}")
+
+    # reorder to ensure 'a' is always the node with '_target'
+    reordered_pairs = []
+    for a, b, ident, sims in unique_pairs:
+        if "_target" in b and "_target" not in a:
+            a, b = b, a
+        reordered_pairs.append((a, b))
+
+    # debug statement...
+    logging.debug(f"accepted pairs (reordered): {reordered_pairs[:10]}")
+
+    return reordered_pairs
+
+
+def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
+                               family_threshold, context_threshold,
+                               frameshift_identity, frameshift_coverage,
+                               context_search_iterations=-1):
+
+    # write query centroid fasta (stream to reduce memory)
+    query_fa = Path(outdir) / "mmseqs_tmp" / "centroids_query.fa"
+    write_centroids_to_fasta(merged_graph, query_fa)
+
+    # info statement
+    logging.info("Computing pairwise identities...")
+
+    # info statement...
+    logging.info("Creating MMSeqs2 database...")
+
+    # create AA mmseqs database for query
+    query_db = Path(outdir) / "mmseqs_tmp" / "query_db"
+    mmseqs_createdb(fasta=query_fa, outdb=query_db, threads=options.threads, nt2aa=False)
+
+    # info statement...
+    logging.info("Running MMSeqs2...")
+
+    # run mmseqs to get hits, keeping only those above the minimum useful threshold (family_threshold, which is LOWER than context threshold)
+    run_mmseqs_search(
+        targetdb=base_db,
+        querydb=query_db,
+        resultdb = str(Path(outdir) / "mmseqs_tmp" / "resultdb"),
+        resultm8=str(Path(outdir) / "mmseqs_tmp" / "mmseqs_clusters.m8"),
+        tmpdir=str(Path(outdir) / "mmseqs_tmp"),
+        threads=options.threads,
+        fident=family_threshold,
+        coverage=float(round(min(family_threshold * 0.95, frameshift_coverage), 3))
+    )
+
+    # info statement...
+    logging.info("MMSeqs2 complete. Reading and filtering results...")
+
+    # read mmseqs results
+    mmseqs = pd.read_csv(Path(outdir) / "mmseqs_tmp" / "mmseqs_clusters.m8", sep="\t")
+
+    # debugging statements...
+    logging.debug(f"Unfiltered: {len(mmseqs)} one-to-one hits.")
+    logging.debug(f"{mmseqs}")
+
+    # ensure numeric columns
+    for col in ["fident", "evalue", "tlen", "qlen"]:
+        mmseqs[col] = pd.to_numeric(mmseqs[col], errors="coerce")
+
+    # define length difference
+    max_len = np.maximum(mmseqs["tlen"], mmseqs["qlen"])
+    mmseqs["len_dif"] = 1 - (np.abs(mmseqs["tlen"] - mmseqs["qlen"]) / max_len)
+
+    # per-row bidirectional coverage (cov-mode 0 style): min of query-cov and target-cov
+    mmseqs["cov"] = np.minimum(mmseqs["alnlen"] / mmseqs["qlen"], mmseqs["alnlen"] / mmseqs["tlen"])
+
+    # remove self-matches (target == query) once, up front so both pass-1 and frameshift frames inherit it
+    mmseqs = mmseqs[mmseqs["target"] != mmseqs["query"]].copy()
+
+    # carve out frameshift (pass-2) hits BEFORE pass-1 filter narrows mmseqs:
+    # higher identity, lower coverage, no len_dif requirement (frameshifts create length differences by design)
+    mmseqs_frameshift = mmseqs[(mmseqs["fident"] >= frameshift_identity) & (mmseqs["cov"] >= frameshift_coverage)].copy()
+    mmseqs_frameshift["target"] += "_target"
+
+    # filter for identity ≥ family_threshold, length difference ≥ family_threshold*0.95, and coverage ≥ family_threshold*0.95
+    # (cov clause re-imposes what MMSeqs -c used to enforce before we lowered the search floor for the frameshift pass)
+    mmseqs = mmseqs[(mmseqs["fident"] >= family_threshold) & (mmseqs["len_dif"] >= family_threshold*0.95) & (mmseqs["cov"] >= family_threshold*0.95)].copy()
+
+    # add _target to target node names
+    # possibly pretty memory/time intensive for big dataframes, see if can make this more efficient later
+    mmseqs["target"] += "_target"
+
+    # debugging statements...
+    logging.debug(f"mmseqs filtered: {len(mmseqs)} hits remaining")
+    logging.debug(f"filtered mmseqs hits: {mmseqs.head()}")
+
+    # info statement...
+    logging.debug(f"Beginning context search...")
+
+    ### compute contextual similarity
+
+    # can still accidentally map together things from same genome by mapping a target node that's been merged into with a g2 node
+    # thus we check that member sets for the nodes are disjoint (don't contain any of the same genomes)
+
+    ident_lookup = build_ident_lookup(mmseqs)
+
+    # build frameshift ident lookup ONCE — depends only on hit tables, not graph state
+    if len(mmseqs_frameshift) > 0:
+        ident_lookup_frameshift = build_ident_lookup(pd.concat([mmseqs, mmseqs_frameshift], ignore_index=True))
+    else:
+        ident_lookup_frameshift = None
+
+    # info statement...
+    logging.info("Merging nodes and edges...")
+
+    ### strict alternating fixed-point: one family round, then one frameshift round, repeat.
+    ###   exits when a full outer iteration (family + frameshift) produces 0 merges ⇒ graph is stable.
+    ###   context_search_iterations caps outer iterations (-1 = unlimited).
+    # mmseqs_frameshift: persistently shrunk each outer iteration as graph nodes decrease, avoiding redundant isin work.
+    outer_iteration = 0
+    while context_search_iterations < 0 or outer_iteration < context_search_iterations:
+        outer_iteration += 1
+        any_merged = False
+
+        # --- single family-style round ---
+        mmseqs_cur = filter_mmseqs_to_current_nodes(mmseqs, merged_graph)
+        if len(mmseqs_cur) == 0:
+            logging.info(f"Outer {outer_iteration} family: no hits survive staleness filter.")
+        else:
+            pairs_iter = find_mergeable_pairs(
+                merged_graph, mmseqs_cur, ident_lookup,
+                context_threshold, family_threshold, options.threads
+            )
+            if len(pairs_iter) == 0:
+                logging.info(f"Outer {outer_iteration} family: no new mergeable pairs.")
+            else:
+                logging.info(f"Outer {outer_iteration} family: merging {len(pairs_iter)} pairs.")
+                apply_merges(merged_graph, pairs_iter)
+                any_merged = True
+
+        logging.debug(f"After outer {outer_iteration} family: {len(merged_graph.nodes())} nodes")
+
+        # --- single frameshift round on full current graph ---
+        if ident_lookup_frameshift is not None and len(mmseqs_frameshift) > 0:
+            mmseqs_frameshift = filter_mmseqs_to_current_nodes(mmseqs_frameshift, merged_graph)
+            logging.info(f"Outer {outer_iteration} frameshift: {len(mmseqs_frameshift)} frameshift hits on current graph.")
+            if len(mmseqs_frameshift) > 0:
+                pairs_fs = find_mergeable_pairs(
+                    merged_graph, mmseqs_frameshift, ident_lookup_frameshift,
+                    context_threshold, frameshift_identity, options.threads
+                )
+                if len(pairs_fs) > 0:
+                    logging.info(f"Outer {outer_iteration} frameshift: merging {len(pairs_fs)} pairs.")
+                    apply_merges(merged_graph, pairs_fs)
+                    any_merged = True
+
+        logging.debug(f"After outer {outer_iteration}: {len(merged_graph.nodes())} nodes")
+
+        # Fixed point: neither pass produced any merges this round ⇒ graph is stable under both.
+        if not any_merged:
+            logging.info(f"Outer loop: fixed point reached after {outer_iteration} iteration(s).")
+            break
+    else:
+        logging.info(f"Outer loop: reached max iterations ({context_search_iterations}); stopping.")
+
+    # update degrees across graph (single pass, after both family + frameshift merges)
+    for node in merged_graph:
+        merged_graph.nodes[node]["degrees"] = int(merged_graph.degree[node])
+
+    # debug statement...
+    logging.debug(f"After collapse: {len(merged_graph.nodes())} nodes")

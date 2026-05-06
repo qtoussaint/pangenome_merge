@@ -60,11 +60,14 @@ split_clusters <- names(counts)[split]
 for (cl in split_clusters) {
   idx <- which(assemblies$V2 == cl)
   n <- length(idx)
-  half <- ceiling(n / 2)
-
-  # split roughly in half 
-  assemblies$V2[idx[1:half]] <- paste0(cl, "a")
-  assemblies$V2[idx[(half + 1):n]] <- paste0(cl, "b")
+  n_pieces <- ceiling(n / max_count)
+  if (n_pieces > 26) {
+    stop(sprintf("Cluster %s needs %d sub-clusters; suffix scheme supports max 26. Lower max_count or extend suffixes.",
+                 cl, n_pieces))
+  }
+  chunk_size <- ceiling(n / n_pieces)
+  pieces <- ((seq_len(n) - 1) %/% chunk_size) + 1
+  assemblies$V2[idx] <- paste0(cl, letters[pieces])
 }
 
 # check that merged file won't be too large

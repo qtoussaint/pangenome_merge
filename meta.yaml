@@ -1,5 +1,5 @@
 {% set name = "pangenomerge" %}
-{% set version = "0.9.1" %}
+{% set version = "0.9.2" %}
 
 package:
   name: {{ name|lower }}
@@ -33,12 +33,24 @@ requirements:
     - scikit-learn
     - python-edlib
     - tqdm
+    - matplotlib-base
 
 test:
   imports:
     - pangenomerge
+    - pangenomerge.custom_functions.manipulate_seqids
+    - pangenomerge.custom_functions.run_mmseqs
+    - pangenomerge.custom_functions.sqlite
+    - pangenomerge.custom_functions.relabel_nodes
+    - pangenomerge.custom_functions.context_similarity
+    - pangenomerge.panaroo_functions.load_graphs
+    - pangenomerge.panaroo_functions.context_search
+    - pangenomerge.panaroo_functions.merge_nodes
+    - pangenomerge.panaroo_functions.cdhit
+    - pangenomerge.panaroo_functions.write_gml_metadata
   commands:
-    - python -c "import pangenomerge; print(pangenomerge.__version__)"
+    - pangenomerge --version
+    - pangenomerge-postprocess --help
 
 about:
   home: https://github.com/qtoussaint/pangenome_merge

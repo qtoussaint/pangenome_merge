@@ -83,10 +83,10 @@ pangenomerge --version
 
 # Quickstart
 
-To merge two or more Panaroo pangenome graphs, create a TSV containing the paths to each Panaroo output directory, for example `paths.tsv`. Then run:
+To merge two or more Panaroo pangenome graphs, create a `.txt` file with one Panaroo output directory path per line, for example `paths.txt`. Then run:
 
 ```
-pangenomerge --component-graphs paths.tsv --outdir </path/to/outdir> --threads 16
+pangenomerge --component-graphs paths.txt --outdir </path/to/outdir> --threads 16
 ```
 > [!TIP]
 > Make sure to provide paths to the Panaroo _directories_, not the `final_graph.gml` files they contain.
@@ -96,6 +96,7 @@ This will generate the following in your results directory:
   - `intermediate_graphs/merged_graph_<index>.gml`: checkpoint graphs from each merge iteration
   - `pangenome_reference_aa/`: an MMseqs2 amino acid database containing representative protein sequences for each node (COG) in the final graph
   - `pangenome_metadata.sqlite`: an SQLite database containing all metadata for the final merged graph
+  - `summary_statistics.txt`: core / soft-core / shell / cloud gene counts (with a strain-level breakdown if PopPUNK clusters were provided via `--include-clusters`)
 
 ## Generating additional outputs
 
@@ -111,22 +112,29 @@ This will generate the following in your results directory:
 After a merge, use `pangenomerge-postprocess` to generate Panaroo-format output files:
 
 ```
-pangenomerge-postprocess --sqlite </path/to/pangenome_metadata.sqlite> --gml </path/to/final_graph.gml> --component-graphs </path/to/paths.tsv> --outdir </path/to/outdir>
+pangenomerge-postprocess --pangenomerge-results </path/to/pangenomerge_outdir> --component-graphs </path/to/paths.txt>
+```
+
+To specify pangenomerge files individually, such as for results with nonstandard filenames or locations, you can use individual flags instead:
+
+```
+pangenomerge-postprocess --sqlite </path/to/pangenome_metadata.sqlite> --gml </path/to/final_graph.gml> --component-graphs </path/to/paths.txt> --outdir </path/to/outdir>
 ```
 
 This generates:
   - `gene_presence_absence_roary.csv`: Roary-format gene presence/absence matrix (14 metadata columns + one column per isolate)
   - `gene_presence_absence.csv`: simplified gene presence/absence matrix (3 metadata columns + one column per isolate)
   - `gene_presence_absence.Rtab`: binary presence/absence matrix
-  - `gene_data.csv`: per-gene annotation data (Panaroo format)
   - `pangenome_sequences.sqlite`: deduplicated, compressed per-gene DNA and protein sequences, queryable by node/COG
-  - merge statistics CSV and pangenome growth curve plot (via `--output figures`)
+  - figures: COG frequency histograms (plus strain-level versions when `--include-clusters` was provided at merge time), multi-copy gene plots, `merge_statistics.csv`, and `pangenome_growth_curve.png`
+
+`gene_data.csv` (Panaroo per-gene annotation) is **not** included by `--output all` because it can be very large; pass `--gene-data` to add it, or use `--output genedata` to generate it on its own.
 
 You can generate specific outputs using `--output`:
 ```
 pangenomerge-postprocess --sqlite db.sqlite --gml graph.gml --outdir out/ --output presenceabsence
-pangenomerge-postprocess --sqlite db.sqlite --component-graphs paths.tsv --outdir out/ --output genedata
-pangenomerge-postprocess --sqlite db.sqlite --component-graphs paths.tsv --outdir out/ --output sequences
+pangenomerge-postprocess --sqlite db.sqlite --component-graphs paths.txt --outdir out/ --output genedata
+pangenomerge-postprocess --sqlite db.sqlite --component-graphs paths.txt --outdir out/ --output sequences
 pangenomerge-postprocess --sqlite db.sqlite --outdir out/ --output figures
 ```
 
@@ -200,36 +208,87 @@ To run pangenomerge from Snakemake, follow the steps in `snakemake/example_slurm
 ## pangenomerge
 
 ```
-usage: pangenomerge [-h] [--mode {run,test}] --outdir OUTDIR [--component-graphs COMPONENT_GRAPHS] [--iterative ITERATIVE] [--graph-all GRAPH_ALL] [--metadata-in-graph KEEP_METADATA_IN_GRAPH] [--family-threshold FAMILY_THRESHOLD] [--context-threshold CONTEXT_THRESHOLD] [--threads THREADS] [--sqlite-cache SQLITE_CACHE]
+usage: pangenomerge [-h] [--mode {run,test}] --outdir OUTDIR
+                    [--component-graphs COMPONENT_GRAPHS]
+                    [--iterative ITERATIVE] [--graph-all GRAPH_ALL]
+                    [--metadata-in-graph KEEP_METADATA_IN_GRAPH]
+                    [--include-clusters INCLUDE_CLUSTERS]
+                    [--family-threshold FAMILY_THRESHOLD]
+                    [--context-threshold CONTEXT_THRESHOLD]
+                    [--frameshift-coverage FRAMESHIFT_COVERAGE]
+                    [--frameshift-identity FRAMESHIFT_IDENTITY]
+                    [--context-search-iterations CONTEXT_SEARCH_ITERATIONS]
+                    [--threads THREADS] [--sqlite-cache SQLITE_CACHE]
                     [--debug] [--version]
 
-Merges two or more Panaroo pangenome gene graphs, or iteratively updates an existing graph.
+Merges two or more Panaroo pangenome gene graphs, or iteratively updates an
+existing graph.
 
 options:
   -h, --help            show this help message and exit
 
 Input and output options:
-  --mode {run,test}     Run pangenome gene graph merge ("run") or calculate clustering accuracy metrics for merge ("test"). [Default = Run]
+  --mode {run,test}     Run pangenome gene graph merge ("run") or calculate
+                        clustering accuracy metrics for merge ("test").
+                        [Default = Run]
   --outdir OUTDIR       Output directory.
   --component-graphs COMPONENT_GRAPHS
-                        Tab-separated list of paths to Panaroo output directories of component subgraphs. Each directory must contain final_graph.gml and pan_genome_reference.fa. If running in test mode, must also contain gene_data.csv. Graphs will be merged in the order presented in the file.
+                        Path to a text file with one Panaroo output directory
+                        path per line. Each directory must contain
+                        final_graph.gml and pan_genome_reference.fa. If
+                        running in test mode, must also contain gene_data.csv.
+                        Graphs will be merged in the order presented in the
+                        file.
   --iterative ITERATIVE
-                        Tab-separated list of GFFs and their sample IDs for iterative updating of the graph. Use only for single samples or sets of samples too diverse to create an initial pangenome. Samples will be merged in the order presented in the file.
+                        Tab-separated list of GFFs and their sample IDs for
+                        iterative updating of the graph. Use only for single
+                        samples or sets of samples too diverse to create an
+                        initial pangenome. Samples will be merged in the order
+                        presented in the file.
   --graph-all GRAPH_ALL
-                        Path to Panaroo output directory of pangenome gene graph created from all samples in component-graphs. Only required for the test case, where it is used as the ground truth.
+                        Path to Panaroo output directory of pangenome gene
+                        graph created from all samples in component-graphs.
+                        Only required for the test case, where it is used as
+                        the ground truth.
   --metadata-in-graph KEEP_METADATA_IN_GRAPH
-                        Retains metadata in the final graph GML (in addition to the SQLite database). Dramatically increases runtime and memory consumption. Not recommended with >10k isolates.
+                        Retains metadata in the final graph GML (in addition
+                        to the SQLite database). Dramatically increases
+                        runtime and memory consumption. Not recommended with
+                        >10k isolates.
+  --include-clusters INCLUDE_CLUSTERS
+                        Path to a PopPUNK clusters CSV (header:
+                        Taxon,Cluster). If provided, populates
+                        isolate_names.poppunk_cluster in the SQLite. Sample
+                        names in the CSV must match those in the input graphs;
+                        isolates without a match are warned and stored as
+                        NULL.
 
 Parameters:
   --family-threshold FAMILY_THRESHOLD
-                        Sequence identity threshold for putative spurious paralogs. Default: 0.7
+                        Sequence identity threshold for putative spurious
+                        paralogs. Default: 0.7
   --context-threshold CONTEXT_THRESHOLD
-                        Sequence identity threshold for neighbors of putative spurious paralogs. Default: 0.7
+                        Sequence identity threshold for neighbors of putative
+                        spurious paralogs. Default: 0.7
+  --frameshift-coverage FRAMESHIFT_COVERAGE
+                        Coverage threshold for frameshift second-pass merge
+                        (catches truncated/frameshifted variants). Default:
+                        0.5
+  --frameshift-identity FRAMESHIFT_IDENTITY
+                        Sequence identity threshold for frameshift second-pass
+                        merge. Default: 0.95
+  --context-search-iterations CONTEXT_SEARCH_ITERATIONS
+                        Max outer rounds of the alternating context/frameshift
+                        merge loop (family inner loop always runs to its own
+                        fixed point). -1 = run until no new pairs merge.
+                        Default: -1
 
 Other options:
   --threads THREADS     Number of threads
   --sqlite-cache SQLITE_CACHE
-                        Desired size of SQLite cache expressed in KB. Diminishing returns above 1 GB (1048576 KB). Defaults to 2000 KB.
+                        Desired size of SQLite cache expressed in KB.
+                        Diminishing returns above 1 GB (1048576 KB). Defaults
+                        to 2000 KB.
   --debug               Set logging to 'debug' instead of 'info' (default)
   --version             show program's version number and exit
 ```
@@ -237,26 +296,50 @@ Other options:
 ## pangenomerge-postprocess
 
 ```
-usage: pangenomerge-postprocess [-h] --sqlite SQLITE [--gml GML] --outdir OUTDIR
-                           [--output {all,presenceabsence,genedata,sequences,figures}]
-                           [--component-graphs COMPONENT_GRAPHS]
-                           [--sequences-sqlite SEQUENCES_SQLITE]
-                           [--sqlite-cache SQLITE_CACHE]
+usage: pangenomerge-postprocess [-h]
+                                [--pangenomerge-results PANGENOMERGE_RESULTS]
+                                [--sqlite SQLITE] [--gml GML]
+                                [--outdir OUTDIR]
+                                [--output {all,presenceabsence,genedata,sequences,figures}]
+                                [--gene-data]
+                                [--component-graphs COMPONENT_GRAPHS]
+                                [--sequences-sqlite SEQUENCES_SQLITE]
+                                [--sqlite-cache SQLITE_CACHE]
 
 Generate Panaroo-format output files from pangenomerge output
 
 options:
   -h, --help            show this help message and exit
+  --pangenomerge-results PANGENOMERGE_RESULTS
+                        Path to a pangenomerge output directory containing the
+                        --sqlite, --gml, and --sequences-sqlite inputs.
+                        Mutually exclusive with those flags. When set,
+                        --outdir defaults to <pangenomerge-
+                        results>/postprocessing.
   --sqlite SQLITE       Path to pangenome_metadata.sqlite
-  --gml GML             Path to final_graph.gml (required for gene presence-absence output)
-  --outdir OUTDIR       Output directory for generated files
+  --gml GML             Path to final_graph.gml (required for gene presence-
+                        absence output)
+  --outdir OUTDIR       Output directory for generated files (default:
+                        <pangenomerge-results>/postprocessing when
+                        --pangenomerge-results is set)
   --output {all,presenceabsence,genedata,sequences,figures}
-                        Which outputs to generate: presenceabsence (Panaroo-format gene
-                        presence-absence tables), genedata (Panaroo-format gene_data.csv),
-                        sequences (pangenome_sequences.sqlite), figures (merge statistics CSV
-                        and pangenome growth curve plot) (default: all)
+                        Which outputs to generate: presenceabsence (Panaroo-
+                        format gene presence-absence tables), genedata
+                        (Panaroo-format gene_data.csv), sequences
+                        (pangenome_sequences.sqlite), figures (COG frequency
+                        histograms, multi-copy gene plots,
+                        merge_statistics.csv, pangenome_growth_curve.png;
+                        strain-level histograms additionally generated when
+                        --include-clusters was passed at merge time). 'all'
+                        generates everything except gene_data.csv; pass
+                        --gene-data to include it (default: all)
+  --gene-data           Also generate gene_data.csv alongside the outputs
+                        selected by --output.
   --component-graphs COMPONENT_GRAPHS
-                        Path to component graphs TSV (required for all outputs except figures)
+                        Path to text file with one Panaroo output directory
+                        path per line (same file used for pangenomerge
+                        --component-graphs). Required for all outputs except
+                        --output 'figures' without --gene-data.
   --sequences-sqlite SEQUENCES_SQLITE
                         Path to pangenome_sequences.sqlite (default:
                         pangenome_sequences.sqlite in same dir as --sqlite)

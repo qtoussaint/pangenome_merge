@@ -312,6 +312,98 @@ def generate_gene_data(sqlite_path=None, output_dir=None, sqlite_cache=2000, con
     logging.info(f"Wrote {n_rows} gene entries to {gene_data_path}")
 
 
+def generate_summary_statistics(sqlite_path=None, output_dir=None, sqlite_cache=2000, con=None):
+    """Write summary_statistics.txt: core / soft-core / shell / cloud gene counts.
+
+    Appends a strain-level (PopPUNK cluster) section when clusters are present.
+    """
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    owns_con = con is None
+    if owns_con:
+        con = sqlite_connect(database=sqlite_path, sqlite_cache=sqlite_cache)
+        con.execute("PRAGMA query_only=ON;")
+    cur = con.cursor()
+
+    cur.execute("SELECT COUNT(*) FROM isolate_names")
+    n_isolates = cur.fetchone()[0]
+
+    cur.execute("SELECT COUNT(*) FROM node_members GROUP BY node_id")
+    member_counts = [row[0] for row in cur.fetchall()]
+
+    if not member_counts:
+        logging.warning("No nodes found in database; skipping summary statistics")
+        if owns_con:
+            con.close()
+        return
+
+    pct_isolates = [100.0 * c / n_isolates for c in member_counts]
+
+    core = sum(1 for p in pct_isolates if p >= 99)
+    soft_core = sum(1 for p in pct_isolates if 95 <= p < 99)
+    shell = sum(1 for p in pct_isolates if 15 <= p < 95)
+    cloud = sum(1 for p in pct_isolates if p < 15)
+    total = len(pct_isolates)
+
+    core_coarse = sum(1 for p in pct_isolates if p >= 95)
+    intermediate = sum(1 for p in pct_isolates if 15 <= p < 95)
+    rare = sum(1 for p in pct_isolates if p < 15)
+
+    stats_path = output_dir / "summary_statistics.txt"
+    with open(stats_path, "w") as f:
+        f.write(f"Core genes\t(99% <= isolates <= 100%)\t{core}\n")
+        f.write(f"Soft core genes\t(95% <= isolates < 99%)\t{soft_core}\n")
+        f.write(f"Shell genes\t(15% <= isolates < 95%)\t{shell}\n")
+        f.write(f"Cloud genes\t(0% <= isolates < 15%)\t{cloud}\n")
+        f.write(f"Total genes\t(0% <= isolates <= 100%)\t{total}\n")
+        f.write(f"\n# Coarse categories (rare / intermediate / core)\n")
+        f.write(f"Core genes\t(95% <= isolates <= 100%)\t{core_coarse}\n")
+        f.write(f"Intermediate genes\t(15% <= isolates < 95%)\t{intermediate}\n")
+        f.write(f"Rare genes\t(0% <= isolates < 15%)\t{rare}\n")
+    logging.info(f"Wrote summary statistics to {stats_path}")
+
+    cur.execute("""
+        SELECT graph_id, member_index, poppunk_cluster
+        FROM isolate_names
+        WHERE poppunk_cluster IS NOT NULL
+    """)
+    member_to_cluster = {f"{mi}_g{gid}": cl for (gid, mi, cl) in cur.fetchall()}
+    n_strains = len(set(member_to_cluster.values()))
+
+    if n_strains > 0:
+        node_to_strains = defaultdict(set)
+        for node_id, member in cur.execute("SELECT node_id, member FROM node_members"):
+            cl = member_to_cluster.get(member)
+            if cl is not None:
+                node_to_strains[node_id].add(cl)
+
+        strain_counts = [len(s) for s in node_to_strains.values()]
+        pct_strains = [100.0 * c / n_strains for c in strain_counts]
+
+        s_core = sum(1 for p in pct_strains if p >= 99)
+        s_soft = sum(1 for p in pct_strains if 95 <= p < 99)
+        s_shell = sum(1 for p in pct_strains if 15 <= p < 95)
+        s_cloud = sum(1 for p in pct_strains if p < 15)
+        s_core_coarse = sum(1 for p in pct_strains if p >= 95)
+        s_intermediate = sum(1 for p in pct_strains if 15 <= p < 95)
+        s_rare = sum(1 for p in pct_strains if p < 15)
+        with open(stats_path, "a") as f:
+            f.write(f"\n# Strain-level (PopPUNK cluster, n={n_strains})\n")
+            f.write(f"Core genes\t(99% <= strains <= 100%)\t{s_core}\n")
+            f.write(f"Soft core genes\t(95% <= strains < 99%)\t{s_soft}\n")
+            f.write(f"Shell genes\t(15% <= strains < 95%)\t{s_shell}\n")
+            f.write(f"Cloud genes\t(0% <= strains < 15%)\t{s_cloud}\n")
+            f.write(f"\n# Coarse categories (rare / intermediate / core)\n")
+            f.write(f"Core genes\t(95% <= strains <= 100%)\t{s_core_coarse}\n")
+            f.write(f"Intermediate genes\t(15% <= strains < 95%)\t{s_intermediate}\n")
+            f.write(f"Rare genes\t(0% <= strains < 15%)\t{s_rare}\n")
+
+    if owns_con:
+        con.close()
+
+
 def generate_merge_figures(sqlite_path=None, output_dir=None, sqlite_cache=2000, con=None):
     """Generate per-graph merge statistics CSV and pangenome growth curve plot."""
 
@@ -344,34 +436,15 @@ def generate_merge_figures(sqlite_path=None, output_dir=None, sqlite_cache=2000,
     cur.execute("SELECT graph_id, COUNT(*) FROM isolate_names GROUP BY graph_id")
     samples_per_graph = dict(cur.fetchall())
 
-    # --- Per-COG isolate prevalence for summary stats and histogram ---
+    # --- Per-COG isolate prevalence for histogram ---
     cur.execute("SELECT COUNT(*) FROM isolate_names")
     n_isolates = cur.fetchone()[0]
 
     cur.execute("SELECT COUNT(*) FROM node_members GROUP BY node_id")
     member_counts = [row[0] for row in cur.fetchall()]
 
-    if owns_con:
-        con.close()
-
     # Compute percentage of isolates each COG is found in
     pct_isolates = [100.0 * c / n_isolates for c in member_counts]
-
-    # Classify into Panaroo-style bins
-    core = sum(1 for p in pct_isolates if p >= 99)
-    soft_core = sum(1 for p in pct_isolates if 95 <= p < 99)
-    shell = sum(1 for p in pct_isolates if 15 <= p < 95)
-    cloud = sum(1 for p in pct_isolates if p < 15)
-    total = len(pct_isolates)
-
-    stats_path = output_dir / "summary_statistics.txt"
-    with open(stats_path, "w") as f:
-        f.write(f"Core genes\t(99% <= isolates <= 100%)\t{core}\n")
-        f.write(f"Soft core genes\t(95% <= isolates < 99%)\t{soft_core}\n")
-        f.write(f"Shell genes\t(15% <= isolates < 95%)\t{shell}\n")
-        f.write(f"Cloud genes\t(0% <= isolates < 15%)\t{cloud}\n")
-        f.write(f"Total genes\t(0% <= isolates <= 100%)\t{total}\n")
-    logging.info(f"Wrote summary statistics to {stats_path}")
 
     # Plot U-shaped COG frequency histogram
     fig_hist, ax_hist = plt.subplots(figsize=(8, 5))
@@ -387,6 +460,174 @@ def generate_merge_figures(sqlite_path=None, output_dir=None, sqlite_cache=2000,
     fig_hist.savefig(hist_path, dpi=150)
     plt.close(fig_hist)
     logging.info(f"Wrote COG frequency histogram to {hist_path}")
+
+    fig_ric, ax_ric = plt.subplots(figsize=(8, 5))
+    ax_ric.hist(pct_isolates, bins=[0, 15, 95, 100],
+                color='#2171b5', edgecolor='white', linewidth=0.3)
+    ax_ric.set_xlabel('percentage of isolates')
+    ax_ric.set_ylabel('number of COGs')
+    ax_ric.set_title('COG Frequency Distribution (rare / intermediate / core)')
+    ax_ric.grid(True, alpha=0.3, axis='y')
+    fig_ric.tight_layout()
+    ric_path = output_dir / "cog_frequency_ric_histogram.png"
+    fig_ric.savefig(ric_path, dpi=150)
+    plt.close(fig_ric)
+    logging.info(f"Wrote rare/intermediate/core COG frequency histogram to {ric_path}")
+
+    # --- Per-COG strain (PopPUNK cluster) prevalence ---
+    cur.execute("""
+        SELECT graph_id, member_index, poppunk_cluster
+        FROM isolate_names
+        WHERE poppunk_cluster IS NOT NULL
+    """)
+    member_to_cluster = {f"{mi}_g{gid}": cl for (gid, mi, cl) in cur.fetchall()}
+    n_strains = len(set(member_to_cluster.values()))
+
+    if n_strains == 0:
+        logging.info("No PopPUNK clusters found in isolate_names; skipping strain-level histograms")
+    else:
+        node_to_strains = defaultdict(set)
+        for node_id, member in cur.execute("SELECT node_id, member FROM node_members"):
+            cl = member_to_cluster.get(member)
+            if cl is not None:
+                node_to_strains[node_id].add(cl)
+
+        strain_counts = [len(s) for s in node_to_strains.values()]
+        pct_strains = [100.0 * c / n_strains for c in strain_counts]
+
+        fig_sc, ax_sc = plt.subplots(figsize=(8, 5))
+        ax_sc.hist(strain_counts, bins=range(1, n_strains + 2),
+                   color='#2171b5', edgecolor='white', linewidth=0.3, align='left')
+        ax_sc.set_xlabel('number of strains')
+        ax_sc.set_ylabel('number of COGs')
+        ax_sc.set_title(f'COG Strain-Count Distribution (n_strains={n_strains})')
+        ax_sc.grid(True, alpha=0.3, axis='y')
+        fig_sc.tight_layout()
+        sc_path = output_dir / "cog_strain_count_histogram.png"
+        fig_sc.savefig(sc_path, dpi=150)
+        plt.close(fig_sc)
+        logging.info(f"Wrote COG strain-count histogram to {sc_path}")
+
+        fig_sp, ax_sp = plt.subplots(figsize=(8, 5))
+        ax_sp.hist(pct_strains, bins=100, range=(0, 100),
+                   color='#2171b5', edgecolor='white', linewidth=0.3)
+        ax_sp.set_xlabel('percentage of strains')
+        ax_sp.set_ylabel('number of COGs')
+        ax_sp.set_title('COG Strain Frequency Distribution')
+        ax_sp.grid(True, alpha=0.3, axis='y')
+        fig_sp.tight_layout()
+        sp_path = output_dir / "cog_strain_frequency_histogram.png"
+        fig_sp.savefig(sp_path, dpi=150)
+        plt.close(fig_sp)
+        logging.info(f"Wrote COG strain frequency histogram to {sp_path}")
+
+        fig_ric_s, ax_ric_s = plt.subplots(figsize=(8, 5))
+        ax_ric_s.hist(pct_strains, bins=[0, 15, 95, 100],
+                      color='#2171b5', edgecolor='white', linewidth=0.3)
+        ax_ric_s.set_xlabel('percentage of strains')
+        ax_ric_s.set_ylabel('number of COGs')
+        ax_ric_s.set_title('COG Strain Frequency Distribution (rare / intermediate / core)')
+        ax_ric_s.grid(True, alpha=0.3, axis='y')
+        fig_ric_s.tight_layout()
+        ric_s_path = output_dir / "cog_strain_frequency_ric_histogram.png"
+        fig_ric_s.savefig(ric_s_path, dpi=150)
+        plt.close(fig_ric_s)
+        logging.info(f"Wrote rare/intermediate/core COG strain frequency histogram to {ric_s_path}")
+
+    # --- Multi-copy genes diagnostic: n_geneids vs. n_members per COG ---
+    cur.execute("SELECT node_id, COUNT(*) FROM node_geneids GROUP BY node_id")
+    geneids_per_node = dict(cur.fetchall())
+    cur.execute("SELECT node_id, COUNT(*) FROM node_members GROUP BY node_id")
+    members_per_node = dict(cur.fetchall())
+
+    mc_x = []
+    mc_y = []
+    for node_id, n_g in geneids_per_node.items():
+        n_m = members_per_node.get(node_id, 0)
+        if n_m > 0:
+            mc_x.append(n_m)
+            mc_y.append(n_g)
+
+    if mc_x:
+        fig_mc, ax_mc = plt.subplots(figsize=(8, 5))
+        ax_mc.scatter(mc_x, mc_y, alpha=0.3, color='#2171b5',
+                      s=12, edgecolor='none')
+        max_v = max(max(mc_x), max(mc_y))
+        ax_mc.plot([0, max_v], [0, max_v], color='red', linewidth=1)
+        ax_mc.set_xlim(0, max_v * 1.05)
+        ax_mc.set_ylim(0, max_v * 1.05)
+        ax_mc.set_xlabel('number of members (COG size)')
+        ax_mc.set_ylabel('number of geneids')
+        ax_mc.set_title('multi-copy genes')
+        ax_mc.grid(True, alpha=0.3)
+        fig_mc.tight_layout()
+        mc_path = output_dir / "multi_copy_genes.png"
+        fig_mc.savefig(mc_path, dpi=150)
+        plt.close(fig_mc)
+        logging.info(f"Wrote multi-copy genes plot to {mc_path}")
+
+    # --- Multi-copy ratio diagnostic: (n_geneids / n_members) vs. n_members ---
+    mcr_x = []
+    mcr_y = []
+    mcr_nodes = []
+    for node_id, n_g in geneids_per_node.items():
+        n_m = members_per_node.get(node_id, 0)
+        if n_m > 0:
+            mcr_x.append(n_m)
+            mcr_y.append(n_g / n_m)
+            mcr_nodes.append(node_id)
+
+    if mcr_x:
+        max_y = max(mcr_y)
+        max_x = max(mcr_x)
+
+        fig_mcr, ax_mcr = plt.subplots(figsize=(8, 5))
+        ax_mcr.scatter(mcr_x, mcr_y, alpha=0.3, color='#2171b5',
+                       s=12, edgecolor='none')
+        ax_mcr.set_xlim(0, max_x * 1.05)
+        ax_mcr.set_ylim(top=max_y * 1.05)
+        ax_mcr.set_xlabel('number of members (COG size)')
+        ax_mcr.set_ylabel('number of geneids per member')
+        ax_mcr.set_title('multi-copy ratio')
+        ax_mcr.grid(True, alpha=0.3)
+        fig_mcr.tight_layout()
+        mcr_path = output_dir / "multi_copy_ratio.png"
+        fig_mcr.savefig(mcr_path, dpi=150)
+        plt.close(fig_mcr)
+        logging.info(f"Wrote multi-copy ratio plot to {mcr_path}")
+
+        # Labeled variant: annotate COGs significantly above ratio 1, capped at 50
+        ratio_threshold = 1.5
+        to_label = sorted(
+            (
+                (nid, x, y)
+                for nid, x, y in zip(mcr_nodes, mcr_x, mcr_y)
+                if y > ratio_threshold
+            ),
+            key=lambda t: t[2],
+            reverse=True,
+        )[:50]
+
+        fig_lbl, ax_lbl = plt.subplots(figsize=(8, 5))
+        ax_lbl.scatter(mcr_x, mcr_y, alpha=0.3, color='#2171b5',
+                       s=12, edgecolor='none')
+        for nid, x, y in to_label:
+            ax_lbl.annotate(str(nid), (x, y), fontsize=6,
+                            xytext=(3, 3), textcoords='offset points')
+        ax_lbl.set_xlim(0, max_x * 1.05)
+        ax_lbl.set_ylim(top=max_y * 1.05)
+        ax_lbl.set_xlabel('number of members (COG size)')
+        ax_lbl.set_ylabel('number of geneids per member')
+        ax_lbl.set_title(f'multi-copy ratio (top {len(to_label)} COGs labeled)')
+        ax_lbl.grid(True, alpha=0.3)
+        fig_lbl.tight_layout()
+        lbl_path = output_dir / "multi_copy_ratio_labeled.png"
+        fig_lbl.savefig(lbl_path, dpi=150)
+        plt.close(fig_lbl)
+        logging.info(f"Wrote labeled multi-copy ratio plot to {lbl_path}")
+
+    if owns_con:
+        con.close()
 
     # Build dataframe sorted by graph_id
     max_graph = max(nodes_per_graph.keys())
@@ -433,20 +674,32 @@ def cli_main():
     parser = argparse.ArgumentParser(
         description='Generate Panaroo-format output files from pangenomerge output'
     )
-    parser.add_argument('--sqlite', required=True,
+    parser.add_argument('--pangenomerge-results', default=None, dest='pangenomerge_results',
+                        help='Path to a pangenomerge output directory containing the --sqlite, '
+                             '--gml, and --sequences-sqlite inputs. Mutually exclusive with those '
+                             'flags. When set, --outdir defaults to <pangenomerge-results>/postprocessing.')
+    parser.add_argument('--sqlite', default=None,
                         help='Path to pangenome_metadata.sqlite')
     parser.add_argument('--gml', default=None,
                         help='Path to final_graph.gml (required for gene presence-absence output)')
-    parser.add_argument('--outdir', required=True,
-                        help='Output directory for generated files')
+    parser.add_argument('--outdir', default=None,
+                        help='Output directory for generated files '
+                             '(default: <pangenomerge-results>/postprocessing when --pangenomerge-results is set)')
     parser.add_argument('--output', choices=['all', 'presenceabsence', 'genedata', 'sequences', 'figures'],
                         default='all',
                         help='Which outputs to generate: presenceabsence (Panaroo-format gene presence-absence tables), '
                              'genedata (Panaroo-format gene_data.csv), sequences (pangenome_sequences.sqlite), '
-                             'figures (merge statistics CSV and pangenome growth curve plot) (default: all)')
+                             'figures (COG frequency histograms, multi-copy gene plots, merge_statistics.csv, '
+                             'pangenome_growth_curve.png; strain-level histograms additionally generated when '
+                             "--include-clusters was passed at merge time). 'all' generates everything except "
+                             'gene_data.csv; pass --gene-data to include it (default: all)')
+    parser.add_argument('--gene-data', action='store_true', dest='gene_data',
+                        help='Also generate gene_data.csv alongside the outputs selected by --output.')
     parser.add_argument('--component-graphs', required=False, dest='component_graphs',
                         default=None,
-                        help='Path to component graphs TSV (required for all outputs except figures)')
+                        help='Path to text file with one Panaroo output directory path per line '
+                             '(same file used for pangenomerge --component-graphs). Required for all '
+                             "outputs except --output 'figures' without --gene-data.")
     parser.add_argument('--sequences-sqlite', default=None, dest='sequences_sqlite',
                         help='Path to pangenome_sequences.sqlite (default: pangenome_sequences.sqlite in same dir as --sqlite)')
     parser.add_argument('--sqlite-cache', type=int, default=2000,
@@ -454,20 +707,43 @@ def cli_main():
                         help='SQLite cache size in KB (default: 2000)')
     args = parser.parse_args()
 
+    if args.pangenomerge_results is not None:
+        conflicting = [name for name, val in
+                       (('--sqlite', args.sqlite),
+                        ('--gml', args.gml),
+                        ('--sequences-sqlite', args.sequences_sqlite))
+                       if val is not None]
+        if conflicting:
+            parser.error(
+                "--pangenomerge-results is mutually exclusive with "
+                + " / ".join(conflicting))
+        results_dir = Path(args.pangenomerge_results)
+        args.sqlite = str(results_dir / "pangenome_metadata.sqlite")
+        args.gml = str(results_dir / "final_graph.gml")
+        if args.outdir is None:
+            args.outdir = str(results_dir / "postprocessing")
+    elif args.sqlite is None:
+        parser.error("must specify either --pangenomerge-results or --sqlite")
+
+    if args.outdir is None:
+        parser.error("--outdir is required when --pangenomerge-results is not set")
+
     if args.output in ('all', 'presenceabsence') and args.gml is None:
         parser.error("--gml is required when --output is 'all' or 'presenceabsence'")
 
-    if args.output not in ('figures',) and args.component_graphs is None:
-        parser.error("--component-graphs is required when --output is not 'figures'")
+    needs_component_graphs = args.output != 'figures' or args.gene_data
+    if needs_component_graphs and args.component_graphs is None:
+        parser.error("--component-graphs is required unless --output is 'figures' without --gene-data")
 
     # Ingest gene annotations from component graphs (deferred from merge step)
-    if args.component_graphs is not None and args.output not in ('figures',):
+    if args.component_graphs is not None and (args.output != 'figures' or args.gene_data):
         meta_con = sqlite_connect(database=args.sqlite, sqlite_cache=args.sqlite_cache)
         ingest_gene_annotations(meta_con, args.component_graphs)
         meta_con.close()
 
     # Share a single read-only connection across output functions
-    needs_meta_con = args.output in ('all', 'presenceabsence', 'genedata', 'figures')
+    needs_meta_con = (args.output in ('all', 'presenceabsence', 'genedata', 'figures')
+                     or args.gene_data)
     if needs_meta_con:
         meta_con = sqlite_connect(database=args.sqlite, sqlite_cache=args.sqlite_cache)
         meta_con.execute("PRAGMA query_only=ON;")
@@ -481,7 +757,7 @@ def cli_main():
             con=meta_con,
         )
 
-    if args.output in ('all', 'genedata'):
+    if args.gene_data or args.output == 'genedata':
         generate_gene_data(
             output_dir=args.outdir,
             con=meta_con,
