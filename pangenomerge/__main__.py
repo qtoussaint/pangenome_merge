@@ -39,7 +39,7 @@ from .__init__ import __version__
 # MUST USE FORK TO ENSURE PARALLEL COMPUTATION OF COLLAPSE SCORES DOESNT COPY GRAPH OBJECT -- LINUX DEFAULT; WINDOWS/MAC BEWARE!
 
 def get_options():
-    description = 'Merges two or more Panaroo pan-genome gene graphs, or iteratively updates an existing graph.'
+    description = 'Merges two or more Panaroo pangenome gene graphs, or iteratively updates an existing graph.'
     parser = argparse.ArgumentParser(description=description,
                                     prog='pangenomerge')
 
@@ -47,7 +47,7 @@ def get_options():
     IO.add_argument('--mode',
                     default='run',
                     choices=['run', 'test'],
-                    help='Run pan-genome gene graph merge ("run") or calculate clustering accuracy metrics for merge ("test"). '
+                    help='Run pangenome gene graph merge ("run") or calculate clustering accuracy metrics for merge ("test"). '
                         '[Default = Run] ')
     IO.add_argument('--outdir',
                     required=True,
@@ -65,12 +65,12 @@ def get_options():
                     default=None,
                     required=False,
                     help='Tab-separated list of GFFs and their sample IDs for iterative updating of the graph. \
-                    Use only for single samples or sets of samples too diverse to create an initial pan-genome. \
+                    Use only for single samples or sets of samples too diverse to create an initial pangenome. \
                     Samples will be merged in the order presented in the file.')
     IO.add_argument('--graph-all',
                     dest='graph_all',
                     default=None,
-                    help='Path to Panaroo output directory of pan-genome gene graph created from all samples in component-graphs. \
+                    help='Path to Panaroo output directory of pangenome gene graph created from all samples in component-graphs. \
                     Only required for the test case, where it is used as the ground truth.')
     IO.add_argument('--metadata-in-graph',
                     dest='keep_metadata_in_graph',
@@ -776,7 +776,7 @@ def main():
         for node in list(merged_graph.nodes())[:5]:
             logging.debug(f"  node: {node}")
 
-        # write new pan-genome reference to fasta (stream to reduce memory)
+        # write new pangenome reference to fasta (stream to reduce memory)
         #reference_out = Path(options.outdir) / f"pan_genome_reference_{graph_count+1}.fa"
         #with open(reference_out, "w") as fasta_out:
         #    for node in merged_graph.nodes():

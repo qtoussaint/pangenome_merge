@@ -689,13 +689,17 @@ def cli_main():
                         default='all',
                         help='Which outputs to generate: presenceabsence (Panaroo-format gene presence-absence tables), '
                              'genedata (Panaroo-format gene_data.csv), sequences (pangenome_sequences.sqlite), '
-                             'figures (merge statistics CSV and pangenome growth curve plot). '
-                             "'all' generates everything except gene_data.csv; pass --gene-data to include it (default: all)")
+                             'figures (COG frequency histograms, multi-copy gene plots, merge_statistics.csv, '
+                             'pangenome_growth_curve.png; strain-level histograms additionally generated when '
+                             "--include-clusters was passed at merge time). 'all' generates everything except "
+                             'gene_data.csv; pass --gene-data to include it (default: all)')
     parser.add_argument('--gene-data', action='store_true', dest='gene_data',
                         help='Also generate gene_data.csv alongside the outputs selected by --output.')
     parser.add_argument('--component-graphs', required=False, dest='component_graphs',
                         default=None,
-                        help='Path to component graphs TSV (required for all outputs except figures)')
+                        help='Path to text file with one Panaroo output directory path per line '
+                             '(same file used for pangenomerge --component-graphs). Required for all '
+                             "outputs except --output 'figures' without --gene-data.")
     parser.add_argument('--sequences-sqlite', default=None, dest='sequences_sqlite',
                         help='Path to pangenome_sequences.sqlite (default: pangenome_sequences.sqlite in same dir as --sqlite)')
     parser.add_argument('--sqlite-cache', type=int, default=2000,
