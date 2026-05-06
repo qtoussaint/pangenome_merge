@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://github.com/qtoussaint/pangenome_merge/archive/refs/tags/v{{ version }}.tar.gz
-  sha256: 0587012af9d05727fe7b720300c6b122d7633acb869c5fe0aebe8c4c23ef8134
+  sha256: 7420851e4a590fdb254bacf29722365b8ec3e96f350a8304c68ff242ce362e5e
 
 build:
   noarch: python
@@ -38,15 +38,7 @@ requirements:
 test:
   imports:
     - pangenomerge
-    - pangenomerge.custom_functions.manipulate_seqids
-    - pangenomerge.custom_functions.run_mmseqs
-    - pangenomerge.custom_functions.sqlite
-    - pangenomerge.custom_functions.relabel_nodes
     - pangenomerge.custom_functions.context_similarity
-    - pangenomerge.panaroo_functions.load_graphs
-    - pangenomerge.panaroo_functions.context_search
-    - pangenomerge.panaroo_functions.merge_nodes
-    - pangenomerge.panaroo_functions.cdhit
     - pangenomerge.panaroo_functions.write_gml_metadata
   commands:
     - pangenomerge --version
