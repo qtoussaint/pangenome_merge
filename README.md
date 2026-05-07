@@ -1,4 +1,4 @@
-<img alt="pangenomerge_logo" src="https://github.com/user-attachments/assets/75ad835c-0719-462c-b3d3-3065689b7733" align="right" height="150" />
+<img alt="pangenomerge_logo" src="https://github.com/user-attachments/assets/64fb85f9-5697-4326-b2a5-4770923b3bc4" align="right" height="170" />
 
 # pangenomerge 
 
@@ -19,9 +19,9 @@ pangenomerge's runtime scales approximately linearly with the number of graphs t
 
 ## Dependencies
 
-  - python >=3.10
-  - biopython >=1.80
-  - networkx >=3.4.2
+  - python
+  - biopython
+  - networkx
   - mmseqs2
   - numpy
   - pandas
@@ -29,6 +29,7 @@ pangenomerge's runtime scales approximately linearly with the number of graphs t
   - scikit-learn
   - edlib
   - tqdm
+  - matplotlib-base
 
 ## Installing with conda 
 
