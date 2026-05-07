@@ -46,7 +46,7 @@ conda install -c bioconda pangenomerge
 
 ## Installing with Snakemake
 
-pangenomerge can be automatically installed and run via Snakemake (see "Workflow management and reproducibility for large analyses"). To use this option, ensure you have installed Snakemake through micromamba.
+pangenomerge can be automatically installed and run via Snakemake (see [Workflow management and reproducibility for large analyses](https://github.com/qtoussaint/pangenome_merge#workflow-management-and-reproducibility-for-large-analyses)). To use this option, ensure you have installed Snakemake through micromamba.
 
 First, clone the pangenomerge repository:
 ```
