@@ -272,10 +272,13 @@ rule ggcaller_cluster:
         echo "[ggcaller_cluster] outdir: {output.outdir}"
         echo "[ggcaller_cluster] threads: {threads}"
 
+        # Wipe stale bifrost cache (next to cluster_list) — see bacpop/ggCaller#49
+        cl="{input.cluster_list}"
+        rm -rf {output.outdir}
+        rm -f "${{cl%.txt}}.bfg_colors" "${{cl%.txt}}.gfa"
         mkdir -p {output.outdir}
         ggcaller --refs {input.cluster_list} \
             --save --gene-finding-only \
-            --annotation none \
             --out {output.outdir} \
             --threads {threads}
         echo "ok" > {output.done}
