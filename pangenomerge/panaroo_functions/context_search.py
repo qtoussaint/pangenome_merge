@@ -408,6 +408,87 @@ def find_mergeable_pairs(G, mmseqs_frame, ident_lookup, context_threshold, ident
     return reordered_pairs
 
 
+def find_small_fragment_pairs(G, mmseqs_frame, min_identity, min_coverage, max_component_size):
+    """Identity/coverage-only merge candidates restricted to small connected components.
+
+    Final-pass cleanup for clusters that context-gated passes could not match because
+    their components are too small to support a meaningful neighbourhood signal.
+    Both endpoints of every returned pair lie in a connected component of size
+    <= max_component_size at call time.
+    """
+    max_deg = max_component_size - 1
+
+    # cheap filter first: identity + coverage thresholds, restricted to surviving nodes
+    df = filter_mmseqs_to_current_nodes(mmseqs_frame, G)
+    df = df[(df["fident"] >= min_identity) & (df["cov"] >= min_coverage)]
+    if len(df) == 0:
+        logging.debug("Small-fragment: no hits pass identity/coverage thresholds.")
+        return []
+
+    # restrict to nodes that (a) appear in surviving hits AND (b) have degree <= max_deg
+    # (necessary condition for being in a component of size <= max_component_size)
+    hit_nodes = set(df["query"]).union(df["target"])
+    candidate_nodes = {n for n in hit_nodes if G.degree[n] <= max_deg}
+    df = df[df["query"].isin(candidate_nodes) & df["target"].isin(candidate_nodes)]
+    if len(df) == 0:
+        logging.debug("Small-fragment: no surviving hits after degree filter.")
+        return []
+
+    # bounded BFS per candidate; aborts the moment the component exceeds max_component_size.
+    # cached by component, so siblings skip the walk. never touches the global graph.
+    status = {}  # node -> "small" or "big"
+    for n in candidate_nodes:
+        if n in status:
+            continue
+        seen = {n}
+        frontier = [n]
+        too_big = False
+        while frontier and not too_big:
+            nxt = []
+            for u in frontier:
+                for v in G.neighbors(u):
+                    if v in seen:
+                        continue
+                    seen.add(v)
+                    if len(seen) > max_component_size:
+                        too_big = True
+                        break
+                    nxt.append(v)
+                if too_big:
+                    break
+            frontier = nxt
+        label = "big" if too_big else "small"
+        for u in seen:
+            status[u] = label
+
+    small_nodes = {node for node, s in status.items() if s == "small"}
+    df = df[df["query"].isin(small_nodes) & df["target"].isin(small_nodes)]
+    if len(df) == 0:
+        logging.debug("Small-fragment: no hits where both endpoints are in small components.")
+        return []
+
+    # greedy pair selection: best identity/coverage first, disjoint members,
+    # each node appears in at most one accepted pair
+    pairs = []
+    used = set()
+    df_sorted = df.sort_values(["fident", "cov"], ascending=False)
+    for q, t in df_sorted[["query", "target"]].itertuples(index=False, name=None):
+        if q in used or t in used:
+            continue
+        if not set(G.nodes[q]["members"]).isdisjoint(set(G.nodes[t]["members"])):
+            continue
+        # match find_mergeable_pairs convention: '_target' node kept by merge_pair
+        a, b = q, t
+        if "_target" in b and "_target" not in a:
+            a, b = b, a
+        pairs.append((a, b))
+        used.add(q)
+        used.add(t)
+
+    logging.debug(f"Small-fragment: {len(pairs)} accepted pairs.")
+    return pairs
+
+
 def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
                                family_threshold, context_threshold,
                                frameshift_identity, frameshift_coverage,
@@ -551,6 +632,18 @@ def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
             break
     else:
         logging.info(f"Outer loop: reached max iterations ({context_search_iterations}); stopping.")
+
+    # --- final small-fragment pass: identity/coverage only, no context, both endpoints in components of size <= 3 ---
+    if ident_lookup_frameshift is not None and len(mmseqs_frameshift) > 0:
+        pairs_small = find_small_fragment_pairs(
+            merged_graph, mmseqs_frameshift,
+            min_identity=0.90, min_coverage=0.85, max_component_size=3,
+        )
+        if len(pairs_small) > 0:
+            logging.info(f"Small-fragment pass: merging {len(pairs_small)} pairs.")
+            apply_merges(merged_graph, pairs_small)
+        else:
+            logging.info("Small-fragment pass: no mergeable pairs.")
 
     # update degrees across graph (single pass, after both family + frameshift merges)
     for node in merged_graph:
