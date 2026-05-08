@@ -584,54 +584,54 @@ def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
     logging.info("Merging nodes and edges...")
 
     ### strict alternating fixed-point: one family round, then one frameshift round, repeat.
-    ###   exits when a full outer iteration (family + frameshift) produces 0 merges ⇒ graph is stable.
-    ###   context_search_iterations caps outer iterations (-1 = unlimited).
-    # mmseqs_frameshift: persistently shrunk each outer iteration as graph nodes decrease, avoiding redundant isin work.
-    outer_iteration = 0
-    while context_search_iterations < 0 or outer_iteration < context_search_iterations:
-        outer_iteration += 1
+    ###   exits when a full refinement iteration (identity+context + frameshift detection) produces 0 merges ⇒ graph is stable.
+    ###   context_search_iterations caps refinement iterations (-1 = unlimited).
+    # mmseqs_frameshift: persistently shrunk each refinement iteration as graph nodes decrease, avoiding redundant isin work.
+    refinement_iteration = 0
+    while context_search_iterations < 0 or refinement_iteration < context_search_iterations:
+        refinement_iteration += 1
         any_merged = False
 
         # --- single family-style round ---
         mmseqs_cur = filter_mmseqs_to_current_nodes(mmseqs, merged_graph)
         if len(mmseqs_cur) == 0:
-            logging.info(f"Outer {outer_iteration} family: no hits survive staleness filter.")
+            logging.info(f"Refinement merge {refinement_iteration} identity+context step: no hits survive staleness filter.")
         else:
             pairs_iter = find_mergeable_pairs(
                 merged_graph, mmseqs_cur, ident_lookup,
                 context_threshold, family_threshold, options.threads
             )
             if len(pairs_iter) == 0:
-                logging.info(f"Outer {outer_iteration} family: no new mergeable pairs.")
+                logging.info(f"Refinement merge {refinement_iteration} identity+context step: no new mergeable pairs.")
             else:
-                logging.info(f"Outer {outer_iteration} family: merging {len(pairs_iter)} pairs.")
+                logging.info(f"Refinement merge {refinement_iteration} identity+context step: merging {len(pairs_iter)} pairs.")
                 apply_merges(merged_graph, pairs_iter)
                 any_merged = True
 
-        logging.debug(f"After outer {outer_iteration} family: {len(merged_graph.nodes())} nodes")
+        logging.debug(f"After refinement merge {refinement_iteration} identity+context step: {len(merged_graph.nodes())} nodes")
 
         # --- single frameshift round on full current graph ---
         if ident_lookup_frameshift is not None and len(mmseqs_frameshift) > 0:
             mmseqs_frameshift = filter_mmseqs_to_current_nodes(mmseqs_frameshift, merged_graph)
-            logging.info(f"Outer {outer_iteration} frameshift: {len(mmseqs_frameshift)} frameshift hits on current graph.")
+            logging.info(f"Refinement merge {refinement_iteration} frameshift detection step: {len(mmseqs_frameshift)} frameshift hits on current graph.")
             if len(mmseqs_frameshift) > 0:
                 pairs_fs = find_mergeable_pairs(
                     merged_graph, mmseqs_frameshift, ident_lookup_frameshift,
                     context_threshold, frameshift_identity, options.threads
                 )
                 if len(pairs_fs) > 0:
-                    logging.info(f"Outer {outer_iteration} frameshift: merging {len(pairs_fs)} pairs.")
+                    logging.info(f"Refinement merge {refinement_iteration} frameshift detection step: merging {len(pairs_fs)} pairs.")
                     apply_merges(merged_graph, pairs_fs)
                     any_merged = True
 
-        logging.debug(f"After outer {outer_iteration}: {len(merged_graph.nodes())} nodes")
+        logging.debug(f"After refinement merge {refinement_iteration}: {len(merged_graph.nodes())} nodes")
 
         # Fixed point: neither pass produced any merges this round ⇒ graph is stable under both.
         if not any_merged:
-            logging.info(f"Outer loop: fixed point reached after {outer_iteration} iteration(s).")
+            logging.info(f"Refinement merge: fixed point reached after {refinement_iteration} iteration(s).")
             break
     else:
-        logging.info(f"Outer loop: reached max iterations ({context_search_iterations}); stopping.")
+        logging.info(f"Refinement merge: reached max iterations ({context_search_iterations}); stopping.")
 
     # --- final small-fragment pass: identity/coverage only, no context, both endpoints in components of size <= 3 ---
     if ident_lookup_frameshift is not None and len(mmseqs_frameshift) > 0:
