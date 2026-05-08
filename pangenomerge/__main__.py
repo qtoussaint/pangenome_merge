@@ -103,16 +103,16 @@ def get_options():
                     help='Sequence identity threshold for neighbors of putative spurious paralogs. Default: 0.7')
     parameters.add_argument('--frameshift-coverage',
                     dest='frameshift_coverage',
-                    default=0.5,
+                    default=0.25,
                     type=float,
                     required=False,
-                    help='Coverage threshold for frameshift second-pass merge (catches truncated/frameshifted variants). Default: 0.5')
+                    help='Coverage threshold for frameshift second-pass merge (catches truncated/frameshifted variants). Default: 0.25')
     parameters.add_argument('--frameshift-identity',
                     dest='frameshift_identity',
-                    default=0.95,
+                    default=0.90,
                     type=float,
                     required=False,
-                    help='Sequence identity threshold for frameshift second-pass merge. Default: 0.95')
+                    help='Sequence identity threshold for frameshift second-pass merge. Default: 0.90')
     parameters.add_argument('--context-search-iterations',
                     dest='context_search_iterations',
                     default=-1,
