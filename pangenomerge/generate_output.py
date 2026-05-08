@@ -461,12 +461,22 @@ def generate_merge_figures(sqlite_path=None, output_dir=None, sqlite_cache=2000,
     plt.close(fig_hist)
     logging.info(f"Wrote COG frequency histogram to {hist_path}")
 
+    ric_counts = [0, 0, 0]  # rare, intermediate, core
+    for p in pct_isolates:
+        if p < 15:
+            ric_counts[0] += 1
+        elif p < 95:
+            ric_counts[1] += 1
+        else:
+            ric_counts[2] += 1
+    ric_labels = ['rare\n(0–15%)', 'intermediate\n(15–95%)', 'core\n(95–100%)']
+
     fig_ric, ax_ric = plt.subplots(figsize=(8, 5))
-    ax_ric.hist(pct_isolates, bins=[0, 15, 95, 100],
-                color='#2171b5', edgecolor='white', linewidth=0.3)
+    ax_ric.bar(ric_labels, ric_counts,
+               color='#2171b5', edgecolor='white', linewidth=0.3)
     ax_ric.set_xlabel('percentage of isolates')
     ax_ric.set_ylabel('number of COGs')
-    ax_ric.set_title('COG Frequency Distribution (rare / intermediate / core)')
+    ax_ric.set_title('COG Frequency Distribution')
     ax_ric.grid(True, alpha=0.3, axis='y')
     fig_ric.tight_layout()
     ric_path = output_dir / "cog_frequency_ric_histogram.png"
@@ -521,12 +531,22 @@ def generate_merge_figures(sqlite_path=None, output_dir=None, sqlite_cache=2000,
         plt.close(fig_sp)
         logging.info(f"Wrote COG strain frequency histogram to {sp_path}")
 
+        ric_counts_s = [0, 0, 0]  # rare, intermediate, core
+        for p in pct_strains:
+            if p < 15:
+                ric_counts_s[0] += 1
+            elif p < 95:
+                ric_counts_s[1] += 1
+            else:
+                ric_counts_s[2] += 1
+        ric_labels_s = ['rare\n(0–15%)', 'intermediate\n(15–95%)', 'core\n(95–100%)']
+
         fig_ric_s, ax_ric_s = plt.subplots(figsize=(8, 5))
-        ax_ric_s.hist(pct_strains, bins=[0, 15, 95, 100],
-                      color='#2171b5', edgecolor='white', linewidth=0.3)
+        ax_ric_s.bar(ric_labels_s, ric_counts_s,
+                     color='#2171b5', edgecolor='white', linewidth=0.3)
         ax_ric_s.set_xlabel('percentage of strains')
         ax_ric_s.set_ylabel('number of COGs')
-        ax_ric_s.set_title('COG Strain Frequency Distribution (rare / intermediate / core)')
+        ax_ric_s.set_title('COG Strain Frequency Distribution')
         ax_ric_s.grid(True, alpha=0.3, axis='y')
         fig_ric_s.tight_layout()
         ric_s_path = output_dir / "cog_strain_frequency_ric_histogram.png"
