@@ -146,7 +146,8 @@ rule poppunk_assign:
             --query {input.assemblies} \
             --threads {threads} \
             --output {output.outdir} \
-            --serial
+            --serial \
+            --write-references
         echo "ok" > {output.done}
         """
 

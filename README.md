@@ -274,10 +274,10 @@ Parameters:
   --frameshift-coverage FRAMESHIFT_COVERAGE
                         Coverage threshold for frameshift second-pass merge
                         (catches truncated/frameshifted variants). Default:
-                        0.5
+                        0.25
   --frameshift-identity FRAMESHIFT_IDENTITY
                         Sequence identity threshold for frameshift second-pass
-                        merge. Default: 0.95
+                        merge. Default: 0.90
   --context-search-iterations CONTEXT_SEARCH_ITERATIONS
                         Max outer rounds of the alternating context/frameshift
                         merge loop (family inner loop always runs to its own

@@ -57,17 +57,23 @@ assemblies$V2[assemblies$V2 %in% merge_clusters] <- merged_name
 # create split clusters
 split_clusters <- names(counts)[split]
 
+# sub-cluster suffix pool: two-letter aa,ab,...,az,ba,...,zz (676 total).
+# Uniform two-letter suffixes so split clusters sort cleanly (e.g. 1aa, 1ab, ...).
+# Supports up to 676 sub-clusters per cluster, enough for the dominant clonal
+# cluster in M. tuberculosis (~47 pieces at max=1500).
+suffix_pool <- paste0(rep(letters, each = 26), letters)
+
 for (cl in split_clusters) {
   idx <- which(assemblies$V2 == cl)
   n <- length(idx)
   n_pieces <- ceiling(n / max_count)
-  if (n_pieces > 26) {
-    stop(sprintf("Cluster %s needs %d sub-clusters; suffix scheme supports max 26. Lower max_count or extend suffixes.",
-                 cl, n_pieces))
+  if (n_pieces > length(suffix_pool)) {
+    stop(sprintf("Cluster %s needs %d sub-clusters; suffix scheme supports max %d. Lower max_count or extend suffixes.",
+                 cl, n_pieces, length(suffix_pool)))
   }
   chunk_size <- ceiling(n / n_pieces)
   pieces <- ((seq_len(n) - 1) %/% chunk_size) + 1
-  assemblies$V2[idx] <- paste0(cl, letters[pieces])
+  assemblies$V2[idx] <- paste0(cl, suffix_pool[pieces])
 }
 
 # check that merged file won't be too large
