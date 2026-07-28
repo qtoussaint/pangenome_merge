@@ -441,6 +441,16 @@ def main():
         # each "group_" refers to the centroid of that group in the pan_genomes_reference.fa
         mmseqs = pd.read_csv(str(Path(options.outdir) / "mmseqs_tmp" / "mmseqs_clusters.m8"), sep='\t')
 
+        # Test mode only: canonical row order, so the merge is reproducible. mmseqs returns
+        # the same hits in a thread-dependent order (verified: two 8-thread searches on
+        # identical inputs gave byte-different m8 files that matched once sorted). This
+        # search decides which graph_2 nodes are renamed onto graph_1, so its ordering seeds
+        # every later step. Run mode skips the sort -- reproducibility is only needed when
+        # comparing runs against a ground truth, and the hit table can be very large.
+        if options.mode == "test":
+            mmseqs = mmseqs.sort_values(["query", "target", "fident"],
+                                        kind="mergesort").reset_index(drop=True)
+
         ### match hits from mmseqs
 
         # change the second graph node names to the first graph node names for nodes that match according to mmseqs
@@ -840,6 +850,7 @@ def main():
         else:
             # write new nodes to fasta to update mmseqs db
             new_nodes_fasta = Path(options.outdir) / "mmseqs_tmp" / f"new_nodes_{graph_count+2}.fa"
+            n_new_nodes = 0
             with open(new_nodes_fasta, "w") as fasta_out:
                 for node in merged_graph.nodes():
                     name = node
@@ -852,14 +863,21 @@ def main():
                             seqs = max(parts, key=len)
                         seqs = seqs.rstrip('*') # remove trailing stop
                         fasta_out.write(f">{node}\n{seqs}\n")
+                        n_new_nodes += 1
 
-            # update mmseqs database
-            new_nodes_db = str(Path(options.outdir) / "mmseqs_tmp" / f"tmp_db")
-            outdb = str(Path(options.outdir) / "mmseqs_tmp" / f"pan_genome_db_{graph_count+2}")
+            if n_new_nodes == 0:
+                # this graph contributed no unique nodes, so the fasta is empty and
+                # there is nothing to add to the db. mmseqs createdb exits 1 on an
+                # empty fasta, so skip the update and keep the existing base_db.
+                logging.info(f"Graph {graph_count+2} added 0 new nodes; skipping mmseqs db update.")
+            else:
+                # update mmseqs database
+                new_nodes_db = str(Path(options.outdir) / "mmseqs_tmp" / f"tmp_db")
+                outdb = str(Path(options.outdir) / "mmseqs_tmp" / f"pan_genome_db_{graph_count+2}")
 
-            mmseqs_createdb(fasta=new_nodes_fasta, outdb=new_nodes_db, threads=options.threads, nt2aa=False)
-            mmseqs_concatdbs(db1=base_db, db2=new_nodes_db, outdb=outdb, tmpdir=str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
-            base_db = outdb
+                mmseqs_createdb(fasta=new_nodes_fasta, outdb=new_nodes_db, threads=options.threads, nt2aa=False)
+                mmseqs_concatdbs(db1=base_db, db2=new_nodes_db, outdb=outdb, tmpdir=str(Path(options.outdir) / "mmseqs_tmp"), threads=options.threads)
+                base_db = outdb
 
         # info statement...
         logging.info('Writing new metadata to SQLite database...')

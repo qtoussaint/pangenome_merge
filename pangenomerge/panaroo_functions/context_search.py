@@ -368,7 +368,7 @@ def context_pass(sims, context_threshold):
     )
 
 
-def find_mergeable_pairs(G, mmseqs_frame, ident_lookup, context_threshold, identity_threshold, threads, tag=""):
+def find_mergeable_pairs(G, mmseqs_frame, ident_lookup, context_threshold, identity_threshold, threads, tag="", deterministic=False):
     init_parallel(G, ident_lookup, context_threshold)
     scores = compute_scores_parallel(mmseqs_frame, threads)
 
@@ -388,11 +388,24 @@ def find_mergeable_pairs(G, mmseqs_frame, ident_lookup, context_threshold, ident
                      f"pass_identity+context={n_ctx} pass_+disjoint(accepted)={n_disj}")
 
     # sort dataframe by scores
-    scores_sorted = sorted(
-        scores,
-        key=lambda x: (x[2], x[3][0], x[3][1], x[3][2]),
-        reverse=True
-    )
+    # In test mode node names extend the key so ties break deterministically: without them
+    # equal-scoring pairs keep whatever order compute_scores_parallel returned, which depends
+    # on which worker finished first, and the greedy walk below then keeps a different pair
+    # between runs. Run mode keeps the original key -- reproducibility only matters when
+    # comparing runs against a ground truth, and the extra sort terms are not free on the
+    # very large hit tables a production merge produces.
+    if deterministic:
+        scores_sorted = sorted(
+            scores,
+            key=lambda x: (x[2], x[3][0], x[3][1], x[3][2], str(x[0]), str(x[1])),
+            reverse=True
+        )
+    else:
+        scores_sorted = sorted(
+            scores,
+            key=lambda x: (x[2], x[3][0], x[3][1], x[3][2]),
+            reverse=True
+        )
 
     # debug statement...
     logging.debug(f"scores_sorted: {scores_sorted[:5]}")
@@ -518,7 +531,8 @@ def find_small_fragment_pairs(G, mmseqs_frame, min_identity, min_coverage, max_c
 
 def find_representative_merge_pairs(merged_graph, allele_lookup, base_strategy,
                                     query_strategy, seqtype, query_suffix, ident_lookup,
-                                    family_threshold, context_threshold, outdir, threads):
+                                    family_threshold, context_threshold, outdir, threads,
+                                    deterministic=False):
     """Representative-based cross-graph rescue step.
 
     Compares only nodes that have not yet merged across graphs: pure-base nodes (represented
@@ -575,6 +589,12 @@ def find_representative_merge_pairs(merged_graph, allele_lookup, base_strategy,
     hits = pd.read_csv(resultm8, sep="\t")
     if len(hits) == 0:
         return []
+    # test mode only: canonical row order for reproducibility -- see the note on the main
+    # mmseqs read. The drop_duplicates below keeps the first row per node pair, so tied rows
+    # arriving in a thread-dependent order would otherwise pick different representatives.
+    if deterministic:
+        hits = hits.sort_values(["query", "target", "fident"],
+                                kind="mergesort").reset_index(drop=True)
     hits["fident"] = pd.to_numeric(hits["fident"], errors="coerce")
     # strip the ||i representative index to recover originating node names.
     # NB: use a literal (python) split — pandas str.split treats "||" as a regex (empty
@@ -595,6 +615,7 @@ def find_representative_merge_pairs(merged_graph, allele_lookup, base_strategy,
     return find_mergeable_pairs(
         merged_graph, candidate_frame, ident_lookup,
         context_threshold, family_threshold, threads, tag="rep",
+        deterministic=deterministic,
     )
 
 
@@ -605,6 +626,12 @@ def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
                                allele_lookup=None, rep_merge_base=None,
                                rep_merge_query=None, rep_merge_seqtype="protein",
                                query_suffix=None):
+
+    # Reproducibility guarantees apply to test mode only, where runs are compared against a
+    # ground truth and against each other. Run mode keeps the original (faster) behaviour.
+    deterministic = getattr(options, "mode", "run") == "test"
+    if deterministic:
+        logging.info("Test mode: using deterministic tie-breaking and canonical hit order.")
 
     # write query centroid fasta (stream to reduce memory)
     query_fa = Path(outdir) / "mmseqs_tmp" / "centroids_query.fa"
@@ -640,6 +667,16 @@ def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
 
     # read mmseqs results
     mmseqs = pd.read_csv(Path(outdir) / "mmseqs_tmp" / "mmseqs_clusters.m8", sep="\t")
+
+    # Test mode only: canonical row order, so the merge is reproducible. mmseqs returns the
+    # same hits in a thread-dependent order -- two 8-thread searches over identical inputs
+    # gave byte-different m8 files that were identical once sorted. That order propagates
+    # through build_ident_lookup and the greedy pair selection, so without this every
+    # multi-threaded run produced a different clustering (10/10 distinct on s_pneumoniae
+    # split2, pcARI SD 0.0008) while single-threaded runs were exactly reproducible.
+    if deterministic:
+        mmseqs = mmseqs.sort_values(
+            ["query", "target", "fident"], kind="mergesort").reset_index(drop=True)
 
     # debugging statements...
     logging.debug(f"Unfiltered: {len(mmseqs)} one-to-one hits.")
@@ -711,7 +748,8 @@ def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
         else:
             pairs_iter = find_mergeable_pairs(
                 merged_graph, mmseqs_cur, ident_lookup,
-                context_threshold, family_threshold, options.threads
+                context_threshold, family_threshold, options.threads,
+                deterministic=deterministic
             )
             if len(pairs_iter) == 0:
                 logging.info(f"Refinement merge {refinement_iteration} identity+context step: no new mergeable pairs.")
@@ -730,6 +768,7 @@ def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
                 merged_graph, allele_lookup, rep_merge_base, rep_merge_query,
                 rep_merge_seqtype, query_suffix, ident_lookup,
                 family_threshold, context_threshold, outdir, options.threads,
+                deterministic=deterministic,
             )
             if len(pairs_rep) > 0:
                 logging.info(f"Refinement merge {refinement_iteration} representative step: merging {len(pairs_rep)} pairs.")
@@ -747,7 +786,8 @@ def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
             if len(mmseqs_frameshift) > 0:
                 pairs_fs = find_mergeable_pairs(
                     merged_graph, mmseqs_frameshift, ident_lookup_frameshift,
-                    context_threshold, frameshift_identity, options.threads
+                    context_threshold, frameshift_identity, options.threads,
+                    deterministic=deterministic
                 )
                 if len(pairs_fs) > 0:
                     logging.info(f"Refinement merge {refinement_iteration} frameshift detection step: merging {len(pairs_fs)} pairs.")
