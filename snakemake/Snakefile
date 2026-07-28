@@ -252,8 +252,6 @@ rule ggcaller_cluster:
         done=RESULTS / "ggcaller" / "{cluster}" / "done.txt",
     conda:
         "envs/ggcaller.yaml"
-    group:
-        "job_array"
     threads: config["resources_batch"]["threads"]
     resources:
         mem=config["resources_batch"]["mem"],
@@ -323,8 +321,6 @@ rule panaroo_cluster:
         indir=str(RESULTS),
     conda:
         "envs/panaroo.yaml"
-    group:
-        "job_array"
     threads: config["resources_batch"]["threads"]
     resources:
         mem=config["resources_batch"]["mem"],

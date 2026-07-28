@@ -1,0 +1,188 @@
+// pangenomerge pipeline — run mode (backbone) + test mode (highlighted branches)
+// Render: dot -Tpdf pangenomerge_pipeline.dot -o pangenomerge_pipeline.pdf
+//         dot -Tsvg pangenomerge_pipeline.dot -o pangenomerge_pipeline.svg
+digraph pangenomerge {
+  rankdir = TB;
+  compound = true;
+  splines = polyline;
+  nodesep = 0.35;
+  ranksep = 0.45;
+  fontname = "Helvetica";
+  graph [fontname = "Helvetica"];
+  node  [fontname = "Helvetica", fontsize = 11];
+  edge  [fontname = "Helvetica", fontsize = 9, color = "#444444"];
+
+  // ---- styles -------------------------------------------------------------
+  // backbone step
+  node [shape = box, style = "rounded,filled", fillcolor = "#EAF2FB",
+        color = "#2E5E8C", penwidth = 1.2];
+
+  // ---- SETUP (once) -------------------------------------------------------
+  subgraph cluster_setup {
+    label = "SETUP  (once)";
+    style = "rounded";  color = "#9AA7B4";  fontsize = 13;  fontcolor = "#333333";
+    s1 [label = "1. Parse args · scaffold outdir,\nintermediate_graphs/ · fresh SQLite metadata DB"];
+    s2 [label = "2. Read ordered component-graph list\n(graphs merged in listed order)"];
+    s2opt [label = "(optional) pre-load allele lookup\nfor representative rescue",
+           shape = box, style = "rounded,dashed,filled", fillcolor = "#FFFFFF",
+           color = "#8A6D3B", fontcolor = "#8A6D3B", fontsize = 9];
+    s1 -> s2;
+    s2 -> s2opt [style = dashed, color = "#8A6D3B", arrowhead = none];
+  }
+
+  // ---- OUTER LOOP ---------------------------------------------------------
+  subgraph cluster_outer {
+    label = "OUTER LOOP — sequential pairwise merge   (runs  n_graphs − 1  times)";
+    style = "rounded";  color = "#2E5E8C";  penwidth = 2;  fontsize = 13;  fontcolor = "#2E5E8C";
+
+    o3 [label = "3. Load the two graphs\n(iter 0: first two · later: running merged graph + next)\nregister isolate names in SQLite"];
+    t3 [label = "TEST — remap node seqIDs to all-isolates\nground-truth clustering IDs",
+        shape = box, style = "rounded,filled", fillcolor = "#FCE4D6", color = "#B5651D"];
+
+    o4 [label = "4. Augment reference FASTAs"];
+    o4opt [label = "opt: append only the longest DNA of nodes\nMISSING from the reference (no full re-derivation)",
+           shape = note, fillcolor = "#FFF7E6", color = "#C8A24B", fontcolor = "#7A5C12",
+           style = filled, fontsize = 9];
+
+    o5 [label = "5. Build translated AA MMseqs2 DBs"];
+    o5opt [label = "opt: target 'base' DB is PERSISTENT —\nbuilt once, grown incrementally (see step 13)",
+           shape = note, fillcolor = "#FFF7E6", color = "#C8A24B", fontcolor = "#7A5C12",
+           style = filled, fontsize = 9];
+
+    o6 [label = "6. MMseqs2 search — STRICT pass\n(fident 0.98 · cov 0.95) → near-identical orthologs"];
+
+    o7 [label = "7. Filter hits to confident 1:1 matches"];
+    o7opt [label = "opt: reciprocal 1:1 via sort + drop-duplicates\n(query then target) — no all-vs-all clustering",
+           shape = note, fillcolor = "#FFF7E6", color = "#C8A24B", fontcolor = "#7A5C12",
+           style = filled, fontsize = 9];
+
+    o8 [label = "8. Relabel matched orthologs to shared _target label ·\nsuffix metadata with graph-of-origin _g{N} tags"];
+
+    o9 [label = "9. initial_graph_merge — union matched nodes,\ngraft in unmatched nodes / edges"];
+
+    // ---- refinement engine ----
+    subgraph cluster_collapse {
+      label = "10. collapse_spurious_paralogs — refinement engine";
+      style = "rounded";  color = "#4B7A4B";  penwidth = 1.8;  fontsize = 12;  fontcolor = "#4B7A4B";
+      node [fillcolor = "#E7F3E7", color = "#4B7A4B"];
+
+      c10a [label = "10a. Re-search node centroids at\npermissive family threshold (0.7)"];
+      c10aopt [label = "opt: TWO-TIER search — permissive pass runs only on\ncentroids, surfacing paralog / frameshift candidates\nthe strict 0.98 pass skipped",
+               shape = note, fillcolor = "#FFF7E6", color = "#C8A24B", fontcolor = "#7A5C12",
+               style = filled, fontsize = 9];
+      c10b [label = "10b. Split candidates → length-tolerant FRAMESHIFT\nvs length-strict FAMILY tables"];
+      c10c [label = "10c. Build pairwise identity lookups"];
+
+      // fixed-point loop
+      subgraph cluster_fixedpoint {
+        label = "10d. FIXED-POINT LOOP — until a full round merges nothing (or hits iteration cap)";
+        style = "rounded";  color = "#A0522D";  penwidth = 1.6;  fontsize = 11;  fontcolor = "#A0522D";
+        node [fillcolor = "#FBEFE7", color = "#A0522D"];
+
+        d_i  [label = "(i) family / identity + CONTEXT round\naccept pair iff  identity ≥ thr  ∧  context matches\n∧  member sets disjoint"];
+        d_ii [label = "(ii) representative cross-graph rescue round\n(optional)",
+              style = "rounded,dashed,filled"];
+        d_iii[label = "(iii) frameshift round\n(high identity · low coverage)"];
+        d_i -> d_ii -> d_iii;
+        d_iii -> d_i [label = "  any merge? → next round", constraint = false,
+                      color = "#A0522D", fontcolor = "#A0522D", style = dashed];
+      }
+
+      c10e [label = "10e. Final small-fragment pass\n(identity + coverage only · components ≤ 3 nodes)"];
+      c10f [label = "10f. Recompute degrees"];
+
+      c10a -> c10b -> c10c;
+      c10c -> d_i  [lhead = cluster_fixedpoint];
+      d_iii -> c10e [ltail = cluster_fixedpoint, label = "  0 merges → exit"];
+      c10e -> c10f;
+
+      c10a -> c10aopt [style = dashed, color = "#C8A24B", arrowhead = none];
+    }
+
+    // fixed-point optimisation callouts (attached at engine level)
+    dopt1 [label = "opt: context scored by BFS depth 1→2→3,\nescalating only when similarity < 0.9",
+           shape = note, fillcolor = "#FFF7E6", color = "#C8A24B", fontcolor = "#7A5C12",
+           style = filled, fontsize = 9];
+    dopt2 [label = "opt: context scoring parallelized\nacross candidate pairs",
+           shape = note, fillcolor = "#FFF7E6", color = "#C8A24B", fontcolor = "#7A5C12",
+           style = filled, fontsize = 9];
+    dopt3 [label = "opt: stale hits dropped as nodes merge —\ncandidate set shrinks each round",
+           shape = note, fillcolor = "#FFF7E6", color = "#C8A24B", fontcolor = "#7A5C12",
+           style = filled, fontsize = 9];
+    dopt4 [label = "opt: rescue limited to still-'uncrossed'\npure-base vs pure-query nodes",
+           shape = note, fillcolor = "#FFF7E6", color = "#C8A24B", fontcolor = "#7A5C12",
+           style = filled, fontsize = 9];
+    d_i  -> dopt1 [style = dashed, color = "#C8A24B", arrowhead = none];
+    d_i  -> dopt2 [style = dashed, color = "#C8A24B", arrowhead = none];
+    d_i  -> dopt3 [style = dashed, color = "#C8A24B", arrowhead = none];
+    d_ii -> dopt4 [style = dashed, color = "#C8A24B", arrowhead = none];
+
+    t10 [label = "TEST (final iteration only) — score merged clustering\nvs ground truth → RI / ARI / MI / AMI  (logged)",
+         shape = box, style = "rounded,filled", fillcolor = "#FCE4D6", color = "#B5651D"];
+
+    o11 [label = "11. Strip _target bookkeeping tags ·\nformat metadata for GML"];
+
+    o12 [label = "12. Persist metadata to SQLite · strip heavy metadata\nfrom in-memory graph · write intermediate (or final) GML"];
+    o12opt [label = "opt: heavy metadata offloaded to NORMALIZED SQLite —\nin-memory graph stays small ⇒ scales past ~100k genomes",
+            shape = note, fillcolor = "#FFF7E6", color = "#C8A24B", fontcolor = "#7A5C12",
+            style = filled, fontsize = 9];
+
+    o13 [label = "13. Grow persistent base MMseqs DB with only the\nNEW merged nodes (concatdbs)"];
+    o13opt [label = "opt: incremental DB growth (append new nodes only)\nvs full rebuild each iteration",
+            shape = note, fillcolor = "#FFF7E6", color = "#C8A24B", fontcolor = "#7A5C12",
+            style = filled, fontsize = 9];
+
+    // backbone edges within loop
+    o3 -> o4 -> o5 -> o6 -> o7 -> o8 -> o9;
+    o9 -> c10a [lhead = cluster_collapse];
+    c10f -> o11 [ltail = cluster_collapse];
+    o11 -> o12 -> o13;
+
+    // test branches
+    o3 -> t3 [style = dashed, color = "#B5651D", arrowhead = none];
+    c10f -> t10 [style = dashed, color = "#B5651D"];
+
+    // opt callouts
+    o4 -> o4opt   [style = dashed, color = "#C8A24B", arrowhead = none];
+    o5 -> o5opt   [style = dashed, color = "#C8A24B", arrowhead = none];
+    o7 -> o7opt   [style = dashed, color = "#C8A24B", arrowhead = none];
+    o12 -> o12opt [style = dashed, color = "#C8A24B", arrowhead = none];
+    o13 -> o13opt [style = dashed, color = "#C8A24B", arrowhead = none];
+  }
+
+  // outer loop back-edge
+  o13 -> o3 [label = "  next graph  (merged k → base of k+1)", constraint = false,
+             color = "#2E5E8C", fontcolor = "#2E5E8C", penwidth = 1.5];
+
+  // ---- FINALIZE (once) ----------------------------------------------------
+  subgraph cluster_final {
+    label = "FINALIZE  (once, after last iteration)";
+    style = "rounded";  color = "#9AA7B4";  fontsize = 13;  fontcolor = "#333333";
+    f15 [label = "15. (optional) PopPUNK clusters → SQLite · build indexes ·\nrelocate cumulative AA DB → pangenome_reference_aa/ ·\nclean temp · write summary_statistics.txt"];
+  }
+
+  out [label = "OUTPUTS\nfinal_graph.gml · pangenome_metadata.sqlite ·\npangenome_reference_aa/ · summary_statistics.txt\n\n(downstream pangenomerge-postprocess:\nRoary/Rtab tables · dedup compressed sequence DB ·\ngrowth-curve & frequency figures)",
+       shape = box, style = "filled", fillcolor = "#DCE9D6", color = "#4B7A4B", penwidth = 1.4];
+
+  // cross-cluster backbone wiring
+  s2  -> o3  [lhead = cluster_outer, label = "  enter loop"];
+  o13 -> f15 [ltail = cluster_outer, label = "  last iteration", color = "#2E5E8C"];
+  f15 -> out;
+
+  // ---- LEGEND -------------------------------------------------------------
+  subgraph cluster_legend {
+    label = "Legend";
+    style = "rounded";  color = "#9AA7B4";  fontsize = 12;
+    node [shape = box, fontsize = 10];
+    L_back [label = "backbone step (run mode)", style = "rounded,filled", fillcolor = "#EAF2FB", color = "#2E5E8C"];
+    L_test [label = "TEST-mode only step",       style = "rounded,filled", fillcolor = "#FCE4D6", color = "#B5651D"];
+    L_eng  [label = "refinement-engine step",     style = "rounded,filled", fillcolor = "#E7F3E7", color = "#4B7A4B"];
+    L_opt  [label = "optimization note",          shape = note, style = filled, fillcolor = "#FFF7E6", color = "#C8A24B", fontcolor = "#7A5C12"];
+    L_optn [label = "optional / dashed branch",   style = "rounded,dashed,filled", fillcolor = "#FFFFFF", color = "#8A6D3B", fontcolor = "#8A6D3B"];
+    L_back -> L_test [style = invis];
+    L_test -> L_eng  [style = invis];
+    L_eng  -> L_opt  [style = invis];
+    L_opt  -> L_optn [style = invis];
+  }
+  out -> L_back [style = invis];
+}

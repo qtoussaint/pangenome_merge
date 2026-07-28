@@ -1,0 +1,101 @@
+%% pangenomerge pipeline — run mode (backbone) + test mode (highlighted)
+%% View on GitHub, in VS Code (Mermaid preview), or at https://mermaid.live
+flowchart TB
+  classDef back  fill:#EAF2FB,stroke:#2E5E8C,color:#13314d;
+  classDef test  fill:#FCE4D6,stroke:#B5651D,color:#5a3410;
+  classDef eng   fill:#E7F3E7,stroke:#4B7A4B,color:#1f3a1f;
+  classDef opt   fill:#FFF7E6,stroke:#C8A24B,color:#7A5C12,font-size:11px;
+  classDef optn  fill:#FFFFFF,stroke:#8A6D3B,color:#8A6D3B,stroke-dasharray:4 3;
+  classDef out   fill:#DCE9D6,stroke:#4B7A4B,color:#1f3a1f;
+
+  %% ---- SETUP (once) ----
+  subgraph SETUP["SETUP (once)"]
+    direction TB
+    s1["1. Parse args · scaffold outdir,<br/>intermediate_graphs/ · fresh SQLite metadata DB"]
+    s2["2. Read ordered component-graph list<br/>(graphs merged in listed order)"]
+    s2opt(["(optional) pre-load allele lookup<br/>for representative rescue"])
+    s1 --> s2
+    s2 -.-> s2opt
+  end
+
+  %% ---- OUTER LOOP ----
+  subgraph OUTER["OUTER LOOP — sequential pairwise merge (runs n_graphs − 1 times)"]
+    direction TB
+    o3["3. Load the two graphs<br/>(iter 0: first two · later: running merged graph + next)<br/>register isolate names in SQLite"]
+    t3["TEST — remap node seqIDs to all-isolates<br/>ground-truth clustering IDs"]
+    o4["4. Augment reference FASTAs"]
+    o4opt["opt: append only the longest DNA of nodes<br/>MISSING from the reference (no full re-derivation)"]
+    o5["5. Build translated AA MMseqs2 DBs"]
+    o5opt["opt: target 'base' DB is PERSISTENT —<br/>built once, grown incrementally (see step 13)"]
+    o6["6. MMseqs2 search — STRICT pass<br/>(fident 0.98 · cov 0.95) → near-identical orthologs"]
+    o7["7. Filter hits to confident 1:1 matches"]
+    o7opt["opt: reciprocal 1:1 via sort + drop-duplicates<br/>(query then target) — no all-vs-all clustering"]
+    o8["8. Relabel matched orthologs to shared _target label ·<br/>suffix metadata with graph-of-origin _g{N} tags"]
+    o9["9. initial_graph_merge — union matched nodes,<br/>graft in unmatched nodes / edges"]
+
+    subgraph COLLAPSE["10. collapse_spurious_paralogs — refinement engine"]
+      direction TB
+      c10a["10a. Re-search node centroids at<br/>permissive family threshold (0.7)"]
+      c10aopt["opt: TWO-TIER search — permissive pass runs only on<br/>centroids, surfacing paralog / frameshift candidates<br/>the strict 0.98 pass skipped"]
+      c10b["10b. Split candidates → length-tolerant FRAMESHIFT<br/>vs length-strict FAMILY tables"]
+      c10c["10c. Build pairwise identity lookups"]
+
+      subgraph FIXED["10d. FIXED-POINT LOOP — until a full round merges nothing (or hits iteration cap)"]
+        direction TB
+        d_i["(i) family / identity + CONTEXT round<br/>accept pair iff identity ≥ thr ∧ context matches ∧ member sets disjoint"]
+        d_ii(["(ii) representative cross-graph rescue round (optional)"])
+        d_iii["(iii) frameshift round<br/>(high identity · low coverage)"]
+        d_i --> d_ii --> d_iii
+        d_iii -. "any merge? → next round" .-> d_i
+      end
+
+      c10e["10e. Final small-fragment pass<br/>(identity + coverage only · components ≤ 3 nodes)"]
+      c10f["10f. Recompute degrees"]
+      dopt1["opt: context scored by BFS depth 1→2→3,<br/>escalating only when similarity < 0.9"]
+      dopt2["opt: context scoring parallelized across candidate pairs"]
+      dopt3["opt: stale hits dropped as nodes merge —<br/>candidate set shrinks each round"]
+      dopt4["opt: rescue limited to still-'uncrossed'<br/>pure-base vs pure-query nodes"]
+
+      c10a --> c10b --> c10c --> d_i
+      d_iii -- "0 merges → exit" --> c10e --> c10f
+      c10a -.-> c10aopt
+      d_i -.-> dopt1
+      d_i -.-> dopt2
+      d_i -.-> dopt3
+      d_ii -.-> dopt4
+    end
+
+    t10["TEST (final iteration only) — score merged clustering<br/>vs ground truth → RI / ARI / MI / AMI (logged)"]
+    o11["11. Strip _target bookkeeping tags ·<br/>format metadata for GML"]
+    o12["12. Persist metadata to SQLite · strip heavy metadata<br/>from in-memory graph · write intermediate (or final) GML"]
+    o12opt["opt: heavy metadata offloaded to NORMALIZED SQLite —<br/>in-memory graph stays small ⇒ scales past ~100k genomes"]
+    o13["13. Grow persistent base MMseqs DB with only the<br/>NEW merged nodes (concatdbs)"]
+    o13opt["opt: incremental DB growth (append new nodes only)<br/>vs full rebuild each iteration"]
+
+    o3 --> o4 --> o5 --> o6 --> o7 --> o8 --> o9 --> c10a
+    c10f --> o11 --> o12 --> o13
+    o3 -.-> t3
+    c10f -. final iter .-> t10
+    o4 -.-> o4opt
+    o5 -.-> o5opt
+    o7 -.-> o7opt
+    o12 -.-> o12opt
+    o13 -.-> o13opt
+  end
+
+  %% ---- FINALIZE ----
+  f15["15. (optional) PopPUNK clusters → SQLite · build indexes ·<br/>relocate cumulative AA DB → pangenome_reference_aa/ ·<br/>clean temp · write summary_statistics.txt"]
+  out["OUTPUTS<br/>final_graph.gml · pangenome_metadata.sqlite ·<br/>pangenome_reference_aa/ · summary_statistics.txt<br/><br/>(downstream pangenomerge-postprocess:<br/>Roary/Rtab tables · dedup compressed sequence DB ·<br/>growth-curve & frequency figures)"]
+
+  s2 --> o3
+  o13 == "next graph (merged k → base of k+1)" ==> o3
+  o13 == "last iteration" ==> f15
+  f15 --> out
+
+  %% ---- classes ----
+  class s1,s2,o3,o4,o5,o6,o7,o8,o9,o11,o12,o13,f15 back;
+  class t3,t10 test;
+  class c10a,c10b,c10c,c10e,c10f,d_i,d_iii eng;
+  class o4opt,o5opt,o7opt,o12opt,o13opt,c10aopt,dopt1,dopt2,dopt3,dopt4 opt;
+  class s2opt,d_ii optn;
+  class out out;

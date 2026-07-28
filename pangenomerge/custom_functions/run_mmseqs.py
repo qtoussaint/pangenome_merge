@@ -1,7 +1,12 @@
 import subprocess
 
 # create mmseqs database
-def mmseqs_createdb(fasta, outdb, threads, nt2aa: bool):
+def mmseqs_createdb(fasta, outdb, threads, nt2aa: bool, compressed: int = 1):
+    # compressed: pass 0 for databases that will be searched with --search-type 3 (nucleotide).
+    # mmseqs' nucleotide search runs `splitsequence` on the target whenever it holds a sequence
+    # longer than --max-seq-len (10000); on a --compressed 1 database that step emits a
+    # target_seqs_split whose .index offsets overrun its .data, and the prefilter dies with
+    # "Invalid database read". Uncompressed databases are unaffected.
 
     # create compressed amino acid database from fasta
     if nt2aa is True:
@@ -19,7 +24,7 @@ def mmseqs_createdb(fasta, outdb, threads, nt2aa: bool):
 
     if nt2aa is False:
         # create amino acid db:
-        cmd = f'mmseqs createdb {str(fasta)} {str(outdb)} --compressed 1 -v 3 --threads {str(threads)}'
+        cmd = f'mmseqs createdb {str(fasta)} {str(outdb)} --compressed {str(compressed)} -v 3 --threads {str(threads)}'
         result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
     
 
@@ -52,7 +57,9 @@ def run_mmseqs_search(
         tmpdir,
         fident,
         coverage,
-        threads):
+        threads,
+        search_type=None,
+        kmer=None):
 
     # remove any existing results db
     result = subprocess.run(f'rm -f -- {str(resultdb)}*', shell=True, check=True, capture_output=True, text=True)
@@ -60,15 +67,23 @@ def run_mmseqs_search(
 
     # basic inputs/outputs
     cmd = f'mmseqs search {str(querydb)} {str(targetdb)} {str(resultdb)} {str(tmpdir)} '
-    
+
     # AA search with minimum aligned coverage specified
     # calculate coverage fraction globally (--cov-mode 0)
     # alignment mode 1 might not be possible but will try (otherwise need align mode 3 or -a)
     cmd += f' -a --cov-mode 0 -c {str(coverage)} '
-    
+
     # minimum identity and sequential sensitivity steps for speedup
     # default mmseqs sensitivity is 5.7 so can lower last step to speed up if needed
     cmd += f' --min-seq-id {str(fident)} --start-sens 1 --sens-steps 3 -s 5.7 -v 3 --threads {str(threads)}'
+
+    # explicit search type (e.g. 3 = nucleotide/nucleotide); default lets mmseqs auto-detect (protein)
+    if search_type is not None:
+        cmd += f' --search-type {str(search_type)}'
+
+    # explicit k-mer length (bounds nucleotide prefilter index memory; default lets mmseqs pick)
+    if kmer is not None:
+        cmd += f' -k {str(kmer)}'
     
     result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
 

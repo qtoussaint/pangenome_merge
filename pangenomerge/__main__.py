@@ -24,7 +24,7 @@ import shutil
 import glob as glob_module
 
 # import custom functions
-from pangenomerge.custom_functions.manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array
+from pangenomerge.custom_functions.manipulate_seqids import indSID_to_allSID, get_seqIDs_in_nodes, dict_to_2d_array, reference_corrected_scores
 from pangenomerge.custom_functions.run_mmseqs import run_mmseqs_search, mmseqs_createdb, mmseqs_concatdbs
 from pangenomerge.panaroo_functions.load_graphs import load_graphs
 from pangenomerge.panaroo_functions.write_gml_metadata import format_metadata_for_gml
@@ -33,6 +33,7 @@ from pangenomerge.panaroo_functions.merge_nodes import merge_node_cluster, gen_e
 from pangenomerge.custom_functions.relabel_nodes import relabel_nodes_preserve_attrs,sync_names
 from pangenomerge.custom_functions.sqlite import sqlite_connect, sqlite_init_schema, sqlite_create_indexes, add_metadata_to_sqlite, add_isolate_names_to_sqlite, add_clusters_to_sqlite, load_metadata_from_sqlite
 from pangenomerge.generate_output import generate_summary_statistics
+from pangenomerge.custom_functions.representative_selection import build_allele_lookup
 
 from .__init__ import __version__
 
@@ -120,6 +121,29 @@ def get_options():
                     required=False,
                     help='Max outer rounds of the alternating context/frameshift merge loop (family inner loop always runs to its own fixed point). -1 = run until no new pairs merge. Default: -1')
 
+    parameters.add_argument('--rep-merge-base',
+                    dest='rep_merge_base',
+                    default=None,
+                    choices=['modal', 'stratified', 'allunique'],
+                    required=False,
+                    help='Enable the representative-based cross-graph rescue step using this '
+                        'allele-selection strategy for BASE-graph nodes. Requires --rep-merge-query. '
+                        'modal = most common allele; stratified = most common allele per >15%% length bin; '
+                        'allunique = all distinct alleles. Default: off.')
+    parameters.add_argument('--rep-merge-query',
+                    dest='rep_merge_query',
+                    default=None,
+                    choices=['modal', 'stratified', 'allunique'],
+                    required=False,
+                    help='Allele-selection strategy for QUERY-graph nodes in the representative '
+                        'rescue step. Requires --rep-merge-base. Default: off.')
+    parameters.add_argument('--rep-merge-seqtype',
+                    dest='rep_merge_seqtype',
+                    default='protein',
+                    choices=['protein', 'dna'],
+                    required=False,
+                    help='Sequence type for the representative rescue step. Default: protein.')
+
     other = parser.add_argument_group('Other options')
     other.add_argument('--threads',
                     dest="threads",
@@ -154,6 +178,8 @@ def main():
                         f"frameshift pass would accept weaker hits than the family pass.")
     if options.include_clusters is not None and not Path(options.include_clusters).exists():
         logging.critical(f"--include-clusters file does not exist: {options.include_clusters}")
+    if (options.rep_merge_base is None) != (options.rep_merge_query is None):
+        logging.critical("--rep-merge-base and --rep-merge-query must be specified together!")
 
     # check whether metadata should be left in merged graph and provide warning
     if options.keep_metadata_in_graph is True:
@@ -201,6 +227,25 @@ def main():
     graph_files = pd.read_csv(options.component_graphs, sep='\t', header=None)
     n_graphs = int(len(graph_files))
     graph_count = 0
+
+    # component-graph clustering (C) for reference-corrected ARI/AMI (test mode):
+    # seqID (in graph_all clustering namespace) -> unique panaroo cluster of origin
+    component_cluster_of_seqid = {}
+
+    # build allele lookup once for the representative-based rescue step (if enabled)
+    allele_lookup = None
+    if options.rep_merge_base is not None and options.rep_merge_query is not None:
+        logging.info(
+            f"Representative rescue step enabled (base={options.rep_merge_base}, "
+            f"query={options.rep_merge_query}, seqtype={options.rep_merge_seqtype}).")
+        graph_dirs = [str(graph_files.iloc[i][0]) for i in range(n_graphs)]
+        allele_lookup = build_allele_lookup(
+            graph_dirs=graph_dirs,
+            mode=options.mode,
+            graph_all_dir=options.graph_all,
+            seqtype=options.rep_merge_seqtype,
+        )
+        logging.info(f"Allele lookup built: {len(allele_lookup)} sequences.")
 
     for graph in range(1, int(n_graphs)):
         
@@ -283,6 +328,16 @@ def main():
                 logging.debug("Applying ind...")
                 graph_1 = indSID_to_allSID(graph_1, gid_map_g1)
             graph_2 = indSID_to_allSID(graph_2, gid_map_g2)
+
+            # record the panaroo cluster each seqID came from (baseline clustering C):
+            # each component-graph node is its own cluster, made globally unique by graph index
+            if graph_count == 0:
+                for node in graph_1.nodes():
+                    for sid in graph_1.nodes[node].get("seqIDs", []):
+                        component_cluster_of_seqid[sid] = f"{node}_g{graph_count+1}"
+            for node in graph_2.nodes():
+                for sid in graph_2.nodes[node].get("seqIDs", []):
+                    component_cluster_of_seqid[sid] = f"{node}_g{graph_count+2}"
 
         # debug statement...
         logging.debug(f"--- MERGE {graph_count+1} ---")
@@ -658,6 +713,11 @@ def main():
             frameshift_identity=float(options.frameshift_identity),
             frameshift_coverage=float(options.frameshift_coverage),
             context_search_iterations=int(options.context_search_iterations),
+            allele_lookup=allele_lookup,
+            rep_merge_base=options.rep_merge_base,
+            rep_merge_query=options.rep_merge_query,
+            rep_merge_seqtype=options.rep_merge_seqtype,
+            query_suffix=f"_g{graph_count+2}",
         )
         
         # calculate clustering performance (if test mode)
@@ -667,30 +727,14 @@ def main():
             logging.info("Calculating adjusted Rand index (ARI) and adjusted mutual information (AMI)...")
 
             ### gather seqIDs to enable calculation of clustering metrics
-            
+
             cluster_dict_merged = get_seqIDs_in_nodes(merged_graph)
             cluster_dict_all = get_seqIDs_in_nodes(graph_all)
 
-            rand_input_merged = dict_to_2d_array(cluster_dict_merged)
-            rand_input_all = dict_to_2d_array(cluster_dict_all)
-
-            # obtain shared seq_ids
-            seq_ids_1 = []
-
-            for node in merged_graph.nodes():
-                seq_ids_1 += merged_graph.nodes[node]["seqIDs"]
-                
-            seq_ids_2 = []
-            for node in graph_all.nodes():
-                seq_ids_2 += graph_all.nodes[node]["seqIDs"]
-                
-            seq_ids_1 = set(seq_ids_1)
-            seq_ids_2 = set(seq_ids_2)
-                
-            # take intersection
-            common_seq_ids = seq_ids_1 & seq_ids_2 
-            
-            # print how many seq_ids were excluded
+            # diagnostics: how many seqIDs are shared / excluded between merged and all
+            seq_ids_1 = set(cluster_dict_merged)
+            seq_ids_2 = set(cluster_dict_all)
+            common_seq_ids = seq_ids_1 & seq_ids_2
             only_in_graph_1 = seq_ids_1 - seq_ids_2
             only_in_graph_2 = seq_ids_2 - seq_ids_1
             logging.info(f"shared seqIDs: {len(common_seq_ids)}")
@@ -699,34 +743,24 @@ def main():
             logging.debug(f"seqIDs only in merged (excluded): {only_in_graph_1}")
             logging.debug(f"seqIDs only in all (excluded): {only_in_graph_2}")
 
-            rand_input_merged_filtered = rand_input_merged.loc[:, rand_input_merged.loc[0].isin(common_seq_ids)]
-            rand_input_all_filtered = rand_input_all.loc[:, rand_input_all.loc[0].isin(common_seq_ids)]
-            
-            # get desired value order from row 0 of rand_input_all_filtered
-            desired_order = list(rand_input_all_filtered.iloc[0])
+            # standard scores (per-gene random baseline) AND reference-corrected scores
+            # (component-graph clustering as baseline), computed on the same aligned seqIDs
+            scores = reference_corrected_scores(
+                truth_map=cluster_dict_all,
+                merged_map=cluster_dict_merged,
+                component_map=component_cluster_of_seqid,
+            )
+            logging.info(f"seqIDs scored: {scores['n_seqIDs']}")
+            logging.info(f"Rand Index: {scores['RI']}")
+            logging.info(f"Adjusted Rand Index: {scores['ARI']}")
+            logging.info(f"Mutual Information: {scores['MI']}")
+            logging.info(f"Adjusted Mutual Information: {scores['AMI']}")
 
-            # create mapping from row 0 values in rand_input_merged_filtered to column names
-            val_to_col = {val: col for col, val in zip(rand_input_merged_filtered.columns, rand_input_merged_filtered.iloc[0])}
-
-            # reorder columns based on desired value order
-            columns_in_order = [val_to_col[val] for val in desired_order if val in val_to_col]
-
-            # apply the column reordering
-            rand_input_merged_filtered = rand_input_merged_filtered[columns_in_order]
-            
-            # put sorted clusters into Rand index
-            ri = rand_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
-            logging.info(f"Rand Index: {ri}")
-
-            ari = adjusted_rand_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
-            logging.info(f"Adjusted Rand Index: {ari}")
-
-            # put sorted clusters into mutual information
-            mutual_info = mutual_info_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
-            logging.info(f"Mutual Information: {mutual_info}")
-
-            adj_mutual_info = adjusted_mutual_info_score(rand_input_all_filtered.iloc[1], rand_input_merged_filtered.iloc[1])
-            logging.info(f"Adjusted Mutual Information: {adj_mutual_info}")
+            logging.info("Reference-corrected scores (component graphs as baseline):")
+            logging.info(f"  RI(merged,all)={scores['RI']:.6f}  RI(component,all)={scores['RI_component']:.6f}")
+            logging.info(f"  Reference-corrected ARI*: {scores['ARI_star']}")
+            logging.info(f"  NMI(merged,all)={scores['NMI_merged']:.6f}  NMI(component,all)={scores['NMI_component']:.6f}")
+            logging.info(f"  Reference-corrected AMI*: {scores['AMI_star']}")
 
         # info statement...
         logging.info("Merge complete. Preparing attribute metadata for export...")

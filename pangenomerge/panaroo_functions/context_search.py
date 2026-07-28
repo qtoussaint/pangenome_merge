@@ -1,4 +1,5 @@
 import logging
+import subprocess
 from pathlib import Path
 
 import networkx as nx
@@ -9,6 +10,7 @@ from pangenomerge.panaroo_functions.cdhit import *
 from pangenomerge.panaroo_functions.merge_nodes import *
 from pangenomerge.custom_functions.run_mmseqs import mmseqs_createdb, run_mmseqs_search
 from pangenomerge.custom_functions.context_similarity import build_ident_lookup, init_parallel, compute_scores_parallel
+from pangenomerge.custom_functions.representative_selection import write_representatives_fasta
 
 
 # add collapse families from Panaroo
@@ -352,12 +354,38 @@ def filter_mmseqs_to_current_nodes(mmseqs_frame, G):
     return mmseqs_frame[mask].copy()
 
 
-def find_mergeable_pairs(G, mmseqs_frame, ident_lookup, context_threshold, identity_threshold, threads):
+def context_pass(sims, context_threshold):
+    """True if the depth-1/2/3 context similarities clear the gate.
+
+    Two accepted patterns:
+      - depth-1 match AND (depth-2 OR depth-3 match)            [original]
+      - no depth-1 match but BOTH depth-2 AND depth-3 match     [added: deeper-only support]
+    """
+    return (
+        (sims[0] >= context_threshold
+         and (sims[1] >= context_threshold or sims[2] >= context_threshold))
+        or (sims[1] >= context_threshold and sims[2] >= context_threshold)
+    )
+
+
+def find_mergeable_pairs(G, mmseqs_frame, ident_lookup, context_threshold, identity_threshold, threads, tag=""):
     init_parallel(G, ident_lookup, context_threshold)
     scores = compute_scores_parallel(mmseqs_frame, threads)
 
     # debug statement...
     logging.debug(f"scores: {scores[:5]}")
+
+    # diagnostic funnel (only when tagged, e.g. the representative step) to see where candidates drop
+    if tag:
+        n_total = len(scores)
+        n_ident = sum(1 for _, _, ident, _ in scores if ident >= identity_threshold)
+        n_ctx = sum(1 for _, _, ident, sims in scores
+                    if ident >= identity_threshold and context_pass(sims, context_threshold))
+        n_disj = sum(1 for nA, nB, ident, sims in scores
+                     if ident >= identity_threshold and context_pass(sims, context_threshold)
+                     and set(G.nodes[nA]['members']).isdisjoint(set(G.nodes[nB]['members'])))
+        logging.info(f"[{tag} funnel] candidates={n_total} pass_identity={n_ident} "
+                     f"pass_identity+context={n_ctx} pass_+disjoint(accepted)={n_disj}")
 
     # sort dataframe by scores
     scores_sorted = sorted(
@@ -374,8 +402,7 @@ def find_mergeable_pairs(G, mmseqs_frame, ident_lookup, context_threshold, ident
     for nA, nB, ident, sims in scores_sorted:
         if (
             ident >= identity_threshold
-            and sims[0] >= context_threshold
-            and (sims[1] >= context_threshold or sims[2] >= context_threshold)
+            and context_pass(sims, context_threshold)
             and set(G.nodes[nA]['members']).isdisjoint(set(G.nodes[nB]['members'])) # check they do not share any members (genes within same genome will not be merged)
         ):
             accepted_pairs.append((nA, nB, ident, sims))
@@ -489,10 +516,95 @@ def find_small_fragment_pairs(G, mmseqs_frame, min_identity, min_coverage, max_c
     return pairs
 
 
+def find_representative_merge_pairs(merged_graph, allele_lookup, base_strategy,
+                                    query_strategy, seqtype, query_suffix, ident_lookup,
+                                    family_threshold, context_threshold, outdir, threads):
+    """Representative-based cross-graph rescue step.
+
+    Compares only nodes that have not yet merged across graphs: pure-base nodes (represented
+    via base_strategy) against pure-query nodes (query_strategy). Each node may contribute
+    several representative alleles (modal / stratified / all-unique). Candidate node pairs
+    are gated through the same context check as the family step (find_mergeable_pairs),
+    reusing the preexisting protein ident_lookup for neighbour-context scoring.
+    """
+    tmp = Path(outdir) / "mmseqs_tmp"
+    base_fa = tmp / "rep_base.fa"
+    query_fa = tmp / "rep_query.fa"
+    n_base, n_query = write_representatives_fasta(
+        merged_graph, allele_lookup, base_strategy, query_strategy,
+        query_suffix, base_fa, query_fa)
+    logging.debug(f"Representative step: {n_base} base nodes, {n_query} query nodes.")
+    if n_base == 0 or n_query == 0:
+        logging.debug("Representative step: one side has no eligible nodes; skipping.")
+        return []
+
+    base_db = tmp / "rep_base_db"
+    query_db = tmp / "rep_query_db"
+    resultm8 = tmp / "rep_clusters.m8"
+    # The rescue step is optional: if its mmseqs search fails (e.g. the large multi-representative
+    # nucleotide query exhausts the prefilter's memory), warn and skip rather than abort the merge.
+    try:
+        # nucleotide dbs must be uncompressed -- see mmseqs_createdb's `compressed` note
+        db_compressed = 0 if seqtype == "dna" else 1
+        mmseqs_createdb(fasta=base_fa, outdb=base_db, threads=threads, nt2aa=False,
+                        compressed=db_compressed)
+        mmseqs_createdb(fasta=query_fa, outdb=query_db, threads=threads, nt2aa=False,
+                        compressed=db_compressed)
+        run_mmseqs_search(
+            targetdb=str(base_db), querydb=str(query_db),
+            resultdb=str(tmp / "rep_resultdb"), resultm8=str(resultm8),
+            tmpdir=str(tmp), threads=threads,
+            fident=family_threshold,
+            coverage=round(family_threshold * 0.95, 3),
+            # nucleotide-vs-nucleotide search needs an explicit search type; protein auto-detects
+            search_type=(3 if seqtype == "dna" else None),
+            # bound nucleotide prefilter index memory (default heuristic over-allocates); also a bit
+            # more sensitive for a rescue step. harmless for the (auto-k) protein path.
+            kmer=(13 if seqtype == "dna" else None),
+        )
+    except subprocess.CalledProcessError as e:
+        # CalledProcessError's own message carries only the command, so surface mmseqs' own
+        # output too -- without it the failure is undiagnosable after the fact.
+        logging.warning(f"Representative step: mmseqs search failed ({e}); skipping this round.")
+        if e.stderr:
+            logging.warning(f"Representative step: mmseqs stderr: {e.stderr.strip()[-4000:]}")
+        if e.stdout:
+            logging.warning(f"Representative step: mmseqs stdout: {e.stdout.strip()[-4000:]}")
+        return []
+
+    hits = pd.read_csv(resultm8, sep="\t")
+    if len(hits) == 0:
+        return []
+    hits["fident"] = pd.to_numeric(hits["fident"], errors="coerce")
+    # strip the ||i representative index to recover originating node names.
+    # NB: use a literal (python) split — pandas str.split treats "||" as a regex (empty
+    # alternation) and would shred every name to "".
+    hits["query"] = hits["query"].map(lambda s: s.split("||", 1)[0])
+    hits["target"] = hits["target"].map(lambda s: s.split("||", 1)[0])
+    hits = hits[hits["query"] != hits["target"]].copy()
+    if len(hits) == 0:
+        return []
+    # collapse multiple rep-vs-rep hits to one row per node pair, keeping best identity
+    hits = hits.sort_values("fident", ascending=False).drop_duplicates(
+        subset=["query", "target"], keep="first")
+
+    # target endpoints are base nodes (already carry _target in the merged graph); queries
+    # are pure-query nodes. find_mergeable_pairs reorders so the _target node is kept by merge.
+    candidate_frame = hits[["query", "target", "fident"]].copy()
+
+    return find_mergeable_pairs(
+        merged_graph, candidate_frame, ident_lookup,
+        context_threshold, family_threshold, threads, tag="rep",
+    )
+
+
 def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
                                family_threshold, context_threshold,
                                frameshift_identity, frameshift_coverage,
-                               context_search_iterations=-1):
+                               context_search_iterations=-1,
+                               allele_lookup=None, rep_merge_base=None,
+                               rep_merge_query=None, rep_merge_seqtype="protein",
+                               query_suffix=None):
 
     # write query centroid fasta (stream to reduce memory)
     query_fa = Path(outdir) / "mmseqs_tmp" / "centroids_query.fa"
@@ -609,6 +721,24 @@ def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
                 any_merged = True
 
         logging.debug(f"After refinement merge {refinement_iteration} identity+context step: {len(merged_graph.nodes())} nodes")
+
+        # --- representative-based cross-graph rescue step (optional) ---
+        # richer per-node representatives (modal / stratified / all-unique) to capture hits
+        # the single-centroid family step missed; same context gating, preexisting ident_lookup
+        if rep_merge_base is not None and rep_merge_query is not None and allele_lookup is not None:
+            pairs_rep = find_representative_merge_pairs(
+                merged_graph, allele_lookup, rep_merge_base, rep_merge_query,
+                rep_merge_seqtype, query_suffix, ident_lookup,
+                family_threshold, context_threshold, outdir, options.threads,
+            )
+            if len(pairs_rep) > 0:
+                logging.info(f"Refinement merge {refinement_iteration} representative step: merging {len(pairs_rep)} pairs.")
+                apply_merges(merged_graph, pairs_rep)
+                any_merged = True
+            else:
+                logging.info(f"Refinement merge {refinement_iteration} representative step: no new mergeable pairs.")
+
+        logging.debug(f"After refinement merge {refinement_iteration} representative step: {len(merged_graph.nodes())} nodes")
 
         # --- single frameshift round on full current graph ---
         if ident_lookup_frameshift is not None and len(mmseqs_frameshift) > 0:
