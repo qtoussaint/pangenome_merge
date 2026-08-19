@@ -1,3 +1,4 @@
+import os
 import subprocess
 
 # create mmseqs database
@@ -88,10 +89,56 @@ def run_mmseqs_search(
     result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
 
 
-    # output format, verbosity, and threads
-    cmd = f' mmseqs convertalis {str(querydb)} {str(targetdb)} {str(resultdb)} {str(resultm8)} --format-mode 4 --format-output "query,target,fident,alnlen,qlen,tlen,evalue" -v 3 --threads {str(threads)}'
+    # output format, verbosity, and threads.
+    #
+    # Ask for qheader/theader rather than query/target: convertalis mangles any identifier it
+    # mistakes for a UCSC accession, stripping a leading "uc" (uctC_1 -> tC_1, ucFOO -> FOO).
+    # Callers match graph nodes to hits by name, so a mangled id means the hit is found at full
+    # identity and then silently discarded -- the gene is never merged and shows up as accessory
+    # content. createdb and translatenucs store the header correctly; only this export corrupts
+    # it. qheader/theader carry it verbatim. Swapping the columns rather than adding them keeps
+    # the .m8 byte size unchanged.
+    cmd = f' mmseqs convertalis {str(querydb)} {str(targetdb)} {str(resultdb)} {str(resultm8)} --format-mode 4 --format-output "qheader,theader,fident,alnlen,qlen,tlen,evalue" -v 3 --threads {str(threads)}'
 
     result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
 
+    # present the columns as query/target so every caller reads the .m8 unchanged
+    _restore_m8_query_target(resultm8)
 
     return
+
+
+def _restore_m8_query_target(resultm8):
+    """Rename an .m8's qheader/theader columns to query/target, keeping only each id's first token.
+
+    Six call sites write these files and six readers index them by `query`/`target`; requesting
+    qheader/theader is what avoids convertalis' identifier mangling, so the columns are renamed
+    here once instead of at every reader. Idempotent: a file already carrying query/target is
+    left alone.
+    """
+    path = str(resultm8)
+    if not os.path.exists(path):
+        return
+
+    with open(path) as src:
+        header = src.readline()
+        if not header.strip():
+            return
+        cols = header.rstrip("\n").split("\t")
+        if "qheader" not in cols and "theader" not in cols:
+            return
+        rename = {"qheader": "query", "theader": "target"}
+        idx = [i for i, c in enumerate(cols) if c in rename]
+
+        tmp = f"{path}.tmp"
+        with open(tmp, "w") as dst:
+            dst.write("\t".join(rename.get(c, c) for c in cols) + "\n")
+            for line in src:
+                # a FASTA header may carry a description after whitespace; the id is the first token
+                fields = line.rstrip("\n").split("\t")
+                for i in idx:
+                    if i < len(fields):
+                        fields[i] = fields[i].split()[0] if fields[i].strip() else fields[i]
+                dst.write("\t".join(fields) + "\n")
+
+    os.replace(tmp, path)

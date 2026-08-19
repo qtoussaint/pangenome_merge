@@ -34,6 +34,7 @@ from pangenomerge.custom_functions.relabel_nodes import relabel_nodes_preserve_a
 from pangenomerge.custom_functions.sqlite import sqlite_connect, sqlite_init_schema, sqlite_create_indexes, add_metadata_to_sqlite, add_isolate_names_to_sqlite, add_clusters_to_sqlite, load_metadata_from_sqlite
 from pangenomerge.generate_output import generate_summary_statistics
 from pangenomerge.custom_functions.representative_selection import build_allele_lookup
+from pangenomerge.panaroo_functions.context_search import final_representative_merge
 
 from .__init__ import __version__
 
@@ -137,6 +138,29 @@ def get_options():
                     required=False,
                     help='Allele-selection strategy for QUERY-graph nodes in the representative '
                         'rescue step. Requires --rep-merge-base. Default: off.')
+    parameters.add_argument('--rep-merge-position',
+                    dest='rep_merge_position',
+                    default='loop',
+                    choices=['loop', 'final', 'both'],
+                    required=False,
+                    help='When to run the representative rescue step. "loop" (default) runs it '
+                        'inside each pairwise merge, where the graph holds only the graphs merged '
+                        'so far. "final" runs it once after every component graph is in, so the '
+                        'synteny gate sees complete neighbourhoods -- a pair whose shared '
+                        'neighbours arrive with a later graph cannot pass in loop mode. "both" '
+                        'runs it in each pass and again at the end.')
+    parameters.add_argument('--rep-merge-context',
+                    dest='rep_merge_context',
+                    default='representative',
+                    choices=['representative', 'centroid'],
+                    required=False,
+                    help='Which sequences the representative step\'s synteny gate scores '
+                        'neighbours with. "representative" (default) uses the same alleles the '
+                        'step proposes pairs from, under the same --rep-merge-base/query '
+                        'strategy and seqtype, taking each node pair\'s best-matching '
+                        'representative. "centroid" reuses the longest-protein centroid lookup '
+                        'from the main pass, which makes the gate identical for every strategy '
+                        '(the behaviour before this option existed; kept for ablation).')
     parameters.add_argument('--rep-merge-seqtype',
                     dest='rep_merge_seqtype',
                     default='protein',
@@ -237,7 +261,8 @@ def main():
     if options.rep_merge_base is not None and options.rep_merge_query is not None:
         logging.info(
             f"Representative rescue step enabled (base={options.rep_merge_base}, "
-            f"query={options.rep_merge_query}, seqtype={options.rep_merge_seqtype}).")
+            f"query={options.rep_merge_query}, seqtype={options.rep_merge_seqtype}, "
+            f"context={options.rep_merge_context}).")
         graph_dirs = [str(graph_files.iloc[i][0]) for i in range(n_graphs)]
         allele_lookup = build_allele_lookup(
             graph_dirs=graph_dirs,
@@ -724,12 +749,40 @@ def main():
             frameshift_coverage=float(options.frameshift_coverage),
             context_search_iterations=int(options.context_search_iterations),
             allele_lookup=allele_lookup,
-            rep_merge_base=options.rep_merge_base,
-            rep_merge_query=options.rep_merge_query,
+            rep_merge_base=(options.rep_merge_base
+                            if options.rep_merge_position in ('loop', 'both') else None),
+            rep_merge_query=(options.rep_merge_query
+                             if options.rep_merge_position in ('loop', 'both') else None),
             rep_merge_seqtype=options.rep_merge_seqtype,
+            rep_merge_context=options.rep_merge_context,
             query_suffix=f"_g{graph_count+2}",
         )
         
+        # --- final representative pass: once every component graph is in the graph ---
+        # Runs on the last merge iteration only, so every COG is present and the context
+        # gate is evaluated against complete neighbourhoods.
+        if (options.rep_merge_base is not None
+                and options.rep_merge_position in ('final', 'both')
+                and allele_lookup is not None
+                and graph == n_graphs - 1):
+            logging.info("Running final representative pass on the complete graph "
+                         f"({len(merged_graph.nodes())} nodes)...")
+            n_final = final_representative_merge(
+                merged_graph, allele_lookup,
+                base_strategy=options.rep_merge_base,
+                seqtype=options.rep_merge_seqtype,
+                family_threshold=float(options.family_threshold),
+                context_threshold=float(options.context_threshold),
+                outdir=options.outdir,
+                threads=options.threads,
+                deterministic=(options.mode == 'test'),
+                rep_merge_context=options.rep_merge_context,
+            )
+            logging.info(f"Final representative pass: {n_final} pairs merged; "
+                         f"{len(merged_graph.nodes())} nodes remain.")
+            for node in merged_graph:
+                merged_graph.nodes[node]["degrees"] = int(merged_graph.degree[node])
+
         # calculate clustering performance (if test mode)
         if options.mode == 'test' and graph_count == (n_graphs-2):
 
@@ -867,9 +920,24 @@ def main():
 
             if n_new_nodes == 0:
                 # this graph contributed no unique nodes, so the fasta is empty and
-                # there is nothing to add to the db. mmseqs createdb exits 1 on an
-                # empty fasta, so skip the update and keep the existing base_db.
-                logging.info(f"Graph {graph_count+2} added 0 new nodes; skipping mmseqs db update.")
+                # there would be nothing to concat. mmseqs createdb exits 1 on an empty
+                # fasta, so skip building/concatenating a new-nodes db. The next iteration
+                # still recomputes base_db = pan_genome_db_{graph_count+1} and reads it off
+                # disk (line ~412), so the incremented db name MUST exist -- copy the current
+                # base_db (identical content) to it rather than leaving a gap.
+                outdb = str(Path(options.outdir) / "mmseqs_tmp" / f"pan_genome_db_{graph_count+2}")
+                logging.info(f"Graph {graph_count+2} added 0 new nodes; carrying base mmseqs db forward.")
+                base_prefix = os.path.basename(base_db)
+                out_dir = os.path.dirname(outdb)
+                out_prefix = os.path.basename(outdb)
+                for src in glob_module.glob(base_db + "*"):
+                    suffix = os.path.basename(src)[len(base_prefix):]
+                    # only the db's own component files (exact prefix + '' / '.' / '_' tail),
+                    # never a numerically-adjacent db that shares the leading digits
+                    if suffix and suffix[0] not in (".", "_"):
+                        continue
+                    shutil.copyfile(src, os.path.join(out_dir, out_prefix + suffix))
+                base_db = outdb
             else:
                 # update mmseqs database
                 new_nodes_db = str(Path(options.outdir) / "mmseqs_tmp" / f"tmp_db")

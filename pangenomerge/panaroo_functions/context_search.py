@@ -10,7 +10,8 @@ from pangenomerge.panaroo_functions.cdhit import *
 from pangenomerge.panaroo_functions.merge_nodes import *
 from pangenomerge.custom_functions.run_mmseqs import mmseqs_createdb, run_mmseqs_search
 from pangenomerge.custom_functions.context_similarity import build_ident_lookup, init_parallel, compute_scores_parallel
-from pangenomerge.custom_functions.representative_selection import write_representatives_fasta
+from pangenomerge.custom_functions.representative_selection import (
+    write_representatives_fasta, write_all_representatives_fasta, side_strategy_fn)
 
 
 # add collapse families from Panaroo
@@ -529,17 +530,97 @@ def find_small_fragment_pairs(G, mmseqs_frame, min_identity, min_coverage, max_c
     return pairs
 
 
+def build_representative_ident_lookup(merged_graph, allele_lookup, strategy, seqtype,
+                                     context_threshold, outdir, threads,
+                                     deterministic=False, prefix="rep_ctx"):
+    """Neighbour-identity lookup for the context gate, built from representative alleles.
+
+    The context gate scores a candidate pair by how similar their graph neighbours are,
+    through a {node pair -> identity} lookup. That lookup used to come from the main
+    centroid search -- one longest *protein* allele per node -- whatever the representative
+    strategy was. So a run proposing pairs from, say, all-unique DNA alleles still had them
+    judged on longest-protein synteny, and the gate was identical across all nine methods.
+    This builds the lookup from the same representatives the step proposes with, so the
+    strategy governs both halves of the decision.
+
+    Every node contributes its representatives (`strategy` is a name, or a callable
+    node -> name for the base/query split), headed '>{node}||{i}', and the set is searched
+    all-vs-all. Stripping '||i' and taking the max identity per node pair -- which is what
+    build_ident_lookup does -- means a multi-representative node is scored on its
+    best-matching allele, which is the intended semantics for stratified and allunique.
+
+    Returns the lookup dict, or None if it cannot be built (caller falls back to centroids).
+    """
+    tmp = Path(outdir) / "mmseqs_tmp"
+    tmp.mkdir(parents=True, exist_ok=True)
+    ctx_fa = tmp / f"{prefix}.fa"
+    n_nodes = write_all_representatives_fasta(merged_graph, allele_lookup, strategy, ctx_fa)
+    if n_nodes < 2:
+        logging.warning("Representative context lookup: fewer than 2 nodes have alleles; "
+                        "falling back to the centroid lookup.")
+        return None
+
+    ctx_db = tmp / f"{prefix}_db"
+    try:
+        # nucleotide dbs must be uncompressed -- see mmseqs_createdb's `compressed` note
+        mmseqs_createdb(fasta=ctx_fa, outdb=ctx_db, threads=threads, nt2aa=False,
+                        compressed=(0 if seqtype == "dna" else 1))
+        run_mmseqs_search(
+            targetdb=str(ctx_db), querydb=str(ctx_db),
+            resultdb=str(tmp / f"{prefix}_resultdb"),
+            resultm8=str(tmp / f"{prefix}.m8"),
+            tmpdir=str(tmp), threads=threads,
+            # the floor is the context threshold: hits below it can never pass the gate
+            fident=context_threshold,
+            coverage=round(context_threshold * 0.95, 3),
+            search_type=(3 if seqtype == "dna" else None),
+            kmer=(13 if seqtype == "dna" else None),
+        )
+    except subprocess.CalledProcessError as e:
+        logging.warning(f"Representative context lookup: mmseqs search failed ({e}); "
+                        f"falling back to the centroid lookup.")
+        if e.stderr:
+            logging.warning(f"Representative context lookup: mmseqs stderr: "
+                            f"{e.stderr.strip()[-4000:]}")
+        if e.stdout:
+            logging.warning(f"Representative context lookup: mmseqs stdout: "
+                            f"{e.stdout.strip()[-4000:]}")
+        return None
+
+    hits = pd.read_csv(tmp / f"{prefix}.m8", sep="\t")
+    if len(hits) == 0:
+        logging.warning("Representative context lookup: no hits; falling back to centroids.")
+        return None
+    # test mode only: canonical row order for reproducibility -- see the main mmseqs read.
+    if deterministic:
+        hits = hits.sort_values(["query", "target", "fident"],
+                                kind="mergesort").reset_index(drop=True)
+    hits["fident"] = pd.to_numeric(hits["fident"], errors="coerce")
+    # literal split: pandas str.split treats "||" as a regex and would blank every name
+    hits["query"] = hits["query"].map(lambda x: x.split("||", 1)[0])
+    hits["target"] = hits["target"].map(lambda x: x.split("||", 1)[0])
+    hits = hits[hits["query"] != hits["target"]]
+    lookup = build_ident_lookup(hits)
+    logging.info(f"[rep context] {n_nodes} nodes -> {len(hits)} rep-vs-rep hits -> "
+                 f"{len(lookup)} node pairs in the context lookup.")
+    return lookup
+
+
 def find_representative_merge_pairs(merged_graph, allele_lookup, base_strategy,
                                     query_strategy, seqtype, query_suffix, ident_lookup,
                                     family_threshold, context_threshold, outdir, threads,
-                                    deterministic=False):
+                                    deterministic=False, ident_lookup_rep=None):
     """Representative-based cross-graph rescue step.
 
     Compares only nodes that have not yet merged across graphs: pure-base nodes (represented
     via base_strategy) against pure-query nodes (query_strategy). Each node may contribute
     several representative alleles (modal / stratified / all-unique). Candidate node pairs
-    are gated through the same context check as the family step (find_mergeable_pairs),
-    reusing the preexisting protein ident_lookup for neighbour-context scoring.
+    are gated through the same context check as the family step (find_mergeable_pairs).
+
+    `ident_lookup_rep`, when given, is the neighbour-identity lookup built from the same
+    representatives (build_representative_ident_lookup) and is used for that context check
+    in place of the longest-protein centroid `ident_lookup`. Without it the step proposes
+    pairs from one sequence set and judges them against another.
     """
     tmp = Path(outdir) / "mmseqs_tmp"
     base_fa = tmp / "rep_base.fa"
@@ -613,7 +694,8 @@ def find_representative_merge_pairs(merged_graph, allele_lookup, base_strategy,
     candidate_frame = hits[["query", "target", "fident"]].copy()
 
     return find_mergeable_pairs(
-        merged_graph, candidate_frame, ident_lookup,
+        merged_graph, candidate_frame,
+        ident_lookup_rep if ident_lookup_rep is not None else ident_lookup,
         context_threshold, family_threshold, threads, tag="rep",
         deterministic=deterministic,
     )
@@ -625,7 +707,7 @@ def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
                                context_search_iterations=-1,
                                allele_lookup=None, rep_merge_base=None,
                                rep_merge_query=None, rep_merge_seqtype="protein",
-                               query_suffix=None):
+                               rep_merge_context="representative", query_suffix=None):
 
     # Reproducibility guarantees apply to test mode only, where runs are compared against a
     # ground truth and against each other. Run mode keeps the original (faster) behaviour.
@@ -729,6 +811,29 @@ def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
     else:
         ident_lookup_frameshift = None
 
+    ### representative context lookup for the representative step (built once, like the
+    ### centroid lookup above). Node names survive merges -- apply_merges keeps the surviving
+    ### node's name -- so a lookup built here stays valid for every node that still exists
+    ### later in the loop; only a merged node's allele *content* drifts, exactly as it does
+    ### for the centroid lookup. Building it per iteration would cost one mmseqs search per
+    ### iteration for that marginal freshness.
+    ident_lookup_rep = None
+    rep_step_on = (rep_merge_base is not None and rep_merge_query is not None
+                   and allele_lookup is not None)
+    if rep_step_on and rep_merge_context == "representative":
+        logging.info(f"Building representative context lookup "
+                     f"(base={rep_merge_base}, query={rep_merge_query}, "
+                     f"seqtype={rep_merge_seqtype})...")
+        ident_lookup_rep = build_representative_ident_lookup(
+            merged_graph, allele_lookup,
+            side_strategy_fn(merged_graph, query_suffix, rep_merge_base, rep_merge_query),
+            rep_merge_seqtype, context_threshold, outdir, options.threads,
+            deterministic=deterministic,
+        )
+    elif rep_step_on:
+        logging.info("Representative step: using the centroid context lookup "
+                     "(--rep-merge-context centroid).")
+
     # info statement...
     logging.info("Merging nodes and edges...")
 
@@ -763,12 +868,12 @@ def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
         # --- representative-based cross-graph rescue step (optional) ---
         # richer per-node representatives (modal / stratified / all-unique) to capture hits
         # the single-centroid family step missed; same context gating, preexisting ident_lookup
-        if rep_merge_base is not None and rep_merge_query is not None and allele_lookup is not None:
+        if rep_step_on:
             pairs_rep = find_representative_merge_pairs(
                 merged_graph, allele_lookup, rep_merge_base, rep_merge_query,
                 rep_merge_seqtype, query_suffix, ident_lookup,
                 family_threshold, context_threshold, outdir, options.threads,
-                deterministic=deterministic,
+                deterministic=deterministic, ident_lookup_rep=ident_lookup_rep,
             )
             if len(pairs_rep) > 0:
                 logging.info(f"Refinement merge {refinement_iteration} representative step: merging {len(pairs_rep)} pairs.")
@@ -821,3 +926,132 @@ def collapse_spurious_paralogs(merged_graph, base_db, options, outdir,
 
     # debug statement...
     logging.debug(f"After collapse: {len(merged_graph.nodes())} nodes")
+
+
+def final_representative_merge(merged_graph, allele_lookup, base_strategy, seqtype,
+                               family_threshold, context_threshold, outdir, threads,
+                               max_iterations=-1, deterministic=False,
+                               rep_merge_context="representative"):
+    """Representative-based merge run once, after every component graph is in the graph.
+
+    The in-loop representative step runs during each pairwise merge, when the graph holds
+    only the graphs merged so far. Its gate is synteny, so a pair whose shared neighbours
+    arrive with a later graph cannot pass at that point -- the evidence does not exist yet.
+    This pass re-tests every node against every other once the neighbourhood is complete.
+
+    Differences from the in-loop step:
+      * all nodes, not pure-base vs pure-query (that split is meaningless once every graph
+        is present, and misses nodes that merged graphs 1+2 but still need graph 3)
+      * an all-vs-all search over ~3-5k final nodes, which is cheap at that size
+      * a fresh context lookup rebuilt each iteration from the *final* graph, so neighbour
+        identities reflect the completed graph rather than an intermediate one -- from the
+        same representatives the pass proposes with, unless rep_merge_context="centroid"
+
+    Returns the number of pairs merged.
+    """
+    tmp = Path(outdir) / "mmseqs_tmp"
+    tmp.mkdir(parents=True, exist_ok=True)
+    total_merged = 0
+    iteration = 0
+
+    while max_iterations < 0 or iteration < max_iterations:
+        iteration += 1
+
+        # --- context lookup from the CURRENT (complete) graph ---
+        # Every node takes base_strategy here: the base/query split does not exist once all
+        # graphs are in, so there is only one strategy to apply.
+        ident_lookup = None
+        if rep_merge_context == "representative":
+            ident_lookup = build_representative_ident_lookup(
+                merged_graph, allele_lookup, base_strategy, seqtype,
+                context_threshold, outdir, threads,
+                deterministic=deterministic, prefix="final_rep_ctx")
+        if ident_lookup is None:
+            # centroid lookup: either requested, or the representative one failed to build
+            cent_fa = tmp / "final_centroids.fa"
+            write_centroids_to_fasta(merged_graph, cent_fa)
+            cent_db = tmp / "final_centroids_db"
+            try:
+                mmseqs_createdb(fasta=cent_fa, outdb=cent_db, threads=threads, nt2aa=False)
+                run_mmseqs_search(
+                    targetdb=str(cent_db), querydb=str(cent_db),
+                    resultdb=str(tmp / "final_ctx_resultdb"),
+                    resultm8=str(tmp / "final_ctx.m8"),
+                    tmpdir=str(tmp), threads=threads,
+                    fident=context_threshold,
+                    coverage=round(context_threshold * 0.95, 3),
+                )
+            except subprocess.CalledProcessError as e:
+                logging.warning(f"Final representative pass: context search failed ({e}); "
+                                f"skipping.")
+                return total_merged
+
+            ctx_hits = pd.read_csv(tmp / "final_ctx.m8", sep="\t")
+            if deterministic:
+                ctx_hits = ctx_hits.sort_values(["query", "target", "fident"],
+                                                kind="mergesort").reset_index(drop=True)
+            ctx_hits["fident"] = pd.to_numeric(ctx_hits["fident"], errors="coerce")
+            ctx_hits = ctx_hits[ctx_hits["query"] != ctx_hits["target"]]
+            ident_lookup = build_ident_lookup(ctx_hits)
+
+        # --- representatives for every node, searched against themselves ---
+        rep_fa = tmp / "final_rep.fa"
+        n_nodes = write_all_representatives_fasta(
+            merged_graph, allele_lookup, base_strategy, rep_fa)
+        if n_nodes < 2:
+            logging.info("Final representative pass: fewer than 2 nodes with alleles.")
+            return total_merged
+
+        rep_db = tmp / "final_rep_db"
+        try:
+            # nucleotide dbs must be uncompressed -- see mmseqs_createdb's `compressed` note
+            mmseqs_createdb(fasta=rep_fa, outdb=rep_db, threads=threads, nt2aa=False,
+                            compressed=(0 if seqtype == "dna" else 1))
+            run_mmseqs_search(
+                targetdb=str(rep_db), querydb=str(rep_db),
+                resultdb=str(tmp / "final_rep_resultdb"),
+                resultm8=str(tmp / "final_rep.m8"),
+                tmpdir=str(tmp), threads=threads,
+                fident=family_threshold,
+                coverage=round(family_threshold * 0.95, 3),
+                search_type=(3 if seqtype == "dna" else None),
+                kmer=(13 if seqtype == "dna" else None),
+            )
+        except subprocess.CalledProcessError as e:
+            logging.warning(f"Final representative pass: mmseqs search failed ({e}).")
+            if e.stderr:
+                logging.warning(f"  stderr: {e.stderr.strip()[-2000:]}")
+            return total_merged
+
+        hits = pd.read_csv(tmp / "final_rep.m8", sep="\t")
+        if len(hits) == 0:
+            logging.info(f"Final representative pass iteration {iteration}: no hits.")
+            return total_merged
+        if deterministic:
+            hits = hits.sort_values(["query", "target", "fident"],
+                                    kind="mergesort").reset_index(drop=True)
+        hits["fident"] = pd.to_numeric(hits["fident"], errors="coerce")
+        hits["query"] = hits["query"].map(lambda s: s.split("||", 1)[0])
+        hits["target"] = hits["target"].map(lambda s: s.split("||", 1)[0])
+        hits = hits[hits["query"] != hits["target"]].copy()
+        if len(hits) == 0:
+            return total_merged
+        hits = hits.sort_values("fident", ascending=False).drop_duplicates(
+            subset=["query", "target"], keep="first")
+
+        pairs = find_mergeable_pairs(
+            merged_graph, hits[["query", "target", "fident"]].copy(), ident_lookup,
+            context_threshold, family_threshold, threads, tag="final-rep",
+            deterministic=deterministic,
+        )
+        if not pairs:
+            logging.info(f"Final representative pass iteration {iteration}: "
+                         f"no new mergeable pairs.")
+            return total_merged
+
+        logging.info(f"Final representative pass iteration {iteration}: "
+                     f"merging {len(pairs)} pairs.")
+        apply_merges(merged_graph, pairs)
+        total_merged += len(pairs)
+
+    return total_merged

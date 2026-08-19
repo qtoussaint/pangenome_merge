@@ -7,12 +7,27 @@ import multiprocessing as mp
 
 # pre-index mmseqs for faster lookups of max identity per unordered pair
 def build_ident_lookup(mmseqs: pd.DataFrame) -> dict:
-    
-    # use unordered pairs so (A,B) and (B,A) are the same key
-    keys = mmseqs.apply(lambda r: frozenset((r["query"], r["target"])), axis=1)
-    
-    # take max fident per unordered pair
-    return mmseqs.assign(_key=keys).groupby("_key")["fident"].max().to_dict()
+    """{frozenset((nodeA, nodeB)): max fident} over the hit table.
+
+    Unordered keys so (A,B) and (B,A) collapse, and max so a node pair with several hit rows
+    keeps its best. That max is what makes the representative context lookup correct for the
+    multi-representative strategies: an all-unique node contributes one row per allele pair,
+    and the pair is scored on the best-matching allele.
+
+    Built with an explicit loop rather than groupby(apply) -- a row-wise apply over the hit
+    table dominated runtime once all-unique representatives pushed it into the millions of
+    rows.
+    """
+    fident = pd.to_numeric(mmseqs["fident"], errors="coerce").to_numpy()
+    lookup = {}
+    for q, t, f in zip(mmseqs["query"].to_numpy(), mmseqs["target"].to_numpy(), fident):
+        if f != f:  # NaN, as groupby(max) would also drop
+            continue
+        key = frozenset((q, t))
+        prev = lookup.get(key)
+        if prev is None or f > prev:
+            lookup[key] = f
+    return lookup
 
 # define context similarity function
 def context_similarity_seq(G: nx.Graph, nA, nB, ident_lookup: dict, depth: int = 1) -> float:

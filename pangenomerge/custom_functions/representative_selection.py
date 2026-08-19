@@ -162,3 +162,49 @@ def write_representatives_fasta(G, lookup, base_strategy, query_strategy,
                 handle.write(f">{node}||{i}\n{seq}\n")
     logging.debug(f"Representative FASTA: {n_base} base nodes, {n_query} query nodes written.")
     return n_base, n_query
+
+
+def side_strategy_fn(G, query_suffix, base_strategy, query_strategy):
+    """Per-node representative strategy for the in-loop representative context lookup.
+
+    A node is represented with the strategy of the side it belongs to. Nodes that have
+    already merged across graphs belong to neither side and take the base strategy -- they
+    are part of the accumulated base graph. This only distinguishes the mixed methods
+    (base != query); for modal/modal, stratified/stratified and allunique/allunique the two
+    strategies are identical and the rule is a no-op.
+    """
+    def strategy(node):
+        return query_strategy if is_uncrossed(G, node, query_suffix) == "query" else base_strategy
+    return strategy
+
+
+def write_all_representatives_fasta(G, lookup, strategy, out_fa):
+    """Write representatives for EVERY node to one FASTA (for the all-vs-all passes).
+
+    The in-loop merge step splits nodes into pure-base and pure-query sides, which only
+    makes sense while a specific query graph is being merged in. Once every graph is present
+    that distinction is gone -- and a node that already merged graphs 1+2 may still be
+    missing its graph-3 counterpart -- so the final pass considers all nodes and lets the
+    disjoint-members check in find_mergeable_pairs reject pairs that share a genome.
+
+    Also used to build the representative context lookup, where every node must appear
+    regardless of side because any node can be a neighbour of a candidate pair.
+
+    `strategy` is a strategy name, or a callable node -> strategy name (see
+    side_strategy_fn) when the two sides use different strategies.
+
+    Returns the number of nodes written.
+    """
+    n = 0
+    with open(out_fa, "w") as fh:
+        for node in G.nodes():
+            strat = strategy(node) if callable(strategy) else strategy
+            reps = node_representatives(G.nodes[node].get("seqIDs", []), lookup, strat)
+            if not reps:
+                continue
+            n += 1
+            for i, seq in enumerate(reps):
+                seq = seq.replace("*", "").rstrip()
+                fh.write(f">{node}||{i}\n{seq}\n")
+    logging.debug(f"Final representative FASTA: {n} nodes written.")
+    return n
