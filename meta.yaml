@@ -33,16 +33,20 @@ requirements:
     - scikit-learn
     - python-edlib
     - tqdm
+    - joblib
     - matplotlib-base
+    - mafft
 
 test:
   imports:
     - pangenomerge
     - pangenomerge.custom_functions.context_similarity
     - pangenomerge.panaroo_functions.write_gml_metadata
+    - pangenomerge.alignment_functions.generate_alignments
   commands:
     - pangenomerge --version
     - pangenomerge-postprocess --help
+    - pangenomerge-msa --help
 
 about:
   home: https://github.com/qtoussaint/pangenome_merge

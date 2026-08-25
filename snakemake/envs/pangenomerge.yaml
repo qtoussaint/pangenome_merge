@@ -13,4 +13,6 @@ dependencies:
   - scikit-learn
   - python-edlib
   - tqdm
+  - joblib
   - matplotlib
+  - mafft

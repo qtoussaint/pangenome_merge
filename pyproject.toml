@@ -16,6 +16,13 @@ authors = [
 dependencies = [
   "biopython>=1.80",
   "matplotlib>=3.5",
+  "networkx>=3.4.2",
+  "numpy",
+  "pandas",
+  "scipy",
+  "scikit-learn",
+  "tqdm",
+  "joblib",
 ]
 
 [tool.setuptools.packages.find]
@@ -27,3 +34,4 @@ namespaces = true
 [project.scripts]
 pangenomerge = "pangenomerge.__main__:main"
 pangenomerge-postprocess = "pangenomerge.generate_output:cli_main"
+pangenomerge-msa = "pangenomerge.alignment_functions.post_pgmerge_alignment:main"
