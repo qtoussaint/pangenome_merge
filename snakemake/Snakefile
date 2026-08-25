@@ -29,7 +29,7 @@ def log_path(rule_name, wildcards=None):
 # later change this rule to look for multiple results (one from each step, ggcaller, panaroo etc)
 rule all:
     input:
-        RESULTS / "pangenomerge" / "done.txt"
+        RESULTS / "msa" / "done.txt"
     
 
 # split isolates into batches (to make running poppunk feasible)
@@ -438,4 +438,124 @@ rule merge_pangenomes:
         
         echo "ok" > {output.done}
        
+        """
+
+
+# generate the sequence database and merge figures from the merged pangenome
+rule postprocess_pangenome:
+    input:
+        graphs=RESULTS / "pangenomes" / "pangenomes.tsv",
+        done=RESULTS / "pangenomerge" / "done.txt",
+    output:
+        seqdb=RESULTS / "pangenomerge" / "pangenome_sequences.sqlite",
+        merge_stats=RESULTS / "pangenomerge" / "postprocessing" / "merge_statistics.csv",
+    params:
+        pangenomerge_dir=RESULTS / "pangenomerge",
+        postprocess_runner=config["pangenomerge_postprocess_runner"],
+    conda:
+        "envs/pangenomerge.yaml"
+    threads: config["resources_pangenomerge"]["threads"]
+    resources:
+        mem=config["resources_pangenomerge"]["mem"],
+        runtime=config["resources_pangenomerge"]["runtime"],
+        nodes=config["resources_pangenomerge"]["nodes"],
+        slurm_partition=config["resources_pangenomerge"]["slurm_partition"],
+    log:
+        str(LOGDIR / "postprocess_pangenome.log"),
+    shell:
+        r"""
+
+        mkdir -p "$(dirname "{log}")"
+        exec > >(tee -a "{log}") 2>&1
+
+        echo "[postprocess_pangenome] start: $(date -Is)"
+
+        # per-gene sequence database, required by pangenomerge-msa
+        python3 {params.postprocess_runner} \
+            --pangenomerge-results {params.pangenomerge_dir} \
+            --output sequences \
+            --component-graphs {input.graphs}
+
+        # merge statistics and plots
+        python3 {params.postprocess_runner} \
+            --pangenomerge-results {params.pangenomerge_dir} \
+            --output figures
+
+        echo "[postprocess_pangenome] done: $(date -Is)"
+
+        """
+
+
+# per-gene codon MSAs, in both strict and non-strict modes.
+# --codons and --strict-codons produce identical aligned_protein_sequences/ and
+# unaligned_dna_sequences/, so both runs share one --shared-alignment-dir and the
+# (expensive) protein alignment happens once. They diverge only for genes with
+# QC-failing DNA, which is why aligned_gene_sequences/ stays per-mode.
+rule msa:
+    input:
+        seqdb=RESULTS / "pangenomerge" / "pangenome_sequences.sqlite",
+    output:
+        done=RESULTS / "msa" / "done.txt",
+    params:
+        # not a directory() output on purpose: snakemake removes those on failure,
+        # which would delete exactly the partial alignments --resume exists to reuse
+        msadir=RESULTS / "msa",
+        pangenomerge_dir=RESULTS / "pangenomerge",
+        msa_runner=config["pangenomerge_msa_runner"],
+    conda:
+        "envs/pangenomerge.yaml"
+    threads: config["resources_pangenomerge"]["threads"]
+    resources:
+        mem=config["resources_pangenomerge"]["mem"],
+        runtime=config["resources_pangenomerge"]["runtime"],
+        nodes=config["resources_pangenomerge"]["nodes"],
+        slurm_partition=config["resources_pangenomerge"]["slurm_partition"],
+    log:
+        str(LOGDIR / "msa.log"),
+    shell:
+        r"""
+
+        mkdir -p "$(dirname "{log}")"
+        exec > >(tee -a "{log}") 2>&1
+
+        echo "[msa] start: $(date -Is)"
+        echo "[msa] threads: {threads}"
+
+        SHARED={params.msadir}/alignment
+        mkdir -p "$SHARED"
+
+        # non-strict first: it populates the shared protein alignments, which the
+        # strict pass then reuses instead of running MAFFT a second time
+        for mode in codon codon_strict; do
+            case $mode in
+                codon)        FLAG=--codons ;;
+                codon_strict) FLAG=--strict-codons ;;
+            esac
+
+            OUT={params.msadir}/$mode
+            mkdir -p "$OUT"
+
+            # --resume is only valid when a manifest from an interrupted run exists
+            RESUME=""
+            if [ -f "$OUT/alignment_resume_state.json" ]; then
+                RESUME="--resume"
+                echo "[msa] $mode: resuming from existing manifest"
+            fi
+
+            echo "[msa] $mode: start $(date -Is)"
+            python3 {params.msa_runner} \
+                --outdir {params.pangenomerge_dir} \
+                --alignment-outdir "$OUT" \
+                --shared-alignment-dir "$SHARED" \
+                --alignment pan \
+                --aligner mafft \
+                $FLAG $RESUME \
+                --threads {threads} \
+                --verbose
+            echo "[msa] $mode: done $(date -Is)"
+        done
+
+        echo "ok" > {output.done}
+        echo "[msa] done: $(date -Is)"
+
         """
