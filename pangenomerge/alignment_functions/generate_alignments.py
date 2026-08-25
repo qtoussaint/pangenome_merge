@@ -103,6 +103,19 @@ def translate(seq, translation_table):
     return(pseq)
 
 
+def _resolve_shared_dir(output_dir, shared_dir):
+    """Directory holding intermediates that do not depend on --strict-codons.
+
+    aligned_protein_sequences/ and unaligned_dna_sequences/ are byte-identical
+    between --codons and --strict-codons, so both runs can point at one shared
+    directory and the (expensive) protein alignment stage happens once. Defaults
+    to output_dir, which reproduces the single-run layout exactly.
+    """
+    if shared_dir is None:
+        return output_dir
+    return _normalise_output_dir(shared_dir)
+
+
 def _normalise_output_dir(output_dir):
     return os.path.join(str(output_dir), "")
 
@@ -416,13 +429,13 @@ def get_expected_protein_input_path(node, temp_directory):
     return os.path.join(temp_directory, get_alignment_basename(node) + ".fasta")
 
 
-def get_expected_protein_alignment_path(node, output_dir):
-    return os.path.join(output_dir, "aligned_protein_sequences",
+def get_expected_protein_alignment_path(node, shared_dir):
+    return os.path.join(shared_dir, "aligned_protein_sequences",
                         get_alignment_basename(node) + ".aln.fas")
 
 
-def get_expected_unaligned_dna_path(node, output_dir):
-    return os.path.join(output_dir, "unaligned_dna_sequences",
+def get_expected_unaligned_dna_path(node, shared_dir):
+    return os.path.join(shared_dir, "unaligned_dna_sequences",
                         get_alignment_basename(node) + ".fasta")
 
 
@@ -439,7 +452,7 @@ def load_resume_manifest(output_dir):
         return json.load(handle)
 
 
-def check_resume_manifest_collision(output_dir, resume):
+def check_resume_manifest_collision(output_dir, resume, shared_dir=None):
     if resume:
         return
 
@@ -447,6 +460,7 @@ def check_resume_manifest_collision(output_dir, resume):
     if not os.path.isfile(manifest_path):
         return
 
+    shared_dir = _resolve_shared_dir(output_dir, shared_dir)
     raise RuntimeError(
         "Found an existing gene-alignment resume manifest in "
         + output_dir
@@ -456,9 +470,9 @@ def check_resume_manifest_collision(output_dir, resume):
         + ", "
         + os.path.join(output_dir, "aligned_gene_sequences/")
         + ", "
-        + os.path.join(output_dir, "aligned_protein_sequences/")
+        + os.path.join(shared_dir, "aligned_protein_sequences/")
         + ", and "
-        + os.path.join(output_dir, "unaligned_dna_sequences/")
+        + os.path.join(shared_dir, "unaligned_dna_sequences/")
         + "."
     )
 
@@ -536,8 +550,8 @@ def gene_has_valid_final_output(node, output_dir, codons, aligner=None):
     return is_valid_fasta(output_path)
 
 
-def gene_has_valid_protein_output(node, output_dir):
-    return is_valid_alignment(get_expected_protein_alignment_path(node, output_dir))
+def gene_has_valid_protein_output(node, shared_dir):
+    return is_valid_alignment(get_expected_protein_alignment_path(node, shared_dir))
 
 
 def node_requires_msa(node):
@@ -553,7 +567,8 @@ def get_pending_gene_ids(nodes, output_dir, codons, resume, aligner=None):
     return pending_gene_ids
 
 
-def get_pending_codon_gene_ids(nodes, output_dir, resume):
+def get_pending_codon_gene_ids(nodes, output_dir, resume, shared_dir=None):
+    shared_dir = _resolve_shared_dir(output_dir, shared_dir)
     protein_pending_gene_ids = []
     reverse_translate_pending_gene_ids = []
 
@@ -566,7 +581,7 @@ def get_pending_codon_gene_ids(nodes, output_dir, resume):
             continue
 
         reverse_translate_pending_gene_ids.append(node_id)
-        if resume and gene_has_valid_protein_output(node, output_dir):
+        if resume and gene_has_valid_protein_output(node, shared_dir):
             continue
 
         protein_pending_gene_ids.append(node_id)
@@ -574,16 +589,16 @@ def get_pending_codon_gene_ids(nodes, output_dir, resume):
     return protein_pending_gene_ids, reverse_translate_pending_gene_ids
 
 
-def get_codon_pending_files(nodes, output_dir, gene_ids):
+def get_codon_pending_files(nodes, shared_dir, gene_ids):
     gene_id_set = set(gene_ids)
     selected_nodes = [node for node_id, node in nodes if node_id in gene_id_set]
 
     protein_alignment_files = [
-        get_expected_protein_alignment_path(node, output_dir)
+        get_expected_protein_alignment_path(node, shared_dir)
         for node in selected_nodes
     ]
     dna_sequence_files = [
-        get_expected_unaligned_dna_path(node, output_dir)
+        get_expected_unaligned_dna_path(node, shared_dir)
         for node in selected_nodes
     ]
 
@@ -706,8 +721,10 @@ def output_sequence(node, isolate_list, temp_directory, outdir,
 
 def output_dna_and_protein(node, isolate_list, temp_directory, outdir,
                            all_proteins=None, all_dna=None,
-                           sqlite_path=None, sequences_sqlite_path=None):
+                           sqlite_path=None, sequences_sqlite_path=None,
+                           shared_dir=None):
     outdir = _normalise_output_dir(outdir)
+    shared_dir = _resolve_shared_dir(outdir, shared_dir)
     if sqlite_path is not None and sequences_sqlite_path is not None:
         node_id = node.get("node_id", node.get("id", node["name"]))
         output_dna = get_node_sequence_records(
@@ -738,7 +755,7 @@ def output_dna_and_protein(node, isolate_list, temp_directory, outdir,
 
     if len(output_dna) > 1:
         prot_outname = get_expected_protein_input_path(node, temp_directory)
-        dna_outname = get_expected_unaligned_dna_path(node, outdir)
+        dna_outname = get_expected_unaligned_dna_path(node, shared_dir)
         os.makedirs(os.path.dirname(prot_outname), exist_ok=True)
         os.makedirs(os.path.dirname(dna_outname), exist_ok=True)
         SeqIO.write(output_protein, prot_outname, 'fasta')
@@ -1185,8 +1202,10 @@ def write_alignment_header(alignment_list, outdir, filename):
 
 def generate_pan_genome_alignment(G, temp_dir, output_dir, threads, aligner,
                                   codons, strict, isolates, resume=False,
-                                  sqlite_path=None, sequences_sqlite_path=None):
+                                  sqlite_path=None, sequences_sqlite_path=None,
+                                  shared_dir=None):
     output_dir = _normalise_output_dir(output_dir)
+    shared_dir = _resolve_shared_dir(output_dir, shared_dir)
     os.makedirs(os.path.join(output_dir, "aligned_gene_sequences"), exist_ok=True)
 
     gene_ids = list(G.nodes())
@@ -1205,12 +1224,12 @@ def generate_pan_genome_alignment(G, temp_dir, output_dir, threads, aligner,
     if codon_mode:
         protein_pending_gene_ids, reverse_translate_pending_gene_ids = (
             get_pending_codon_gene_ids(node_pairs, output_dir=output_dir,
-                                       resume=resume)
+                                       resume=resume, shared_dir=shared_dir)
         )
         print("Codon alignment is experimental in Panaroo...")
-        os.makedirs(os.path.join(output_dir, "aligned_protein_sequences"),
+        os.makedirs(os.path.join(shared_dir, "aligned_protein_sequences"),
                     exist_ok=True)
-        os.makedirs(os.path.join(output_dir, "unaligned_dna_sequences"),
+        os.makedirs(os.path.join(shared_dir, "unaligned_dna_sequences"),
                     exist_ok=True)
 
         output_files = []
@@ -1222,6 +1241,7 @@ def generate_pan_genome_alignment(G, temp_dir, output_dir, threads, aligner,
                 output_dir,
                 sqlite_path=sqlite_path,
                 sequences_sqlite_path=sequences_sqlite_path,
+                shared_dir=shared_dir,
             )
             output_files.append(output)
 
@@ -1229,7 +1249,7 @@ def generate_pan_genome_alignment(G, temp_dir, output_dir, threads, aligner,
         unaligned_protein_files = [x[0] for x in filtered_output_files]
 
         commands = [
-            get_protein_commands(fastafile, output_dir, aligner, threads)
+            get_protein_commands(fastafile, shared_dir, aligner, threads)
             for fastafile in unaligned_protein_files
         ]
         print_stage_progress("Protein alignments",
@@ -1238,12 +1258,12 @@ def generate_pan_genome_alignment(G, temp_dir, output_dir, threads, aligner,
                              total_gene_count)
         if commands:
             multi_align_sequences(commands,
-                                  output_dir + "aligned_protein_sequences/",
+                                  shared_dir + "aligned_protein_sequences/",
                                   threads, aligner)
 
         protein_sequences, unaligned_dna_files = get_codon_pending_files(
             node_pairs,
-            output_dir,
+            shared_dir,
             reverse_translate_pending_gene_ids)
 
         for file in protein_sequences:
@@ -1428,9 +1448,10 @@ def concatenate_core_genome_alignments(core_names, output_dir, hc_threshold):
 def generate_core_genome_alignment(
     G, temp_dir, output_dir, threads, aligner, isolates, threshold, codons, strict,
     num_isolates, hc_threshold, subset=None, resume=False, sqlite_path=None,
-    sequences_sqlite_path=None
+    sequences_sqlite_path=None, shared_dir=None
 ):
     output_dir = _normalise_output_dir(output_dir)
+    shared_dir = _resolve_shared_dir(output_dir, shared_dir)
     os.makedirs(os.path.join(output_dir, "aligned_gene_sequences"), exist_ok=True)
 
     core_genes = get_core_gene_nodes(G, threshold, num_isolates, subset)
@@ -1455,12 +1476,12 @@ def generate_core_genome_alignment(
     if codon_mode:
         protein_pending_gene_ids, reverse_translate_pending_gene_ids = (
             get_pending_codon_gene_ids(node_pairs, output_dir=output_dir,
-                                       resume=resume)
+                                       resume=resume, shared_dir=shared_dir)
         )
         print("Codon alignment is experimental in Panaroo...")
-        os.makedirs(os.path.join(output_dir, "aligned_protein_sequences"),
+        os.makedirs(os.path.join(shared_dir, "aligned_protein_sequences"),
                     exist_ok=True)
-        os.makedirs(os.path.join(output_dir, "unaligned_dna_sequences"),
+        os.makedirs(os.path.join(shared_dir, "unaligned_dna_sequences"),
                     exist_ok=True)
 
         output_files = []
@@ -1472,6 +1493,7 @@ def generate_core_genome_alignment(
                 output_dir,
                 sqlite_path=sqlite_path,
                 sequences_sqlite_path=sequences_sqlite_path,
+                shared_dir=shared_dir,
             )
             output_files.append(output)
 
@@ -1479,7 +1501,7 @@ def generate_core_genome_alignment(
         unaligned_protein_files = [x[0] for x in filtered_output_files]
 
         commands = [
-            get_protein_commands(fastafile, output_dir, aligner, threads)
+            get_protein_commands(fastafile, shared_dir, aligner, threads)
             for fastafile in unaligned_protein_files
         ]
         print_stage_progress("Protein alignments",
@@ -1488,12 +1510,12 @@ def generate_core_genome_alignment(
                              total_gene_count)
         if commands:
             multi_align_sequences(commands,
-                                  output_dir + "aligned_protein_sequences/",
+                                  shared_dir + "aligned_protein_sequences/",
                                   threads, aligner)
 
         protein_sequences, unaligned_dna_files = get_codon_pending_files(
             node_pairs,
-            output_dir,
+            shared_dir,
             reverse_translate_pending_gene_ids)
 
         for file in protein_sequences:

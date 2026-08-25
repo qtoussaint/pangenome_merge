@@ -72,6 +72,19 @@ def get_options(argv=None):
         ),
     )
 
+    io_opts.add_argument(
+        "--shared-alignment-dir",
+        default=None,
+        dest="shared_alignment_dir",
+        help=(
+            "Directory for intermediates that do not depend on --strict-codons "
+            "(aligned_protein_sequences/, unaligned_dna_sequences/). Point a "
+            "--codons and a --strict-codons run at the same directory to align "
+            "the proteins once instead of twice. Defaults to the alignment "
+            "output directory."
+        ),
+    )
+
     aln_opts = parser.add_argument_group("Gene alignment")
     aln_opts.add_argument(
         "--alignment",
@@ -187,6 +200,10 @@ def _resolve_and_validate_paths(parser, args):
 
     args.output_dir = os.path.join(str(output_dir), "")
 
+    if args.shared_alignment_dir is not None:
+        args.shared_alignment_dir = os.path.join(
+            str(args.shared_alignment_dir), "")
+
 
 def main(argv=None):
     args = get_options(argv)
@@ -202,10 +219,13 @@ def main(argv=None):
 
         graph = load_pangenomerge_alignment_graph(args.sqlite, args.gml)
         os.makedirs(args.output_dir, exist_ok=True)
+        if args.shared_alignment_dir is not None:
+            os.makedirs(args.shared_alignment_dir, exist_ok=True)
         temp_dir = os.path.join(tempfile.mkdtemp(dir=args.output_dir), "")
 
         try:
-            check_resume_manifest_collision(args.output_dir, args.resume)
+            check_resume_manifest_collision(args.output_dir, args.resume,
+                                            args.shared_alignment_dir)
             write_resume_manifest(
                 output_dir=args.output_dir,
                 alignment=args.alignment,
@@ -232,6 +252,7 @@ def main(argv=None):
                     resume=args.resume,
                     sqlite_path=args.sqlite,
                     sequences_sqlite_path=args.sequences_sqlite,
+                    shared_dir=args.shared_alignment_dir,
                 )
                 if args.aligner != "none":
                     core_nodes = get_core_gene_nodes(
@@ -264,6 +285,7 @@ def main(argv=None):
                     resume=args.resume,
                     sqlite_path=args.sqlite,
                     sequences_sqlite_path=args.sequences_sqlite,
+                    shared_dir=args.shared_alignment_dir,
                 )
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
