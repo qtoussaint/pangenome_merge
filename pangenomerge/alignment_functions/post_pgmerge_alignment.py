@@ -5,7 +5,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from ..__init__ import __version__
+from pangenomerge import __version__
 from .generate_alignments import (
     PangenomeSequenceError,
     check_aligner_install,
