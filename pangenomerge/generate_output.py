@@ -351,6 +351,9 @@ def generate_summary_statistics(sqlite_path=None, output_dir=None, sqlite_cache=
     intermediate = sum(1 for p in pct_isolates if 15 <= p < 95)
     rare = sum(1 for p in pct_isolates if p < 15)
 
+    core_extended = sum(1 for p in pct_isolates if p >= 90)
+    intermediate_extended = sum(1 for p in pct_isolates if 15 <= p < 90)
+
     stats_path = output_dir / "summary_statistics.txt"
     with open(stats_path, "w") as f:
         f.write(f"Core genes\t(99% <= isolates <= 100%)\t{core}\n")
@@ -361,6 +364,10 @@ def generate_summary_statistics(sqlite_path=None, output_dir=None, sqlite_cache=
         f.write(f"\n# Coarse categories (rare / intermediate / core)\n")
         f.write(f"Core genes\t(95% <= isolates <= 100%)\t{core_coarse}\n")
         f.write(f"Intermediate genes\t(15% <= isolates < 95%)\t{intermediate}\n")
+        f.write(f"Rare genes\t(0% <= isolates < 15%)\t{rare}\n")
+        f.write(f"\n# Extended core categories (rare / intermediate / extended core)\n")
+        f.write(f"Extended core genes\t(90% <= isolates <= 100%)\t{core_extended}\n")
+        f.write(f"Intermediate genes\t(15% <= isolates < 90%)\t{intermediate_extended}\n")
         f.write(f"Rare genes\t(0% <= isolates < 15%)\t{rare}\n")
     logging.info(f"Wrote summary statistics to {stats_path}")
 
@@ -389,6 +396,8 @@ def generate_summary_statistics(sqlite_path=None, output_dir=None, sqlite_cache=
         s_core_coarse = sum(1 for p in pct_strains if p >= 95)
         s_intermediate = sum(1 for p in pct_strains if 15 <= p < 95)
         s_rare = sum(1 for p in pct_strains if p < 15)
+        s_core_extended = sum(1 for p in pct_strains if p >= 90)
+        s_intermediate_extended = sum(1 for p in pct_strains if 15 <= p < 90)
         with open(stats_path, "a") as f:
             f.write(f"\n# Strain-level (PopPUNK cluster, n={n_strains})\n")
             f.write(f"Core genes\t(99% <= strains <= 100%)\t{s_core}\n")
@@ -398,6 +407,10 @@ def generate_summary_statistics(sqlite_path=None, output_dir=None, sqlite_cache=
             f.write(f"\n# Coarse categories (rare / intermediate / core)\n")
             f.write(f"Core genes\t(95% <= strains <= 100%)\t{s_core_coarse}\n")
             f.write(f"Intermediate genes\t(15% <= strains < 95%)\t{s_intermediate}\n")
+            f.write(f"Rare genes\t(0% <= strains < 15%)\t{s_rare}\n")
+            f.write(f"\n# Extended core categories (rare / intermediate / extended core)\n")
+            f.write(f"Extended core genes\t(90% <= strains <= 100%)\t{s_core_extended}\n")
+            f.write(f"Intermediate genes\t(15% <= strains < 90%)\t{s_intermediate_extended}\n")
             f.write(f"Rare genes\t(0% <= strains < 15%)\t{s_rare}\n")
 
     if owns_con:
