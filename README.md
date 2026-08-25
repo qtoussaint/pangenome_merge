@@ -29,7 +29,9 @@ pangenomerge's runtime scales approximately linearly with the number of graphs t
   - scikit-learn
   - edlib
   - tqdm
+  - joblib
   - matplotlib-base
+  - mafft (only for `pangenomerge-msa`)
 
 ## Installing with conda 
 
@@ -138,6 +140,56 @@ pangenomerge-postprocess --sqlite db.sqlite --component-graphs paths.txt --outdi
 pangenomerge-postprocess --sqlite db.sqlite --component-graphs paths.txt --outdir out/ --output sequences
 pangenomerge-postprocess --sqlite db.sqlite --outdir out/ --output figures
 ```
+
+### Multiple sequence alignments
+
+`pangenomerge-msa` generates per-gene multiple sequence alignments, and a concatenated core genome alignment for phylogenetics, from a completed merge. It reads sequences from `pangenome_sequences.sqlite`, so run `pangenomerge-postprocess --output sequences` first:
+
+```
+pangenomerge --component-graphs paths.txt --outdir results/ --threads 16
+pangenomerge-postprocess --pangenomerge-results results/ --output sequences --component-graphs paths.txt
+pangenomerge-msa --outdir results/ --alignment core --aligner mafft --threads 16
+```
+
+This generates, in the alignment output directory:
+  - `aligned_gene_sequences/`: one alignment per gene cluster
+  - `core_gene_alignment.aln`: the concatenated core genome alignment
+  - `core_gene_alignment_header.embl`: gene coordinates within the concatenated alignment
+  - `alignment_resume_state.json`: run parameters, used by `--resume`
+
+Gene names match the `Gene` column of `gene_presence_absence.csv`, so alignments can be joined to the presence/absence tables directly.
+
+#### Aligners
+
+`--aligner` accepts `mafft` (default), `muscle`, `muscle-super5`, `famsa`, or `none`.
+
+  - `none` writes unaligned per-gene FASTA files to `unaligned_gene_sequences/` and skips alignment entirely. Useful for feeding another tool, or for a fast check that gene selection is behaving.
+  - `famsa` is amino-acid only, so it requires `--codons` or `--strict-codons`.
+  - `muscle` is not optimised beyond a few hundred isolates; use `muscle-super5` for larger datasets.
+
+#### Codon alignments
+
+`--codons` aligns amino-acid sequences first and then reverse-translates, which keeps the alignment in frame. Sequences that fail translation QC (length not divisible by 3, translation disagreeing with the stored protein, runs of `N`, or degenerate codons) are re-aligned back onto the codon alignment as DNA.
+
+`--strict-codons` does the same but drops those sequences instead of re-aligning them, giving a cleaner alignment with fewer isolates per gene.
+
+The two modes produce identical `aligned_protein_sequences/` and `unaligned_dna_sequences/` — they differ only in how genes with QC-failing DNA are finished. If you want both, pass the same `--shared-alignment-dir` to each run so the (expensive) protein alignment happens once:
+
+```
+pangenomerge-msa --outdir results/ --alignment-outdir msa/codon \
+    --shared-alignment-dir msa/alignment --alignment pan --codons --aligner mafft --threads 16
+
+pangenomerge-msa --outdir results/ --alignment-outdir msa/codon_strict \
+    --shared-alignment-dir msa/alignment --alignment pan --strict-codons --aligner mafft --threads 16
+```
+
+The second run finds every protein alignment already present and skips straight to reverse translation. This is what the Snakemake workflow does.
+
+#### Core vs pan, and resuming
+
+`--alignment core` (default) aligns only genes present in at least `--core_threshold` (default 0.95) of isolates. `--alignment pan` aligns every gene cluster and then concatenates the core — considerably more expensive on a species-scale pangenome.
+
+Long runs can be resumed. If a run is interrupted, re-running the **identical** command with `--resume` picks up from the completed alignments; the run parameters recorded in `alignment_resume_state.json` must match, so you cannot resume a `--codons` run as `--strict-codons`. Without `--resume`, a run that finds an existing manifest refuses to start rather than mixing output from two different parameter sets.
 
 ### Complete gene sequence database
 
@@ -346,6 +398,67 @@ options:
                         pangenome_sequences.sqlite in same dir as --sqlite)
   --sqlite-cache SQLITE_CACHE
                         SQLite cache size in KB (default: 2000)
+```
+
+## pangenomerge-msa
+
+```
+usage: pangenomerge-msa [-h] [-o PANGENOMERGE_RESULTS]
+                        [--alignment-outdir ALIGNMENT_OUTDIR]
+                        [--shared-alignment-dir SHARED_ALIGNMENT_DIR]
+                        [--alignment {core,pan}]
+                        [-a {mafft,muscle,muscle-super5,famsa,none}]
+                        [--codons] [--strict-codons]
+                        [--core_threshold CORE_THRESHOLD]
+                        [--core_subset CORE_SUBSET]
+                        [--core_entropy_filter CORE_ENTROPY_FILTER] [--resume]
+                        [-t THREADS] [--verbose] [--version]
+
+Generate Panaroo-style MSAs from Pangenomerge output
+
+options:
+  -h, --help            show this help message and exit
+  -t THREADS, --threads THREADS
+                        Number of worker threads to use. (default: 1)
+  --verbose             Print additional progress information. (default: False)
+  --version             show program's version number and exit
+
+Input/output:
+  -o PANGENOMERGE_RESULTS, --outdir PANGENOMERGE_RESULTS
+                        Pangenomerge results directory. Defaults --gml,
+                        --sqlite, --sequences-sqlite to files in this
+                        directory. Optionally, supply them separately.
+  --alignment-outdir ALIGNMENT_OUTDIR
+                        Output directory. Defaults to the --outdir directory.
+  --shared-alignment-dir SHARED_ALIGNMENT_DIR
+                        Directory for intermediates that do not depend on
+                        --strict-codons (aligned_protein_sequences/,
+                        unaligned_dna_sequences/). Point a --codons and a
+                        --strict-codons run at the same directory to align the
+                        proteins once instead of twice. Defaults to the
+                        alignment output directory.
+
+Gene alignment:
+  --alignment {core,pan}
+                        Generate core or pan genome per-gene alignments.
+                        (default: core)
+  -a, --aligner {mafft,muscle,muscle-super5,famsa,none}
+                        External aligner to use, or 'none' to write unaligned
+                        FASTA files. (default: mafft)
+  --codons              Generate codon alignments by aligning amino-acid
+                        sequences first. (default: False)
+  --strict-codons       Only generate codon alignments with well-formed protein
+                        sequences, no DNA re-alignment of pseudogenes or
+                        frameshifts. (default: False)
+  --core_threshold CORE_THRESHOLD
+                        Core-genome frequency threshold. (default: 0.95)
+  --core_subset CORE_SUBSET
+                        Randomly subset the core genome to this many genes.
+  --core_entropy_filter CORE_ENTROPY_FILTER
+                        Manual Block Mapping and Gathering with Entropy filter.
+                        If omitted, the Tukey outlier rule is used.
+  --resume              Resume a previously incomplete gene alignment run.
+                        (default: False)
 ```
 
 # Example Analysis
