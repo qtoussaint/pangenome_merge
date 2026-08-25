@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from pangenomerge.custom_functions.sqlite import sqlite_connect, sqlite_connect_sequences, sqlite_create_sequence_indexes, ingest_gene_sequences, add_gene_annotations_to_sqlite
+from pangenomerge.custom_functions.gene_names import derive_gene_name
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
@@ -28,26 +29,6 @@ def ingest_gene_annotations(con, component_graphs_tsv):
         graph_dir = str(graph_files.iloc[idx][0])
         add_gene_annotations_to_sqlite(con, graph_id=graph_id, graph_dir=graph_dir)
     logging.info(f"Ingested gene annotations from {n_graphs} component graphs")
-
-
-def _derive_gene_name(annotation, used_gene_names, unique_id_counter):
-    """Derive a unique gene name from annotation, matching Panaroo's logic."""
-    if annotation:
-        name = "~~~".join(
-            gn for gn in annotation.strip().strip(";").split(";") if gn != ""
-        )
-        name = "".join(e for e in name if e.isalnum() or e in ["_", "~"])
-    else:
-        name = ""
-
-    if name and name.lower() not in used_gene_names:
-        used_gene_names.add(name.lower())
-        return name, unique_id_counter
-
-    gen_name = f"group_{unique_id_counter}"
-    unique_id_counter += 1
-    used_gene_names.add(gen_name.lower())
-    return gen_name, unique_id_counter
 
 
 def generate_gene_presence_absence(sqlite_path=None, gml_path=None, output_dir=None,
@@ -103,6 +84,7 @@ def generate_gene_presence_absence(sqlite_path=None, gml_path=None, output_dir=N
         FROM nodes n
         LEFT JOIN node_lengths nl ON n.node_id = nl.node_id
         GROUP BY n.node_id
+        ORDER BY n.node_id
     """)
     node_meta = {}
     for row in cur:
@@ -149,7 +131,7 @@ def generate_gene_presence_absence(sqlite_path=None, gml_path=None, output_dir=N
 
     for node_id, meta in node_meta.items():
         # Derive gene name
-        gene_name, unique_id_counter = _derive_gene_name(
+        gene_name, unique_id_counter = derive_gene_name(
             meta['annotation'], used_gene_names, unique_id_counter
         )
 

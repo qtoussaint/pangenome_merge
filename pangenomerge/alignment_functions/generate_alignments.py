@@ -27,6 +27,8 @@ with warnings.catch_warnings():
     warnings.simplefilter('ignore', BiopythonExperimentalWarning)
     from Bio import codonalign
 
+from pangenomerge.custom_functions.gene_names import derive_gene_name
+
 unambiguous_degenerate_codons = {"ACN":"T", "TCN":"S", "CTN":"L", "CCN":"P",
                                  "CGN":"R", "GTN":"V", "GCN":"A", "GGN":"G"}
 
@@ -125,44 +127,6 @@ def get_node_sequence_ids(node):
     if "geneIDs" in node:
         return _value_to_list(node["geneIDs"])
     return []
-
-
-def _normalise_text(value):
-    if value is None:
-        return None
-    text = str(value).strip()
-    if text == "":
-        return None
-    return text
-
-
-def _derive_gene_name_from_annotation(annotation):
-    annotation = _normalise_text(annotation)
-    if annotation is None:
-        return ""
-    name = "~~~".join(
-        gene_name
-        for gene_name in annotation.strip().strip(";").split(";")
-        if gene_name != ""
-    )
-    return "".join(char for char in name if char.isalnum() or char in ["_", "~"])
-
-
-def _make_unique_gene_name(preferred_name, annotation, used_gene_names,
-                           group_counter):
-    candidates = [_normalise_text(preferred_name),
-                  _derive_gene_name_from_annotation(annotation)]
-    for candidate in candidates:
-        if candidate and candidate.lower() not in used_gene_names:
-            used_gene_names.add(candidate.lower())
-            return candidate, group_counter
-
-    while True:
-        candidate = f"group_{group_counter}"
-        group_counter += 1
-        if candidate.lower() not in used_gene_names:
-            used_gene_names.add(candidate.lower())
-            return candidate, group_counter
 
 
 def _parse_member_key_from_geneid(geneid, member=None, graph_id=None):
@@ -360,7 +324,7 @@ def load_pangenomerge_alignment_graph(sqlite_path, gml_path):
             geneids_by_node.setdefault(str(node_id), []).append(str(geneid))
 
         node_rows = con.execute(
-            "SELECT node_id, name, size, annotation FROM nodes ORDER BY node_id"
+            "SELECT node_id, size, annotation FROM nodes ORDER BY node_id"
         ).fetchall()
     finally:
         con.close()
@@ -372,13 +336,14 @@ def load_pangenomerge_alignment_graph(sqlite_path, gml_path):
     group_counter = 0
     alignment_node_count = 0
     metadata_node_ids = set()
-    for node_id, preferred_name, size, annotation in node_rows:
+    for node_id, size, annotation in node_rows:
         node_id = str(node_id)
         metadata_node_ids.add(node_id)
         geneids = geneids_by_node.get(node_id, [])
         members = members_by_node.get(node_id, [])
-        name, group_counter = _make_unique_gene_name(
-            preferred_name,
+        # nodes.name is deliberately ignored: generate_output derives gene names
+        # from the annotation alone, and the two must agree.
+        name, group_counter = derive_gene_name(
             annotation,
             used_gene_names,
             group_counter,
