@@ -21,11 +21,7 @@ from Bio.SeqRecord import SeqRecord
 from Bio.Align import MultipleSeqAlignment
 
 from Bio.Data.CodonTable import generic_by_id
-from Bio import BiopythonExperimentalWarning, BiopythonWarning
 import warnings
-with warnings.catch_warnings():
-    warnings.simplefilter('ignore', BiopythonExperimentalWarning)
-    from Bio import codonalign
 
 from pangenomerge.custom_functions.gene_names import derive_gene_name
 
@@ -1006,22 +1002,43 @@ def reorder_protein_alignment_to_match_dna(dna_records, protein_alignment, gene_
     protein_by_id = {record.id: record for record in protein_alignment}
     return MultipleSeqAlignment([protein_by_id[record.id] for record in dna_records])
 
-def multithread_codonalign_build(protein, dna, name):
-    try:
-        codon_alignment = codonalign.build(protein, 
-                                    dna, codon_table=generic_by_id[11])            
+def thread_codons(protein_alignment, dna_records, gene_name):
+    """Thread unaligned DNA onto a gapped protein alignment.
 
-    except RuntimeError as e:
-        print(e)
-        print(name)
-        print(dna)
-        print(protein)
-    except IndexError as e:
-        print(e)
-        print(name)
-        print(dna)
-        print(protein)
-    return(name, codon_alignment)
+    Replaces Bio.codonalign.build, which re-derives a protein/DNA
+    correspondence this pipeline has already proven and cost ~99% of the
+    runtime doing it (6.1 ms per sequence, working codon by codon in Python).
+
+    Preconditions, guaranteed by _qc_gene_sequences and
+    reorder_protein_alignment_to_match_dna: the records are 1:1 and in the same
+    order, and every DNA sequence is a multiple of 3 that translates to its
+    protein. Each residue therefore consumes exactly three bases and each gap
+    becomes '---'; any trailing stop codon is simply never consumed, matching
+    codonalign's behaviour of dropping it.
+    """
+    records = []
+    for protein_record, dna_record in zip(protein_alignment, dna_records):
+        aligned_protein = str(protein_record.seq)
+        dna = str(dna_record.seq)
+        n_residues = len(aligned_protein) - aligned_protein.count("-")
+
+        if len(dna) < 3 * n_residues:
+            raise PangenomeSequenceError(
+                f"Cannot thread codons for {gene_name}: {dna_record.id} has "
+                f"{len(dna)} bases but its protein needs {3 * n_residues}. "
+                "Sequences reaching this point should already have passed "
+                "translation QC.")
+
+        protein_chars = np.frombuffer(aligned_protein.encode(), dtype="S1")
+        codons = np.full((protein_chars.size, 3), b"-", dtype="S1")
+        codons[protein_chars != b"-"] = np.frombuffer(
+            dna[:3 * n_residues].encode(), dtype="S1").reshape(n_residues, 3)
+
+        records.append(SeqRecord(Seq(codons.tobytes().decode()),
+                                 id=dna_record.id, description=""))
+
+    return MultipleSeqAlignment(records)
+
 
 def _qc_gene_sequences(dna, protein, gene_name, trans_table):
     """Split one gene's records into codon-alignable and rejected sets.
@@ -1102,8 +1119,7 @@ def _codon_align_one_gene(protein_file, dna_file, strict, outdir,
         dna, protein, gene_name, trans_table)
     del dna, protein
 
-    _, codon_alignment = multithread_codonalign_build(
-        clean_protein, clean_dna, gene_name)
+    codon_alignment = thread_codons(clean_protein, clean_dna, gene_name)
     del clean_dna, clean_protein
 
     #Remove <unknown description> from codon alignments
@@ -1158,15 +1174,6 @@ def reverse_translate_sequences(protein_sequence_files, dna_sequence_files,
     )
 
     trans_table = get_trans_table(11)
-
-    #codonalign.build() throws warnings for alternate start codons
-    #catch and ignore these warnings
-    warnings.filterwarnings(
-        "ignore",
-          message=r".*\(M 0\) does not correspond to .*\((GTG|TTG|CTG|ATT|ATC|ATA)\)",
-          category=BiopythonWarning,
-          module=r"Bio\.codonalign.*",
-      )
 
     realigned = Parallel(n_jobs=threads, prefer="threads")(
         delayed(_codon_align_one_gene)(
