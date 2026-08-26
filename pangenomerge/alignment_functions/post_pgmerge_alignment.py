@@ -11,6 +11,7 @@ from .generate_alignments import (
     check_aligner_install,
     check_aligner_sanity,
     check_resume_manifest_collision,
+    check_shared_manifest,
     concatenate_core_genome_alignments,
     generate_core_genome_alignment,
     generate_pan_genome_alignment,
@@ -221,6 +222,7 @@ def main(argv=None):
         os.makedirs(args.output_dir, exist_ok=True)
         if args.shared_alignment_dir is not None:
             os.makedirs(args.shared_alignment_dir, exist_ok=True)
+            check_shared_manifest(args.shared_alignment_dir, args.aligner)
         temp_dir = os.path.join(tempfile.mkdtemp(dir=args.output_dir), "")
 
         try:

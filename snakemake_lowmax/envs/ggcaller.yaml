@@ -1,0 +1,7 @@
+name: ggcaller
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.9
+  - ggcaller=1.5.0

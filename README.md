@@ -171,7 +171,9 @@ Gene names match the `Gene` column of `gene_presence_absence.csv`, so alignments
 
 `--codons` aligns amino-acid sequences first and then reverse-translates, which keeps the alignment in frame. Sequences that fail translation QC (length not divisible by 3, translation disagreeing with the stored protein, runs of `N`, or degenerate codons) are re-aligned back onto the codon alignment as DNA.
 
-`--strict-codons` does the same but drops those sequences instead of re-aligning them, giving a cleaner alignment with fewer isolates per gene.
+`--strict-codons` does the same but drops those sequences instead of re-aligning them, giving a cleaner alignment with fewer isolates per gene. On a test set where 20% of sequences failed QC, the `--codons` alignments carried 49-72 more records per gene than the `--strict-codons` ones.
+
+The re-alignment step in `--codons` is a MAFFT profile alignment (`mafft --add`) of the rejected DNA onto the codon alignment, and it is memory-hungry on large gene clusters. If MAFFT is killed, the run now stops with the gene name rather than writing an empty alignment.
 
 The two modes produce identical `aligned_protein_sequences/` and `unaligned_dna_sequences/` — they differ only in how genes with QC-failing DNA are finished. If you want both, pass the same `--shared-alignment-dir` to each run so the (expensive) protein alignment happens once:
 
@@ -184,6 +186,10 @@ pangenomerge-msa --outdir results/ --alignment-outdir msa/codon_strict \
 ```
 
 The second run finds every protein alignment already present and skips straight to reverse translation. This is what the Snakemake workflow does.
+
+The shared directory records the aligner it was built with in `shared_alignment_state.json`; a later run pointing at it with a different `--aligner` is refused rather than silently reusing incompatible alignments. Reuse of the shared directory does not require `--resume` — `--resume` governs only the per-mode output directory.
+
+How much this saves depends on the data. On a 40-gene / 200-isolate test the second pass went from 396s to 265s (the reverse-translation step, not MAFFT, dominates at that size); on a 6-gene set of much larger clusters it went from 171s to 28s.
 
 #### Core vs pan, and resuming
 

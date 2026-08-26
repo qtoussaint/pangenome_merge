@@ -1,0 +1,16 @@
+name: pangenomerge
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python>=3.10
+  - biopython>=1.80
+  - networkx>=3.4.2
+  - mmseqs2
+  - numpy
+  - pandas
+  - scipy
+  - scikit-learn
+  - python-edlib
+  - tqdm
+  - matplotlib

@@ -103,6 +103,13 @@ def translate(seq, translation_table):
     return(pseq)
 
 
+def shared_dir_is_distinct(output_dir, shared_dir):
+    """True when the caller supplied a shared dir separate from the output dir."""
+    if shared_dir is None:
+        return False
+    return _normalise_output_dir(shared_dir) != _normalise_output_dir(output_dir)
+
+
 def _resolve_shared_dir(output_dir, shared_dir):
     """Directory holding intermediates that do not depend on --strict-codons.
 
@@ -439,6 +446,37 @@ def get_expected_unaligned_dna_path(node, shared_dir):
                         get_alignment_basename(node) + ".fasta")
 
 
+def get_shared_manifest_path(shared_dir):
+    return os.path.join(shared_dir, "shared_alignment_state.json")
+
+
+def check_shared_manifest(shared_dir, aligner):
+    """Record the aligner used for the shared intermediates, or verify it matches.
+
+    Protein alignments in the shared directory are reused without --resume, so
+    they must not be silently reused under a different aligner.
+    """
+    manifest_path = get_shared_manifest_path(shared_dir)
+    if os.path.isfile(manifest_path):
+        with open(manifest_path, "r") as handle:
+            existing = json.load(handle)
+        if existing.get("aligner") != aligner:
+            raise RuntimeError(
+                "--shared-alignment-dir " + shared_dir + " was built with aligner "
+                + str(existing.get("aligner")) + ", but this run uses " + aligner
+                + ". Use a different --shared-alignment-dir, or delete "
+                + manifest_path + " and the directories beside it."
+            )
+        return existing
+
+    os.makedirs(shared_dir, exist_ok=True)
+    manifest = {"aligner": aligner}
+    with open(manifest_path, "w") as handle:
+        json.dump(manifest, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+    return manifest
+
+
 def get_resume_manifest_path(output_dir):
     return os.path.join(output_dir, "alignment_resume_state.json")
 
@@ -568,6 +606,10 @@ def get_pending_gene_ids(nodes, output_dir, codons, resume, aligner=None):
 
 
 def get_pending_codon_gene_ids(nodes, output_dir, resume, shared_dir=None):
+    # A distinct shared dir holds intermediates that do not depend on the codon
+    # mode, so a valid protein alignment there is reused even without --resume:
+    # that reuse is the whole point of --shared-alignment-dir.
+    reuse_shared = shared_dir_is_distinct(output_dir, shared_dir)
     shared_dir = _resolve_shared_dir(output_dir, shared_dir)
     protein_pending_gene_ids = []
     reverse_translate_pending_gene_ids = []
@@ -581,7 +623,7 @@ def get_pending_codon_gene_ids(nodes, output_dir, resume, shared_dir=None):
             continue
 
         reverse_translate_pending_gene_ids.append(node_id)
-        if resume and gene_has_valid_protein_output(node, shared_dir):
+        if (resume or reuse_shared) and gene_has_valid_protein_output(node, shared_dir):
             continue
 
         protein_pending_gene_ids.append(node_id)
@@ -850,6 +892,21 @@ def get_align_dna_to_alignment_commands(bad_dna_seqs_file, codonalignment_file,
 
     return (command, bad_dna_seqs_file)
 
+def _check_aligner_output(returncode, stdout, stderr, outpath, what):
+    """Fail loudly when an aligner writes nothing to stdout.
+
+    mafft reports failures on stderr and returns a non-zero code; writing its
+    empty stdout regardless leaves a 0-byte .aln.fas that only blows up later,
+    in concatenate_core_genome_alignments, as "No records found in handle".
+    """
+    if returncode == 0 and stdout.strip():
+        return
+    detail = stderr.decode(errors="replace").strip() if stderr else ""
+    raise RuntimeError(
+        f"{what} failed for {outpath} (exit {returncode}): "
+        + (detail or "the aligner produced no output"))
+
+
 def align_sequences(command, outdir, aligner):
     #Avoid running alignments on single-isolate genes
     if command[0] == None:
@@ -857,11 +914,15 @@ def align_sequences(command, outdir, aligner):
     if aligner == "mafft":
         name = command[0].split()[-1].split("/")[-1].split(".")[0]
         
-        stdout, stderr = subprocess.Popen(
+        proc = subprocess.Popen(
             command[0], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        ).communicate()
+        )
+        stdout, stderr = proc.communicate()
+        outpath = outdir + name + ".aln.fas"
+        _check_aligner_output(proc.returncode, stdout, stderr, outpath,
+                              "Alignment")
 
-        with open(outdir + name + ".aln.fas", "wb+") as handle:
+        with open(outpath, "wb+") as handle:
             handle.write(stdout)
 
     else:
@@ -884,6 +945,9 @@ def realign_dna_sequences(command, outdir, aligner):
         result = subprocess.Popen(command[0][:-1], stdout=subprocess.PIPE, 
                                   stderr=subprocess.PIPE)
         mafft_out, mafft_err = result.communicate()
+        _check_aligner_output(result.returncode, mafft_out, mafft_err,
+                              command[0][-1],
+                              "Profile alignment of untranslatable DNA")
         with open(command[0][-1], 'wb') as outhandle:
             outhandle.write(mafft_out)
     elif aligner == "clustal":
