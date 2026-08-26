@@ -1,9 +1,0 @@
-name: poppunk
-channels:
-  - conda-forge
-  - bioconda
-dependencies:
-  - python=3.10
-  - poppunk
-  - pp-sketchlib>=2.2.0
-  - setuptools<82

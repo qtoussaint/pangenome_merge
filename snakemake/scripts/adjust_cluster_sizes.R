@@ -55,7 +55,12 @@ merged_isolates <- paste(merge_clusters, collapse = "_")
 assemblies$V2[assemblies$V2 %in% merge_clusters] <- merged_name
 
 # create split clusters
-split_clusters <- names(counts)[split]
+# NB: recompute counts AFTER merging, so the "merged" bucket is itself split when it
+# exceeds max_count. The original script took split_clusters from the pre-merge `counts`,
+# which meant "merged" could never be split however large it grew -- that is what left
+# s_pneumoniae with a 2096-genome "merged" cluster that never finished ggcaller.
+counts_after_merge <- table(assemblies$V2)
+split_clusters <- names(counts_after_merge)[which(counts_after_merge > max_count)]
 
 # sub-cluster suffix pool: two-letter aa,ab,...,az,ba,...,zz (676 total).
 # Uniform two-letter suffixes so split clusters sort cleanly (e.g. 1aa, 1ab, ...).
