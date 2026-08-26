@@ -131,7 +131,21 @@ def get_options(argv=None):
         default=None,
         help=(
             "Manual Block Mapping and Gathering with Entropy filter. "
-            "If omitted, the Tukey outlier rule is used."
+            "If omitted, the Tukey outlier rule is used. Only applies with "
+            "--core-alignment."
+        ),
+    )
+    aln_opts.add_argument(
+        "--core-alignment",
+        action="store_true",
+        default=False,
+        dest="core_alignment",
+        help=(
+            "Also write the concatenated core genome alignment "
+            "(core_gene_alignment.aln and friends). Off by default: the "
+            "concatenation holds every core gene alignment in memory at once, "
+            "which on a large pangenome means tens of GB of RAM and an "
+            "output file to match. Per-gene alignments are always written."
         ),
     )
     aln_opts.add_argument(
@@ -250,13 +264,12 @@ def main(argv=None):
                     args.aligner,
                     args.codons,
                     args.strict_codons,
-                    isolate_names,
                     resume=args.resume,
                     sqlite_path=args.sqlite,
                     sequences_sqlite_path=args.sequences_sqlite,
                     shared_dir=args.shared_alignment_dir,
                 )
-                if args.aligner != "none":
+                if args.aligner != "none" and args.core_alignment:
                     core_nodes = get_core_gene_nodes(
                         graph,
                         args.core_threshold,
@@ -277,7 +290,6 @@ def main(argv=None):
                     args.output_dir,
                     args.threads,
                     args.aligner,
-                    isolate_names,
                     args.core_threshold,
                     args.codons,
                     args.strict_codons,
@@ -285,6 +297,7 @@ def main(argv=None):
                     args.core_entropy_filter,
                     args.core_subset,
                     resume=args.resume,
+                    concatenate=args.core_alignment,
                     sqlite_path=args.sqlite,
                     sequences_sqlite_path=args.sequences_sqlite,
                     shared_dir=args.shared_alignment_dir,

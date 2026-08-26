@@ -149,6 +149,17 @@ def get_node_sequence_ids(node):
     return []
 
 
+def get_node_sequence_count(node):
+    """Number of gene sequences in a node.
+
+    Graphs from load_pangenomerge_alignment_graph carry the count directly; the
+    fallback is for graphs built some other way, which still carry the ID lists.
+    """
+    if "n_geneids" in node:
+        return int(node["n_geneids"])
+    return len(get_node_sequence_ids(node))
+
+
 def _parse_member_key_from_geneid(geneid, member=None, graph_id=None):
     if member:
         return str(member)
@@ -331,17 +342,25 @@ def load_pangenomerge_alignment_graph(sqlite_path, gml_path):
     try:
         _require_metadata_tables(con, sqlite_path)
 
-        members_by_node = {}
-        for node_id, member in con.execute(
-            "SELECT node_id, member FROM node_members ORDER BY node_id, member"
-        ):
-            members_by_node.setdefault(str(node_id), []).append(str(member))
+        # Only the COUNTS are ever needed downstream -- every live caller of
+        # get_node_sequence_ids takes len() of it. Aggregating in SQL keeps two
+        # 14k-row results instead of ~80M interned strings held three ways per
+        # node, which is what made this function OOM on large pangenomes. Both
+        # queries are index scans on the existing primary keys.
+        member_counts = {
+            str(node_id): count
+            for node_id, count in con.execute(
+                "SELECT node_id, COUNT(DISTINCT member) "
+                "FROM node_members GROUP BY node_id"
+            )
+        }
 
-        geneids_by_node = {}
-        for node_id, geneid in con.execute(
-            "SELECT node_id, geneid FROM node_geneids ORDER BY node_id, geneid"
-        ):
-            geneids_by_node.setdefault(str(node_id), []).append(str(geneid))
+        geneid_counts = {
+            str(node_id): count
+            for node_id, count in con.execute(
+                "SELECT node_id, COUNT(*) FROM node_geneids GROUP BY node_id"
+            )
+        }
 
         node_rows = con.execute(
             "SELECT node_id, size, annotation FROM nodes ORDER BY node_id"
@@ -359,8 +378,8 @@ def load_pangenomerge_alignment_graph(sqlite_path, gml_path):
     for node_id, size, annotation in node_rows:
         node_id = str(node_id)
         metadata_node_ids.add(node_id)
-        geneids = geneids_by_node.get(node_id, [])
-        members = members_by_node.get(node_id, [])
+        geneid_count = geneid_counts.get(node_id, 0)
+        member_count = member_counts.get(node_id, 0)
         # nodes.name is deliberately ignored: generate_output derives gene names
         # from the annotation alone, and the two must agree.
         name, group_counter = derive_gene_name(
@@ -369,12 +388,12 @@ def load_pangenomerge_alignment_graph(sqlite_path, gml_path):
             group_counter,
         )
 
-        if members:
-            size_value = len(set(members))
+        if member_count:
+            size_value = member_count
         elif size is not None:
             size_value = int(size)
         else:
-            size_value = len(geneids)
+            size_value = geneid_count
 
         if node_id not in graph:
             graph.add_node(node_id)
@@ -382,10 +401,7 @@ def load_pangenomerge_alignment_graph(sqlite_path, gml_path):
             "node_id": node_id,
             "name": name,
             "size": size_value,
-            "members": members,
-            "seqIDs": geneids,
-            "geneIDs": ";".join(geneids),
-            "_geneids": geneids,
+            "n_geneids": geneid_count,
         })
         alignment_node_count += 1
 
@@ -418,13 +434,13 @@ def get_expected_gene_alignment_path(node, output_dir, codons, aligner=None):
         return os.path.join(output_dir, "aligned_gene_sequences",
                             get_alignment_basename(node) + ".aln.fas")
 
-    sequence_ids = get_node_sequence_ids(node)
+    n_sequences = get_node_sequence_count(node)
 
-    if aligner == "none" and len(sequence_ids) > 1:
+    if aligner == "none" and n_sequences > 1:
         return os.path.join(output_dir, "unaligned_gene_sequences",
                             get_alignment_basename(node) + ".fasta")
 
-    if len(sequence_ids) > 1:
+    if n_sequences > 1:
         return os.path.join(output_dir, "aligned_gene_sequences",
                             get_alignment_basename(node) + ".aln.fas")
 
@@ -593,7 +609,7 @@ def gene_has_valid_protein_output(node, shared_dir):
 
 
 def node_requires_msa(node):
-    return len(get_node_sequence_ids(node)) > 1
+    return get_node_sequence_count(node) > 1
 
 
 def get_pending_gene_ids(nodes, output_dir, codons, resume, aligner=None):
@@ -728,26 +744,19 @@ def check_aligner_sanity(aligner, codons, isolate_count):
                       UserWarning)
     return True
 
-def output_sequence(node, isolate_list, temp_directory, outdir,
+def output_sequence(node, temp_directory, outdir,
                     sqlite_path=None, sequences_sqlite_path=None):
     outdir = _normalise_output_dir(outdir)
-    if sqlite_path is not None and sequences_sqlite_path is not None:
-        output_sequences = get_node_sequence_records(
-            sqlite_path,
-            sequences_sqlite_path,
-            node.get("node_id", node.get("id", node["name"])),
-            seq_type="nt",
-        )
-    else:
-        sequence_ids = set(get_node_sequence_ids(node))
-        output_sequences = []
-        for seq in SeqIO.parse(outdir + "combined_DNA_CDS.fasta", "fasta"):
-            isolate_num = int(seq.id.split("_")[0])
-            isolate_name = isolate_list[isolate_num].replace(";", "") + ";" + seq.id
-            if seq.id in sequence_ids:
-                output_sequences.append(
-                    SeqRecord(seq.seq, id=isolate_name, description="")
-                )
+    if sqlite_path is None or sequences_sqlite_path is None:
+        raise PangenomeSequenceError(
+            "output_sequence requires pangenome_metadata.sqlite and "
+            "pangenome_sequences.sqlite paths.")
+    output_sequences = get_node_sequence_records(
+        sqlite_path,
+        sequences_sqlite_path,
+        node.get("node_id", node.get("id", node["name"])),
+        seq_type="nt",
+    )
 
     if len(output_sequences) > 1:
         outname = get_temp_dna_input_path(node, temp_directory)
@@ -761,33 +770,22 @@ def output_sequence(node, isolate_list, temp_directory, outdir,
     SeqIO.write(output_sequences, outname, "fasta")
     return outname
 
-def output_dna_and_protein(node, isolate_list, temp_directory, outdir,
-                           all_proteins=None, all_dna=None,
+def output_dna_and_protein(node, temp_directory, outdir,
                            sqlite_path=None, sequences_sqlite_path=None,
                            shared_dir=None):
     outdir = _normalise_output_dir(outdir)
     shared_dir = _resolve_shared_dir(outdir, shared_dir)
-    if sqlite_path is not None and sequences_sqlite_path is not None:
-        node_id = node.get("node_id", node.get("id", node["name"]))
-        output_dna = get_node_sequence_records(
-            sqlite_path, sequences_sqlite_path, node_id, seq_type="nt"
-        )
-        output_protein = get_node_sequence_records(
-            sqlite_path, sequences_sqlite_path, node_id, seq_type="aa"
-        )
-    else:
-        sequence_ids = get_node_sequence_ids(node)
-        output_dna = []
-        output_protein = []
-        for seq_id in sequence_ids:
-            isolate_num = int(seq_id.split('_')[0])
-            isolate_name = isolate_list[isolate_num].replace(";", "") + ";" + seq_id
-            output_dna.append(
-                SeqRecord(all_dna[seq_id].seq, id=isolate_name, description="")
-            )
-            output_protein.append(
-                SeqRecord(all_proteins[seq_id].seq, id=isolate_name, description="")
-            )
+    if sqlite_path is None or sequences_sqlite_path is None:
+        raise PangenomeSequenceError(
+            "output_dna_and_protein requires pangenome_metadata.sqlite and "
+            "pangenome_sequences.sqlite paths.")
+    node_id = node.get("node_id", node.get("id", node["name"]))
+    output_dna = get_node_sequence_records(
+        sqlite_path, sequences_sqlite_path, node_id, seq_type="nt"
+    )
+    output_protein = get_node_sequence_records(
+        sqlite_path, sequences_sqlite_path, node_id, seq_type="aa"
+    )
 
     if len(output_dna) != len(output_protein):
         raise PangenomeSequenceError(
@@ -1025,9 +1023,124 @@ def multithread_codonalign_build(protein, dna, name):
         print(protein)
     return(name, codon_alignment)
 
+def _qc_gene_sequences(dna, protein, gene_name, trans_table):
+    """Split one gene's records into codon-alignable and rejected sets.
+
+    A DNA sequence is rejected when it cannot be reverse-translated onto the
+    protein alignment: length not a multiple of 3, translation disagreeing with
+    the stored protein, a run of unknown nucleotides, or a degenerate codon that
+    codonalign cannot handle.
+    """
+    protein = reorder_protein_alignment_to_match_dna(dna, protein, gene_name)
+    seqids_to_remove = []
+
+    for seq_index in range(len(dna)):
+        #set up sequentially checked QC failure variables for each sequence
+        fail_condition_1 = False
+        fail_condition_2 = False
+        fail_condition_3 = False
+        #Need to take protein without proceeding or trailing gaps
+        nogapped_protein_seq = str(protein[seq_index].seq).replace("-", "")
+
+        dna_seq = str(dna[seq_index].seq)
+
+        #fail if the sequence is not divisible by 3
+        fail_condition_0 = (len(dna_seq) % 3) != 0
+
+        if fail_condition_0 == False:
+            translated_dna = translate(dna_seq, trans_table)
+            #fail if the translated sequence isn't the same as the protein
+            fail_condition_1 = translated_dna.strip("*") != str(nogapped_protein_seq)
+
+        #fail if there is a run of > 1 unknown nucleotides
+        if fail_condition_1 == False:
+            #only test if it hasn't already failed
+            fail_condition_2 = "NN" in dna_seq
+
+        #Fail if the DNA contains degenerate codon, codonalign cannot cope
+        if not fail_condition_1 and not fail_condition_2:
+            #Most expensive test, only test things passing both
+            #Such an expensive test, do a cheaper filtering first
+            if "N" in dna_seq:
+                for codon in unambiguous_degenerate_codons.keys():
+                    if codon in dna_seq:
+                        fail_condition_3 = True
+
+        if fail_condition_0 or fail_condition_1 or fail_condition_2 or fail_condition_3:
+            seqids_to_remove.append(dna[seq_index].id)
+            seqids_to_remove.append(protein[seq_index].id)
+
+    if not seqids_to_remove:
+        return dna, protein, []
+
+    remove = set(seqids_to_remove)
+    clean_nucs = []
+    reject_dna = []
+    for sequence in dna:
+        if sequence.id in remove:
+            reject_dna.append(sequence)
+        else:
+            clean_nucs.append(sequence)
+    clean_prots = [s for s in protein if s.id not in remove]
+
+    return clean_nucs, MultipleSeqAlignment(clean_prots), reject_dna
+
+
+def _codon_align_one_gene(protein_file, dna_file, strict, outdir,
+                          temp_directory, aligner, trans_table):
+    """Reverse-translate a single gene, start to finish, then free it.
+
+    Everything this touches goes out of scope on return, so peak memory is
+    bounded by (threads x largest gene) rather than by the whole pangenome.
+    """
+    gene_name = dna_file.split('/')[-1].split(".")[0]
+
+    dna = read_sequences(dna_file)
+    protein = read_alignment(protein_file)
+
+    clean_dna, clean_protein, reject_dna = _qc_gene_sequences(
+        dna, protein, gene_name, trans_table)
+    del dna, protein
+
+    _, codon_alignment = multithread_codonalign_build(
+        clean_protein, clean_dna, gene_name)
+    del clean_dna, clean_protein
+
+    #Remove <unknown description> from codon alignments
+    for sequence in codon_alignment:
+        sequence.description = ""
+
+    final_outname = outdir + "aligned_gene_sequences/" + gene_name + ".aln.fas"
+
+    #With nothing rejected the two codon modes agree; --strict-codons also stops
+    #here, having simply dropped the rejected sequences.
+    if not reject_dna or strict:
+        AlignIO.write(codon_alignment, final_outname, 'fasta')
+        return False
+
+    #output the alignment missing some DNA sequences to tmpdir, then realign
+    #the untranslatable DNA onto it
+    partial_outname = temp_directory + gene_name + ".aln.fas"
+    AlignIO.write(codon_alignment, partial_outname, 'fasta')
+    del codon_alignment
+
+    reject_outname = temp_directory + gene_name + "_untrans_dna.fasta"
+    SeqIO.write(reject_dna, reject_outname, "fasta")
+    del reject_dna
+
+    command = get_align_dna_to_alignment_commands(
+        reject_outname, partial_outname, outdir, aligner)
+    #called directly rather than via multi_realign_sequences: that is itself a
+    #Parallel, and nesting it inside this one would oversubscribe the pool
+    realign_dna_sequences(command, outdir, aligner)
+    return True
+
+
 def reverse_translate_sequences(protein_sequence_files, dna_sequence_files, 
                                 strict, outdir, temp_directory, aligner, 
                                 threads, completed_alignments_found=0):
+    outdir = _normalise_output_dir(outdir)
+
     #Check that the dna and protein files match up
     for index in range(len(protein_sequence_files)):
         gene_id = protein_sequence_files[index].split('/')[-1].split(".")[0]
@@ -1037,115 +1150,15 @@ def reverse_translate_sequences(protein_sequence_files, dna_sequence_files,
             print(protein_sequence_files[index])
             print(dna_sequence_files[index])
             raise ValueError("DNA and protien sequence IDs do not match!")
-    
-    #Read in files (multithreaded)
-    dna_sequences = Parallel(n_jobs=threads, prefer="threads")(
 
-            delayed(read_sequences)(x) 
-            for x in dna_sequence_files)  
-    protein_alignments = Parallel(n_jobs=threads, prefer="threads")(
-            delayed(read_alignment)(x) 
-            for x in protein_sequence_files)
-    
-    #Check that protein and DNA sequences match, output 
-    #Remove DNA sequences that do not match and output to elsewhere, for
-    #secondary alignment to sequences aligned at the protein level
-    
-    clean_dna = []
-    clean_proteins = []
-    
-    reject_dna_files = {}
-    print_stage_progress(
-        "Getting sequences",
-        completed_alignments_found,
-        len(dna_sequences),
-    )
-    
-    trans_table = get_trans_table(11)
-    
-    for index in tqdm(range(len(dna_sequences))):
-        dna = list(dna_sequences[index])
-        protein = protein_alignments[index]
-        gene_name = dna_sequence_files[index].split('/')[-1].split(".")[0]
-        protein = reorder_protein_alignment_to_match_dna(dna, protein, gene_name)
-        seqids_to_remove = []
-                
-        for seq_index in range(len(dna)):
-            #set up sequentially checked QC failure variables for each sequence
-            fail_condition_0 = False
-            fail_condition_1 = False
-            fail_condition_2 = False
-            fail_condition_3 = False
-            #Need to take protein without proceeding or trailing gaps
-            nogapped_protein_seq = str(protein[seq_index].seq).replace("-", "")
-            
-            dna_seq = str(dna[seq_index].seq)
-            
-            #fail if the sequence is not divisible by 3
-            fail_condition_0 = (len(dna[seq_index].seq) % 3) != 0
-            
-            if fail_condition_0 == False:
-                translated_dna = translate(dna_seq, 
-                                           trans_table)            
-                #fail if the translated sequence isn't the same as the protein
-                fail_condition_1 = translated_dna.strip("*") != str(nogapped_protein_seq)
-            
-            #fail if there is a run of > 1 unknown nucleotides
-            if fail_condition_1 == False:
-                #only test if it hasn't already failed
-                fail_condition_2 = "NN" in dna_seq
-            
-            #Fail if the DNA contains degenerate codon, codonalign cannot cope
-            if not fail_condition_1 and not fail_condition_2:
-                #Most expensive test, only test things passing both
-                #Such an expensive test, do a cheaper filtering first
-                if "N" in dna_seq:
-                    for codon in unambiguous_degenerate_codons.keys():
-                        if codon in dna[seq_index].seq:
-                            fail_condition_3 = True
-            
-            if fail_condition_0 or fail_condition_1 or fail_condition_2 or fail_condition_3:
-                seqids_to_remove = seqids_to_remove + list(set([dna[seq_index].id, 
-                                                                protein[seq_index].id]))
-        reject_dna = []        
-        #Do the removal if any DNA sequences fail tests
-        if (len(seqids_to_remove) > 0):
-            clean_nucs = []
-            clean_prots = []
-            for sequence in dna:
-                if sequence.id in seqids_to_remove:
-                    reject_dna.append(sequence)
-                else:
-                    clean_nucs.append(sequence)
-            for sequence in protein:
-                if sequence.id in seqids_to_remove:
-                    continue
-                else:
-                    clean_prots.append(sequence)
-            
-            clean_alignment = MultipleSeqAlignment(clean_prots)
-            clean_dna.append(clean_nucs)
-            clean_proteins.append(clean_alignment)  
-            
-            reject_outname = temp_directory + gene_name + "_untrans_dna.fasta"
-            SeqIO.write(reject_dna, reject_outname, "fasta")
-            reject_dna_files[gene_name] = reject_outname
-                          
-        else:
-            clean_dna.append(dna)
-            clean_proteins.append(protein)                         
-    
-    #build codon alignments
-
-    #Multithreaded
     print_stage_progress(
         "Reverse translating DNA",
         completed_alignments_found,
-        len(clean_proteins),
+        len(dna_sequence_files),
     )
-    completed_codon_alignments = {}
-    missing_sequences_codon_alignments = {}
-   
+
+    trans_table = get_trans_table(11)
+
     #codonalign.build() throws warnings for alternate start codons
     #catch and ignore these warnings
     warnings.filterwarnings(
@@ -1154,75 +1167,25 @@ def reverse_translate_sequences(protein_sequence_files, dna_sequence_files,
           category=BiopythonWarning,
           module=r"Bio\.codonalign.*",
       )
-            
-    all_codon_alignments = Parallel(n_jobs = threads, prefer = "threads")(
-        delayed(multithread_codonalign_build)
-        (clean_proteins[index], clean_dna[index], 
-         dna_sequence_files[index].split('/')[-1].split(".")[0])
-        for index in tqdm(range(len(clean_proteins))))
-    
-    for alignment in all_codon_alignments:
-        if alignment[0] in reject_dna_files.keys():
-            missing_sequences_codon_alignments[alignment[0]] = alignment[1]
-        else:
-            completed_codon_alignments[alignment[0]] = alignment[1]
-    
-    #Remove <unknown description> from codon alignments
-    for gene in completed_codon_alignments:
-        for sequence in completed_codon_alignments[gene]:
-            sequence.description = ""
-    
-    for gene in missing_sequences_codon_alignments:
-        for sequence in missing_sequences_codon_alignments[gene]:
-            sequence.description = ""
-    
-    #output successful codon alignments
-    write_success_failures = Parallel(n_jobs=threads, prefer="threads")(
-            delayed(AlignIO.write)
-            (completed_codon_alignments[x], 
-             outdir + "aligned_gene_sequences/" + x +".aln.fas", 'fasta')
-            for x in completed_codon_alignments)
-    
-    if strict == True:
-        #output alignments missing DNA as complete
-        write_success_failures2 = Parallel(n_jobs=threads, prefer="threads")(
-                delayed(AlignIO.write)
-                (missing_sequences_codon_alignments[x], 
-                 outdir + "aligned_gene_sequences/" + x + ".aln.fas", 'fasta')
-                for x in missing_sequences_codon_alignments)
-        
-        all_alignments = os.listdir(outdir + "aligned_gene_sequences/")
-        
-        return all_alignments 
-    
-    #output alignments missing some DNA sequences to tmpdir
-    
-    write_success_failures2 = Parallel(n_jobs=threads, prefer="threads")(
-            delayed(AlignIO.write)
-            (missing_sequences_codon_alignments[x], 
-             temp_directory + x +".aln.fas", 'fasta')
-            for x in missing_sequences_codon_alignments)    
-    
-    print(str(len(missing_sequences_codon_alignments)) + " DNA realignments to perform...")
-    
-    
-    #realign DNA sequences to failed alignments
-    
-    dna2codons_commands = []
-    for gene_name in reject_dna_files:
-        command = get_align_dna_to_alignment_commands(reject_dna_files[gene_name], 
-                            temp_directory + gene_name + ".aln.fas", 
-                            outdir, aligner)
-        dna2codons_commands.append(command)
-    
-    print("Aligning untranslatable DNA...")
-    
-    multi_realign_sequences(dna2codons_commands, outdir + "aligned_gene_sequences/",
-                              threads, aligner)
-            
-    
+
+    realigned = Parallel(n_jobs=threads, prefer="threads")(
+        delayed(_codon_align_one_gene)(
+            protein_sequence_files[index],
+            dna_sequence_files[index],
+            strict,
+            outdir,
+            temp_directory,
+            aligner,
+            trans_table,
+        )
+        for index in tqdm(range(len(dna_sequence_files))))
+
+    if not strict:
+        print(str(sum(1 for x in realigned if x))
+              + " genes required DNA realignment.")
+
     all_alignments = os.listdir(outdir + "aligned_gene_sequences/")
-    
+
     return all_alignments
 
 def write_alignment_header(alignment_list, outdir, filename):
@@ -1265,7 +1228,7 @@ def write_alignment_header(alignment_list, outdir, filename):
 
 
 def generate_pan_genome_alignment(G, temp_dir, output_dir, threads, aligner,
-                                  codons, strict, isolates, resume=False,
+                                  codons, strict, resume=False,
                                   sqlite_path=None, sequences_sqlite_path=None,
                                   shared_dir=None):
     output_dir = _normalise_output_dir(output_dir)
@@ -1300,7 +1263,6 @@ def generate_pan_genome_alignment(G, temp_dir, output_dir, threads, aligner,
         for gene in protein_pending_gene_ids:
             output = output_dna_and_protein(
                 G.nodes[gene],
-                isolates,
                 temp_dir,
                 output_dir,
                 sqlite_path=sqlite_path,
@@ -1359,7 +1321,6 @@ def generate_pan_genome_alignment(G, temp_dir, output_dir, threads, aligner,
         unaligned_sequence_files = Parallel(n_jobs=threads, prefer="threads")(
             delayed(output_sequence)(
                 G.nodes[x],
-                isolates,
                 temp_dir,
                 output_dir,
                 sqlite_path=sqlite_path,
@@ -1390,7 +1351,7 @@ def get_core_gene_nodes(G, threshold, num_isolates, subset=None):
         try:
             size = float(size)
         except (TypeError, ValueError):
-            size = float(len(get_node_sequence_ids(G.nodes[node])))
+            size = float(get_node_sequence_count(G.nodes[node]))
         if size / float(num_isolates) >= threshold:
             core_nodes.append(node)
     if subset is not None:
@@ -1510,9 +1471,9 @@ def concatenate_core_genome_alignments(core_names, output_dir, hc_threshold):
 
 
 def generate_core_genome_alignment(
-    G, temp_dir, output_dir, threads, aligner, isolates, threshold, codons, strict,
+    G, temp_dir, output_dir, threads, aligner, threshold, codons, strict,
     num_isolates, hc_threshold, subset=None, resume=False, sqlite_path=None,
-    sequences_sqlite_path=None, shared_dir=None
+    sequences_sqlite_path=None, shared_dir=None, concatenate=False
 ):
     output_dir = _normalise_output_dir(output_dir)
     shared_dir = _resolve_shared_dir(output_dir, shared_dir)
@@ -1552,7 +1513,6 @@ def generate_core_genome_alignment(
         for gene in protein_pending_gene_ids:
             output = output_dna_and_protein(
                 G.nodes[gene],
-                isolates,
                 temp_dir,
                 output_dir,
                 sqlite_path=sqlite_path,
@@ -1611,7 +1571,6 @@ def generate_core_genome_alignment(
         unaligned_sequence_files = Parallel(n_jobs=threads, prefer="threads")(
             delayed(output_sequence)(
                 G.nodes[x],
-                isolates,
                 temp_dir,
                 output_dir,
                 sqlite_path=sqlite_path,
@@ -1632,5 +1591,7 @@ def generate_core_genome_alignment(
             multi_align_sequences(commands, output_dir + "aligned_gene_sequences/",
                                   threads, aligner)
 
-    concatenate_core_genome_alignments(core_gene_names, output_dir, hc_threshold)
+    if concatenate:
+        concatenate_core_genome_alignments(core_gene_names, output_dir,
+                                           hc_threshold)
 
