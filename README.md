@@ -153,9 +153,13 @@ pangenomerge-msa --outdir results/ --alignment core --aligner mafft --threads 16
 
 This generates, in the alignment output directory:
   - `aligned_gene_sequences/`: one alignment per gene cluster
-  - `core_gene_alignment.aln`: the concatenated core genome alignment
-  - `core_gene_alignment_header.embl`: gene coordinates within the concatenated alignment
   - `alignment_resume_state.json`: run parameters, used by `--resume`
+
+Pass `--core-alignment` to additionally write the concatenated core genome alignment
+(`core_gene_alignment.aln`, `core_gene_alignment_filtered.aln`, `core_alignment_header.embl`,
+`alignment_entropy.csv`). It is **off by default**: the concatenation step holds every core gene
+alignment in memory simultaneously, which on a species-scale pangenome means tens of GB of RAM and
+an output file to match. `--core_entropy_filter` only applies when this flag is given.
 
 Gene names match the `Gene` column of `gene_presence_absence.csv`, so alignments can be joined to the presence/absence tables directly.
 
@@ -190,6 +194,20 @@ The second run finds every protein alignment already present and skips straight 
 The shared directory records the aligner it was built with in `shared_alignment_state.json`; a later run pointing at it with a different `--aligner` is refused rather than silently reusing incompatible alignments. Reuse of the shared directory does not require `--resume` — `--resume` governs only the per-mode output directory.
 
 How much this saves depends on the data. On a 40-gene / 200-isolate test the second pass went from 396s to 265s (the reverse-translation step, not MAFFT, dominates at that size); on a 6-gene set of much larger clusters it went from 171s to 28s.
+
+#### Memory
+
+Peak memory is roughly `--threads` x the largest gene cluster: each cluster is read from SQLite,
+aligned, written and freed as a self-contained unit, so nothing scales with the number of genes.
+On a memory-constrained node, lower `--threads`.
+
+For scale, on a 45,778-isolate *S. pyogenes* pangenome (14,247 clusters, 80M gene IDs) the graph
+load alone peaks at under 400 MB. Note that it does have to scan the `node_geneids` and
+`node_members` tables once to count sequences per cluster, which on a 30 GB SQLite database over
+network storage takes several minutes before alignment begins.
+
+The two large-pangenome traps to avoid are `--core-alignment` (see above) and `--alignment pan`,
+which aligns all 14,247 clusters rather than only the core.
 
 #### Core vs pan, and resuming
 

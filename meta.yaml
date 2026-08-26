@@ -36,6 +36,7 @@ requirements:
     - joblib
     - matplotlib-base
     - mafft
+    - famsa
 
 test:
   imports:

@@ -96,8 +96,16 @@ def get_options(argv=None):
     aln_opts.add_argument("-a",
         "--aligner",
         choices=["mafft", "muscle", "muscle-super5", "famsa", "none"],
-        default="mafft",
-        help="External aligner to use, or 'none' to write unaligned FASTA files.",
+        default=None,
+        help=(
+            "External aligner to use, or 'none' to write unaligned FASTA files. "
+            "Defaults to famsa for codon alignments, which is far faster than "
+            "mafft on the large gene families found in a species pangenome, and "
+            "to mafft otherwise -- famsa has no nucleotide mode, so it cannot "
+            "align DNA. Note mafft is still required for codon runs without "
+            "--strict-codons, which re-align untranslatable DNA with 'mafft "
+            "--add'."
+        ),
     )
     aln_opts.add_argument(
         "--codons",
@@ -196,6 +204,11 @@ def _resolve_and_validate_paths(parser, args):
             "pangenomerge-postprocess --output sequences first, or pass "
             "--sequences-sqlite. Expected: " + str(args.sequences_sqlite)
         )
+
+    if args.aligner is None:
+        # famsa only aligns amino acids, so it can only be the default on the
+        # codon path; the DNA path stays on mafft.
+        args.aligner = "famsa" if (args.codons or args.strict_codons) else "mafft"
 
     if args.core_threshold < 0 or args.core_threshold > 1:
         parser.error("--core_threshold must be between 0 and 1")

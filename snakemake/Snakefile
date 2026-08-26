@@ -548,7 +548,6 @@ rule msa:
                 --alignment-outdir "$OUT" \
                 --shared-alignment-dir "$SHARED" \
                 --alignment pan \
-                --aligner mafft \
                 $FLAG $RESUME \
                 --threads {threads} \
                 --verbose

@@ -16,3 +16,4 @@ dependencies:
   - joblib
   - matplotlib
   - mafft
+  - famsa
