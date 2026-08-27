@@ -258,7 +258,7 @@ The alignments are always taken from `<results>/msa/codon_strict/aligned_gene_se
 
 #### Gap filtering
 
-Codon columns present in fewer than `--min-occupancy` (default 0.5) of sequences are dropped **before** the fit. TOMBOMBADIL excludes gap codons from its counts but keeps the column at a reduced sample size, so a column present in 2% of sequences still contributes to both the objective and the F3x4 equilibrium frequencies. Because omega is a single scalar per gene there is no per-site estimate to filter afterwards, so this is the only point at which those columns can be excluded. Occupancy is sharply bimodal in practice — columns are either almost fully occupied or nearly empty — so the threshold is not a sensitive parameter. Genes with fewer than `--min-codons` (default 30) surviving columns are skipped.
+Codon columns present in fewer than `--min-occupancy` (default 0.2, i.e. columns more than 80% gap) of sequences are dropped **before** the fit. TOMBOMBADIL excludes gap codons from its counts but keeps the column at a reduced sample size, so a column present in 2% of sequences still contributes to both the objective and the F3x4 equilibrium frequencies. Because omega is a single scalar per gene there is no per-site estimate to filter afterwards, so this is the only point at which those columns can be excluded. Occupancy is sharply bimodal in practice — columns are either almost fully occupied or nearly empty — so the threshold is not a sensitive parameter. Genes with fewer than `--min-codons` (default 30) surviving columns are skipped, as are genes with fewer than `--min-seqs` (default 20) sequences: a single scalar omega fitted to a handful of sequences is too noisy to interpret.
 
 #### Scheduling
 
@@ -296,7 +296,7 @@ Amino-acid columns count only the 20 standard residues. A gap, an `X`, or a stop
 
 #### Gap filtering
 
-Amino-acid columns present in fewer than `--min-occupancy` (default 0.5) of sequences are dropped, and pi_nt is measured over the codon triplets of exactly the columns that survived. Using one filter for both means pi_aa and pi_nt describe the same region of the gene, so they can be compared to each other. Genes with fewer than `--min-sites` (default 30) surviving columns are skipped.
+Amino-acid columns present in fewer than `--min-occupancy` (default 0.2, i.e. columns more than 80% gap) of sequences are dropped, and pi_nt is measured over the codon triplets of exactly the columns that survived. Using one filter for both means pi_aa and pi_nt describe the same region of the gene, so they can be compared to each other. Genes with fewer than `--min-sites` (default 30) surviving columns are skipped.
 
 That mapping is only valid if the two files line up, and in non-strict mode they need not: the protein alignment is shared with `--strict-codons` and is built *before* QC, after which `mafft --add` can insert columns into the codon alignment. Each gene is therefore checked — equal record counts, IDs matching in order over the first `--check-sequences` (default 100) records, and a codon alignment exactly three times the protein's width — and a gene that fails has its nucleotide sites filtered on their own occupancy instead, recorded as `filter_mode=independent` in `pi_stats.tsv`. This is per-gene and deliberately not fatal, but a run reporting many `independent` genes means the two measures no longer cover the same region and the comparison between them is no longer clean; `collect_pi.py` prints the tally.
 

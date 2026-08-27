@@ -268,13 +268,13 @@ def parse_args(argv=None):
                         help="TOMBOMBADIL_jax checkout on branch scalar_omega_pi")
     parser.add_argument("--python", default=sys.executable,
                         help="interpreter with the tombombadil dependencies")
-    parser.add_argument("--min-occupancy", type=float, default=0.5,
+    parser.add_argument("--min-occupancy", type=float, default=0.2,
                         help="keep codon columns present in at least this "
                              "fraction of sequences (default: %(default)s)")
-    parser.add_argument("--min-seqs", type=int, default=2,
-                        help="skip genes with fewer sequences; omega is "
-                             "unidentifiable from one sequence "
-                             "(default: %(default)s)")
+    parser.add_argument("--min-seqs", type=int, default=20,
+                        help="skip genes with fewer sequences; a scalar omega "
+                             "fitted to a handful of sequences is too noisy to "
+                             "interpret (default: %(default)s)")
     parser.add_argument("--min-codons", type=int, default=30,
                         help="skip genes with fewer retained codons "
                              "(default: %(default)s)")

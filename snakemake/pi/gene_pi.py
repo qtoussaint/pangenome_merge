@@ -289,7 +289,7 @@ def parse_args(argv=None):
                         help="0-based chunk to process (SLURM_ARRAY_TASK_ID)")
     parser.add_argument("--chunk-size", type=int, required=True,
                         help="number of genes per chunk")
-    parser.add_argument("--min-occupancy", type=float, default=0.5,
+    parser.add_argument("--min-occupancy", type=float, default=0.2,
                         help="keep columns present in at least this fraction "
                              "of sequences (default: %(default)s)")
     parser.add_argument("--min-seqs", type=int, default=2,
