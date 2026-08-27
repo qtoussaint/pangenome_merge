@@ -244,6 +244,71 @@ from pangenomerge.custom_functions.sequence_queries import export_node_fasta
 export_node_fasta(con, "node_123", "output.fasta", seq_type="nt", unique_only=True)
 ```
 
+### Per-gene dN/dS
+
+`snakemake/dn_ds/` fits a per-gene dN/dS (omega) to the pipeline's strict-codon alignments using [TOMBOMBADIL JAX](https://github.com/bacpop/TOMBOMBADIL_jax) on the `scalar_omega_pi` branch, which estimates a single alignment-wide omega per gene. It runs as a standalone SLURM job array once the `msa` rule has finished, and is not part of `rule all`.
+
+```bash
+snakemake/dn_ds/run_dnds.sh --results-dir /path/to/project/results
+```
+
+This writes `<results>/dnds/gene_omega.csv` with two columns, `node,omega`, covering every gene in the pangenome; genes with no usable fit have a blank omega. Per-gene detail — sequence count, how much of the alignment survived filtering, whether the optimiser converged, and why a gene was skipped — goes to `<results>/dnds/dnds_stats.tsv`. Genes whose `fit_status` reads `reached max steps` rather than `converged` did not settle, and their omega should be treated as unreliable; this is most common for genes with few sequences.
+
+The alignments are always taken from `<results>/msa/codon_strict/aligned_gene_sequences`, i.e. the `--strict-codons` output. Strict mode drops sequences that fail translation QC rather than re-aligning them, so every sequence in the alignment is in frame, free of ambiguous bases and internal stops, and gapped only in whole codons. `--msa-dir` can point elsewhere but refuses a directory outside `codon_strict/` unless `--force-msa-dir` is given, and each gene's alignment is spot-checked for the properties strict mode guarantees.
+
+#### Gap filtering
+
+Codon columns present in fewer than `--min-occupancy` (default 0.5) of sequences are dropped **before** the fit. TOMBOMBADIL excludes gap codons from its counts but keeps the column at a reduced sample size, so a column present in 2% of sequences still contributes to both the objective and the F3x4 equilibrium frequencies. Because omega is a single scalar per gene there is no per-site estimate to filter afterwards, so this is the only point at which those columns can be excluded. Occupancy is sharply bimodal in practice — columns are either almost fully occupied or nearly empty — so the threshold is not a sensitive parameter. Genes with fewer than `--min-codons` (default 30) surviving columns are skipped.
+
+#### Scheduling
+
+Genes are processed in chunks of `--chunk-size` (default 50) by a single job array, throttled to `--max-concurrent` (default 100) tasks, rather than one job per gene: a species-scale pangenome has O(10^4) genes at ~2-3 min each, which one job per gene would swamp with scheduling overhead. Defaults of 8 CPUs, 8 GB and 5 h per task come from measured usage (~1.1 GB peak, 1.5-2.5 min per gene of ~46k sequences). A gene's fit is skipped if its output already exists, so a task killed on walltime can be resubmitted as-is. Run with `--dry-run` to see the `sbatch` commands without submitting, or `--help` for all options.
+
+
+### Per-gene diversity (pi)
+
+`snakemake/pi/` measures standing diversity rather than selection: one amino-acid pi and one nucleotide pi per gene, computed directly from the alignments with no model and no external tool. Like the dN/dS stage it runs as a standalone SLURM job array once the `msa` rule has finished, and is not part of `rule all`.
+
+```bash
+snakemake/pi/run_pi.sh --results-dir /path/to/project/results
+```
+
+This writes `<results>/pi/gene_pi.csv` with three columns, `node,pi_aa,pi_nt`, covering every gene in the pangenome; genes with no usable measurement have blank values. Per-gene detail goes to `<results>/pi/pi_stats.tsv`.
+
+Both values are for the whole gene, not a per-site series. Each column contributes
+
+```
+n_j     = sequences with a real state at column j
+p_i     = count of state i / n_j
+pi_j    = n_j/(n_j - 1) * (1 - sum_i p_i^2)
+pi_gene = mean of pi_j over retained columns with n_j >= 2
+```
+
+which is Nei and Li's estimator with pairwise deletion of missing data. Counting states rather than comparing sequence pairs is what makes this tractable — a 46k-sequence gene has ~1.05e9 pairs — and the two definitions agree when every pair has complete data. The number of retained columns is reported alongside each value so it can be renormalised.
+
+#### Which alignments, and why
+
+The alignments are taken from `<results>/msa/codon/aligned_gene_sequences` — the **non-strict** `--codons` output, the opposite of the choice the dN/dS stage makes. Diversity should be measured over every isolate, including the ones `--strict-codons` drops for failing translation QC, and nothing in this calculation relies on the guarantees strict mode provides: `N`, degenerate bases and part-gapped codons are simply missing data. `--msa-dir` can point elsewhere but refuses a directory outside `codon/` unless `--force-msa-dir` is given.
+
+pi_aa comes from the protein alignment (`aligned_protein_sequences/`, found beside the codon alignments or under `<results>/msa/alignment/`, or set with `--protein-dir`) and pi_nt from the codon alignment, so the two are read from what the aligner actually produced rather than one being derived from the other.
+
+Amino-acid columns count only the 20 standard residues. A gap, an `X`, or a stop is missing data and does not contribute to the column or to its occupancy — an internal stop in a non-strict alignment comes from `mafft --add` re-aligning a broken ORF, so counting it as a 21st state would let a handful of frameshifted records dominate a column. The corresponding *nucleotides* are still real bases and do count toward pi_nt; the stop rule is an amino-acid-level judgement, not a claim that the DNA is unreadable.
+
+#### Gap filtering
+
+Amino-acid columns present in fewer than `--min-occupancy` (default 0.5) of sequences are dropped, and pi_nt is measured over the codon triplets of exactly the columns that survived. Using one filter for both means pi_aa and pi_nt describe the same region of the gene, so they can be compared to each other. Genes with fewer than `--min-sites` (default 30) surviving columns are skipped.
+
+That mapping is only valid if the two files line up, and in non-strict mode they need not: the protein alignment is shared with `--strict-codons` and is built *before* QC, after which `mafft --add` can insert columns into the codon alignment. Each gene is therefore checked — equal record counts, IDs matching in order over the first `--check-sequences` (default 100) records, and a codon alignment exactly three times the protein's width — and a gene that fails has its nucleotide sites filtered on their own occupancy instead, recorded as `filter_mode=independent` in `pi_stats.tsv`. This is per-gene and deliberately not fatal, but a run reporting many `independent` genes means the two measures no longer cover the same region and the comparison between them is no longer clean; `collect_pi.py` prints the tally.
+
+#### Interpreting the two values
+
+pi_aa is not expected to be smaller than pi_nt. A codon carries three nucleotide sites but one amino-acid site, so a wholly nonsynonymous change contributes three times as much per amino-acid site as per nucleotide site: `pi_aa / (3 * pi_nt)` is the ratio bounded near 0 (all variation synonymous) and 1 (all of it nonsynonymous), and it is what should be compared with omega from the dN/dS stage. On the seven GAC genes the two agree closely — 0.47, 0.51, 0.41, 0.51 and 0.55 against fitted omegas of 0.51, 0.64, 0.61, 0.56 and 0.62 — with one outlier, `group_1953_g1`, whose protein sequences are nearly invariant (pi_aa 6.1e-4) while its synonymous diversity is not (pi_nt 2.7e-3).
+
+#### Scheduling
+
+Genes are processed in chunks of `--chunk-size` (default 500) by a single job array, throttled to `--max-concurrent` (default 50) tasks. Defaults of 1 CPU, 4 GB and 2 h per task come from measured usage: the largest GAC gene (45,691 sequences x 1,986 nt, 93 MB) takes ~1.5 s, of which 0.4 s is reading the file and 0.5 s is pi_nt on top of pi_aa. That is ~100x cheaper per gene than the dN/dS fit, hence the larger chunks and smaller resources. Counting is done a block at a time with numpy, sized by `--block-cells` (default 4,000,000 alignment cells) rather than by a fixed number of records, so peak memory does not grow with gene length. A killed task simply recomputes its chunk — there is no intermediate artefact to cache. Run with `--dry-run` to see the `sbatch` commands without submitting, or `--help` for all options.
+
+
 # Running pangenomerge
 
 ### What is the difference between the 'run' and 'test' modes?
